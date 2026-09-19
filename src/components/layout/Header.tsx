@@ -54,7 +54,7 @@ export const Header: React.FC<HeaderProps> = ({ onReplayIntro }) => {
             <span className="text-slate-700">/</span>
             <div className="flex items-center gap-1.5 text-slate-400">
               <ShieldCheck className="w-3.5 h-3.5 text-brand-emerald-500" />
-              <span>Mô hình Nhà thuốc Trực tuyến • Tiêu chuẩn Thực hành GPP/GSP</span>
+              <span>Hệ thống Dược phẩm H4CARE • Định hướng chuẩn GPP & GSP</span>
             </div>
           </div>
 
@@ -64,7 +64,7 @@ export const Header: React.FC<HeaderProps> = ({ onReplayIntro }) => {
               className="flex items-center gap-1.5 text-slate-300 hover:text-cyan-400 font-medium transition-colors"
             >
               <PhoneCall className="w-3 h-3 text-cyan-400" />
-              <span>Hỗ trợ Dược khoa: 1800 6868 (Miễn cước)</span>
+              <span>Tư vấn Dược sĩ: 1800 6868 (Miễn cước)</span>
             </a>
 
             {onReplayIntro && (

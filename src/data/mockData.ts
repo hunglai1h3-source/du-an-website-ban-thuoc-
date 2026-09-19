@@ -182,27 +182,27 @@ export const SUGGESTED_PRODUCTS: SearchSuggestionItem[] = [
 
 export const TRUST_STATS: TrustStat[] = [
   {
-    value: "100%",
-    label: "Nguồn Gốc Minh Bạch",
-    sublabel: "Sản phẩm dược phẩm chọn lọc",
+    value: "Minh Bạch",
+    label: "Nguồn Gốc Rõ Ràng",
+    sublabel: "Sản phẩm dược phẩm tuyển chọn",
     icon: "ShieldCheck",
   },
   {
-    value: "24/7",
-    label: "Tư Vấn Dược Khoa",
-    sublabel: "Hỗ trợ hướng dẫn sử dụng an toàn",
+    value: "Tư Vấn",
+    label: "Dược Sĩ Đồng Hành",
+    sublabel: "Hướng dẫn sử dụng đúng liều, an toàn",
     icon: "UserCheck",
   },
   {
-    value: "2 Giờ",
-    label: "Giao Hàng Tiêu Chuẩn",
-    sublabel: "Bảo quản theo quy chuẩn GSP",
+    value: "Tiêu Chuẩn",
+    label: "Quy Trình GSP",
+    sublabel: "Định hướng bảo quản dược phẩm chuẩn",
     icon: "Clock",
   },
   {
     value: "Đa Dạng",
-    label: "Danh Mục Y Tế",
-    sublabel: "Thuốc, TPCN & thiết bị chăm sóc",
+    label: "Danh Mục Toàn Diện",
+    sublabel: "Thuốc, TPCN & thiết bị y tế gia đình",
     icon: "PackageCheck",
   },
 ];

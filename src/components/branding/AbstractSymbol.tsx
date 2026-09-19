@@ -64,34 +64,35 @@ export const AbstractSymbol: React.FC<AbstractSymbolProps> = ({
 
         {/* 1. North-West Element: Hùng (Leadership & Foundation) */}
         <path
-          d="M 33 13 C 44 13 48.5 21 48.5 33.5 C 48.5 42 42 48.5 33.5 48.5 C 21 48.5 13 44 13 33 C 13 21 21 13 33 13 Z"
+          d="M 32 12 C 41 12 46 17 46 26 L 46 42 C 46 44.5 44.5 46 42 46 L 26 46 C 17 46 12 41 12 32 C 12 21 21 12 32 12 Z"
           fill="url(#h4-petal-nw)"
         />
 
         {/* 2. North-East Element: Đức Anh (Precision & Digital Health) */}
         <path
-          d="M 67 13 C 79 13 87 21 87 33 C 87 44 79 48.5 66.5 48.5 C 58 48.5 51.5 42 51.5 33.5 C 51.5 21 56 13 67 13 Z"
+          d="M 68 12 C 79 12 88 21 88 32 C 88 41 83 46 74 46 L 58 46 C 55.5 46 54 44.5 54 42 L 54 26 C 54 17 59 12 68 12 Z"
           fill="url(#h4-petal-ne)"
         />
 
         {/* 3. South-East Element: Cường (Vitality & Care Growth) */}
         <path
-          d="M 66.5 51.5 C 79 51.5 87 56 87 67 C 87 79 79 87 67 87 C 56 87 51.5 79 51.5 66.5 C 51.5 58 58 51.5 66.5 51.5 Z"
+          d="M 68 88 C 59 88 54 83 54 74 L 54 58 C 54 55.5 55.5 54 58 54 L 74 54 C 83 54 88 59 88 68 C 88 79 79 88 68 88 Z"
           fill="url(#h4-petal-se)"
         />
 
         {/* 4. South-West Element: Hoàn (Reliability & Human Care) */}
         <path
-          d="M 33.5 51.5 C 42 51.5 48.5 58 48.5 66.5 C 48.5 79 44 87 33 87 C 21 87 13 79 13 67 C 13 56 21 51.5 33.5 51.5 Z"
+          d="M 32 88 C 21 88 12 79 12 68 C 12 59 17 54 26 54 L 42 54 C 44.5 54 46 55.5 46 58 L 46 74 C 46 83 41 88 32 88 Z"
           fill="url(#h4-petal-sw)"
         />
 
-        {/* Negative Space Medical Cross Enhancement: Inner aperture ring */}
-        <circle cx="50" cy="50" r="8" fill="url(#h4-core-glow)" />
+        {/* Central Core: Negative Space Medical Cross Center Jewel */}
+        <circle cx="50" cy="50" r="9" fill="url(#h4-core-glow)" />
+        <circle cx="50" cy="50" r="8" stroke="#0284c7" strokeWidth="0.75" strokeOpacity="0.3" fill="none" />
         <path
-          d="M 50 44 L 50 56 M 44 50 L 56 50"
+          d="M 50 45 L 50 55 M 45 50 L 55 50"
           stroke="#0052cc"
-          strokeWidth="2.5"
+          strokeWidth="2.2"
           strokeLinecap="round"
         />
       </svg>

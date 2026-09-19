@@ -69,7 +69,7 @@ export const HeroSection: React.FC = () => {
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.08, ease: [0.16, 1, 0.3, 1] }}
-              className="text-3xl sm:text-4xl md:text-5xl lg:text-[44px] xl:text-[54px] 2xl:text-6xl font-black text-slate-900 tracking-[-0.03em] leading-[1.14] sm:leading-[1.12] mb-5 max-w-2xl [text-wrap:balance]"
+              className="text-[28px] sm:text-4xl md:text-5xl lg:text-[44px] xl:text-[54px] 2xl:text-6xl font-black text-slate-900 tracking-[-0.03em] leading-[1.15] sm:leading-[1.12] mb-5 max-w-2xl [text-wrap:balance]"
             >
               <span className="block">Sức khỏe tốt hơn,</span>
               <span className="block mt-1 sm:mt-1.5 medical-gradient-text">
@@ -97,16 +97,16 @@ export const HeroSection: React.FC = () => {
               className="flex flex-wrap sm:flex-nowrap items-center gap-3.5 w-full sm:w-auto mb-9"
             >
               <Link href="/products" className="w-full sm:w-auto">
-                <button className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-7 py-3.5 sm:py-4 rounded-2xl bg-gradient-to-r from-brand-blue-600 via-brand-blue-600 to-brand-cyan-600 hover:from-brand-blue-700 hover:to-brand-cyan-500 text-white font-bold text-sm sm:text-base shadow-lg shadow-brand-blue-600/25 hover:shadow-xl hover:shadow-brand-blue-600/35 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 group">
+                <button className="w-full sm:w-auto h-12 sm:h-[52px] inline-flex items-center justify-center gap-2.5 px-7 rounded-2xl bg-gradient-to-r from-brand-blue-600 via-brand-blue-600 to-brand-cyan-600 hover:from-brand-blue-700 hover:to-brand-cyan-500 text-white font-bold text-sm sm:text-base shadow-lg shadow-brand-blue-600/25 hover:shadow-xl hover:shadow-brand-blue-600/35 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 group">
                   <span>Khám phá sản phẩm</span>
                   <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
                 </button>
               </Link>
 
               <Link href="/category/thuoc-ke-don" className="w-full sm:w-auto">
-                <button className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-6 py-3.5 sm:py-4 rounded-2xl bg-white/90 hover:bg-white text-slate-700 hover:text-brand-blue-700 font-semibold text-sm sm:text-base border border-slate-200/90 hover:border-slate-300 shadow-sm transition-all duration-200 group">
+                <button className="w-full sm:w-auto h-12 sm:h-[52px] inline-flex items-center justify-center gap-2.5 px-6 rounded-2xl bg-white/90 hover:bg-white text-slate-700 hover:text-brand-blue-700 font-semibold text-sm sm:text-base border border-slate-200/90 hover:border-slate-300 shadow-sm transition-all duration-200 group">
                   <Stethoscope className="w-4 h-4 text-brand-blue-600 transition-transform group-hover:scale-110" />
-                  <span>Tư vấn đơn thuốc Bác sĩ</span>
+                  <span>Tư vấn Dược sĩ</span>
                 </button>
               </Link>
             </motion.div>
@@ -124,11 +124,11 @@ export const HeroSection: React.FC = () => {
               </div>
               <div className="flex items-center gap-1.5">
                 <CheckCircle2 className="w-4 h-4 text-brand-emerald-500" />
-                <span>Tư vấn chuẩn chuyên môn</span>
+                <span>Tư vấn Dược sĩ an toàn</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <CheckCircle2 className="w-4 h-4 text-brand-emerald-500" />
-                <span>Bảo mật dữ liệu an toàn</span>
+                <span>Bảo mật dữ liệu cá nhân</span>
               </div>
             </motion.div>
           </div>
