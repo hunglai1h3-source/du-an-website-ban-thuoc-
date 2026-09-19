@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { CATEGORIES_DATA } from "@/data/mockData";
 import { Category } from "@/types";
 import {
@@ -48,6 +49,7 @@ const CategoryIcon: React.FC<{ iconName: string; className?: string }> = ({
 };
 
 export const MegaMenu: React.FC<MegaMenuProps> = ({ isOpen, onClose }) => {
+  const router = useRouter();
   const [activeCategoryId, setActiveCategoryId] = useState<string>(CATEGORIES_DATA[0].id);
 
   const activeCategory: Category =
@@ -57,12 +59,13 @@ export const MegaMenu: React.FC<MegaMenuProps> = ({ isOpen, onClose }) => {
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-40 top-[72px]" onClick={onClose}>
+      <div className="fixed inset-0 z-40 top-[70px]" onClick={onClose}>
         {/* Backdrop */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
           className="absolute inset-0 bg-slate-900/30 backdrop-blur-sm"
         />
 
@@ -72,11 +75,11 @@ export const MegaMenu: React.FC<MegaMenuProps> = ({ isOpen, onClose }) => {
           onClick={(e) => e.stopPropagation()}
         >
           <motion.div
-            initial={{ opacity: 0, y: -10, scale: 0.99 }}
+            initial={{ opacity: 0, y: -8, scale: 0.99 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -10, scale: 0.99 }}
-            transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-            className="bg-white/98 backdrop-blur-2xl rounded-3xl border border-slate-200/90 shadow-2xl overflow-hidden"
+            exit={{ opacity: 0, y: -8, scale: 0.99 }}
+            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+            className="bg-white/98 backdrop-blur-2xl rounded-3xl border border-slate-200/90 shadow-depth-3 overflow-hidden"
           >
             <div className="grid grid-cols-12 min-h-[440px]">
               {/* CỘT 1: Danh sách Danh mục chính (Width: 4/12) */}
@@ -91,9 +94,9 @@ export const MegaMenu: React.FC<MegaMenuProps> = ({ isOpen, onClose }) => {
                       key={cat.id}
                       onMouseEnter={() => setActiveCategoryId(cat.id)}
                       onClick={() => setActiveCategoryId(cat.id)}
-                      className={`group flex items-center justify-between p-3 rounded-2xl cursor-pointer transition-all duration-200 ${
+                      className={`group flex items-center justify-between p-3 rounded-2xl cursor-pointer transition-all duration-150 ${
                         isActive
-                          ? "bg-white text-brand-blue-700 shadow-md border border-slate-100 font-semibold"
+                          ? "bg-white text-brand-blue-700 shadow-depth-1 border border-slate-100 font-semibold"
                           : "text-slate-600 hover:bg-white/80 hover:text-slate-900"
                       }`}
                     >
@@ -109,7 +112,7 @@ export const MegaMenu: React.FC<MegaMenuProps> = ({ isOpen, onClose }) => {
                         </div>
                         <div>
                           <div className="flex items-center gap-2">
-                            <span className="text-sm">{cat.name}</span>
+                            <span className="text-xs sm:text-sm">{cat.name}</span>
                             {cat.badge && (
                               <span className="px-1.5 py-0.2 text-[9px] font-bold rounded-full bg-cyan-100 text-cyan-800 border border-cyan-200">
                                 {cat.badge}
@@ -144,7 +147,7 @@ export const MegaMenu: React.FC<MegaMenuProps> = ({ isOpen, onClose }) => {
                       </p>
                     </div>
                     <Link
-                      href={`/categories/${activeCategory.slug}`}
+                      href={`/category/${activeCategory.slug}`}
                       onClick={onClose}
                       className="text-xs font-semibold text-brand-blue-600 hover:text-brand-blue-700 inline-flex items-center gap-1 group"
                     >
@@ -158,7 +161,7 @@ export const MegaMenu: React.FC<MegaMenuProps> = ({ isOpen, onClose }) => {
                     {activeCategory.subCategories.map((sub) => (
                       <Link
                         key={sub.id}
-                        href={`/categories/${activeCategory.slug}/${sub.slug}`}
+                        href={`/category/${activeCategory.slug}`}
                         onClick={onClose}
                         className="group flex items-center justify-between p-3 rounded-xl border border-slate-100 hover:border-brand-cyan-200 hover:bg-cyan-50/30 transition-all duration-150"
                       >
@@ -180,11 +183,11 @@ export const MegaMenu: React.FC<MegaMenuProps> = ({ isOpen, onClose }) => {
 
                 {/* Hộp cam kết y tế chuẩn GPP */}
                 <div className="mt-6 p-3.5 rounded-2xl bg-gradient-to-r from-blue-50/70 to-indigo-50/50 border border-blue-100/60 flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-xl bg-brand-blue-600 text-white flex items-center justify-center shrink-0">
+                  <div className="w-8 h-8 rounded-xl bg-brand-blue-600 text-white flex items-center justify-center shrink-0 shadow-sm">
                     <ShieldCheck className="w-4 h-4" />
                   </div>
                   <div className="text-xs">
-                    <p className="font-bold text-brand-blue-900">Cam kết Chuẩn Thực hành tốt Nhà thuốc (GPP)</p>
+                    <p className="font-bold text-brand-blue-900">Chuẩn Thực hành tốt Nhà thuốc (GPP)</p>
                     <p className="text-slate-500 text-[11px]">100% Thuốc nguồn gốc rõ ràng, bảo quản nhiệt độ chuẩn &lt; 25°C.</p>
                   </div>
                 </div>
@@ -237,8 +240,11 @@ export const MegaMenu: React.FC<MegaMenuProps> = ({ isOpen, onClose }) => {
                     </div>
                   </div>
                   <button
-                    onClick={onClose}
-                    className="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-brand-blue-600 to-brand-cyan-600 text-white font-semibold text-xs shadow-sm hover:brightness-105 transition-all"
+                    onClick={() => {
+                      onClose();
+                      router.push("/category/thuoc-ke-don");
+                    }}
+                    className="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-brand-blue-600 to-brand-cyan-600 text-white font-semibold text-xs shadow-sm hover:brightness-105 transition-all duration-150 active:scale-95"
                   >
                     Gửi đơn thuốc hoặc Hỏi ngay
                   </button>
