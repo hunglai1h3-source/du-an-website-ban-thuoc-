@@ -4,7 +4,6 @@ import React from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { HeroVisual } from "./HeroVisual";
-import { Button } from "../ui/Button";
 import { TRUST_STATS } from "@/data/mockData";
 import {
   ArrowRight,
@@ -58,23 +57,24 @@ export const HeroSection: React.FC = () => {
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-brand-emerald-500" />
               </span>
               <span className="text-xs font-bold text-slate-800 tracking-wide">
-                Nền tảng Y tế & Dược phẩm 2026
+                Mô hình Dược phẩm Số 2026
               </span>
               <span className="text-[10px] font-semibold text-brand-blue-700 bg-brand-blue-50 px-2 py-0.5 rounded-full border border-brand-blue-100">
-                Chuẩn GPP
+                Định hướng chuẩn GPP
               </span>
             </motion.div>
 
-            {/* Main Headline with Line & Blur Reveal */}
+            {/* Main Headline with Balanced Semantic Line Breaks */}
             <motion.h1
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.08, ease: [0.16, 1, 0.3, 1] }}
-              className="text-4xl sm:text-5xl lg:text-6xl font-black text-slate-900 tracking-tight leading-[1.12] mb-5"
+              className="text-3xl sm:text-4xl md:text-5xl lg:text-[44px] xl:text-[54px] 2xl:text-6xl font-black text-slate-900 tracking-[-0.03em] leading-[1.14] sm:leading-[1.12] mb-5 max-w-2xl [text-wrap:balance]"
             >
-              Sức khỏe tốt hơn,
-              <br />
-              <span className="medical-gradient-text">bắt đầu từ lựa chọn đúng.</span>
+              <span className="block">Sức khỏe tốt hơn,</span>
+              <span className="block mt-1 sm:mt-1.5 medical-gradient-text">
+                bắt đầu từ lựa chọn đúng.
+              </span>
             </motion.h1>
 
             {/* Subtitle */}
@@ -82,42 +82,32 @@ export const HeroSection: React.FC = () => {
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.16, ease: [0.16, 1, 0.3, 1] }}
-              className="text-base sm:text-lg text-slate-600 font-normal leading-relaxed max-w-2xl mb-8"
+              className="text-sm sm:text-base md:text-lg text-slate-600 font-normal leading-relaxed max-w-xl xl:max-w-2xl mb-8"
             >
-              Giải pháp tìm kiếm và mua sắm sản phẩm chăm sóc sức khỏe theo cách
-              đơn giản, trực quan và hiện đại. Tư vấn 100% bởi Dược sĩ Đại học,
-              giao nhanh 2h tận cửa nhà.
+              Giải pháp tra cứu và tiếp cận sản phẩm chăm sóc sức khỏe theo cách
+              trực quan, an toàn và hiện đại. Hỗ trợ tư vấn chuyên môn Dược khoa,
+              giao nhanh tiêu chuẩn bảo quản GSP.
             </motion.p>
 
-            {/* CTA Buttons */}
+            {/* CTA Buttons with Elevated Dominant Primary & Subtle Secondary */}
             <motion.div
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.24, ease: [0.16, 1, 0.3, 1] }}
-              className="flex flex-wrap items-center gap-3.5 w-full sm:w-auto mb-9"
+              className="flex flex-wrap sm:flex-nowrap items-center gap-3.5 w-full sm:w-auto mb-9"
             >
               <Link href="/products" className="w-full sm:w-auto">
-                <Button
-                  size="lg"
-                  variant="primary"
-                  className="w-full sm:w-auto shadow-depth-2 hover:shadow-depth-3 group"
-                  rightIcon={
-                    <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-                  }
-                >
-                  Khám phá sản phẩm
-                </Button>
+                <button className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-7 py-3.5 sm:py-4 rounded-2xl bg-gradient-to-r from-brand-blue-600 via-brand-blue-600 to-brand-cyan-600 hover:from-brand-blue-700 hover:to-brand-cyan-500 text-white font-bold text-sm sm:text-base shadow-lg shadow-brand-blue-600/25 hover:shadow-xl hover:shadow-brand-blue-600/35 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 group">
+                  <span>Khám phá sản phẩm</span>
+                  <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+                </button>
               </Link>
 
               <Link href="/category/thuoc-ke-don" className="w-full sm:w-auto">
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="w-full sm:w-auto border-slate-300 hover:border-brand-blue-400 group"
-                  leftIcon={<Stethoscope className="w-4 h-4 text-brand-blue-600" />}
-                >
-                  Tư vấn đơn thuốc Bác sĩ
-                </Button>
+                <button className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-6 py-3.5 sm:py-4 rounded-2xl bg-white/90 hover:bg-white text-slate-700 hover:text-brand-blue-700 font-semibold text-sm sm:text-base border border-slate-200/90 hover:border-slate-300 shadow-sm transition-all duration-200 group">
+                  <Stethoscope className="w-4 h-4 text-brand-blue-600 transition-transform group-hover:scale-110" />
+                  <span>Tư vấn đơn thuốc Bác sĩ</span>
+                </button>
               </Link>
             </motion.div>
 
@@ -130,15 +120,15 @@ export const HeroSection: React.FC = () => {
             >
               <div className="flex items-center gap-1.5">
                 <CheckCircle2 className="w-4 h-4 text-brand-emerald-500" />
-                <span>100% Thuốc chính hãng</span>
+                <span>Nguồn gốc minh bạch</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <CheckCircle2 className="w-4 h-4 text-brand-emerald-500" />
-                <span>Đổi trả 30 ngày linh hoạt</span>
+                <span>Tư vấn chuẩn chuyên môn</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <CheckCircle2 className="w-4 h-4 text-brand-emerald-500" />
-                <span>Bảo mật đơn thuốc tuyệt đối</span>
+                <span>Bảo mật dữ liệu an toàn</span>
               </div>
             </motion.div>
           </div>

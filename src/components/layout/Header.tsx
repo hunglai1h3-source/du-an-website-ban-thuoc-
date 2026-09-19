@@ -46,34 +46,34 @@ export const Header: React.FC<HeaderProps> = ({ onReplayIntro }) => {
 
   return (
     <>
-      {/* Top Academic & Medical Trust Bar */}
-      <div className="bg-slate-900 text-slate-300 text-[11px] py-1.5 px-4 hidden md:block border-b border-slate-800 select-none">
+      {/* Top Academic & Medical Trust Bar - Sleek & Secondary */}
+      <div className="bg-slate-950 text-slate-400 text-[11px] py-1 px-4 hidden md:block border-b border-slate-900 select-none">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <FptPolyBadge variant="dark" className="py-0.5 px-2.5 text-[10px]" />
-            <span className="text-slate-500">|</span>
-            <div className="flex items-center gap-1.5 text-slate-300">
-              <ShieldCheck className="w-3.5 h-3.5 text-brand-emerald-400" />
-              <span>Hệ thống Dược phẩm Trực tuyến Chuẩn Y Khoa GPP</span>
+          <div className="flex items-center gap-3">
+            <FptPolyBadge variant="dark" />
+            <span className="text-slate-700">/</span>
+            <div className="flex items-center gap-1.5 text-slate-400">
+              <ShieldCheck className="w-3.5 h-3.5 text-brand-emerald-500" />
+              <span>Mô hình Nhà thuốc Trực tuyến • Tiêu chuẩn Thực hành GPP/GSP</span>
             </div>
           </div>
 
-          <div className="flex items-center gap-5">
+          <div className="flex items-center gap-4">
             <a
               href="tel:18006868"
-              className="flex items-center gap-1.5 text-cyan-300 hover:text-white font-medium transition-colors"
+              className="flex items-center gap-1.5 text-slate-300 hover:text-cyan-400 font-medium transition-colors"
             >
-              <PhoneCall className="w-3 h-3" />
-              <span>Tổng đài Miễn cước: 1800 6868 (07:00 - 22:00)</span>
+              <PhoneCall className="w-3 h-3 text-cyan-400" />
+              <span>Hỗ trợ Dược khoa: 1800 6868 (Miễn cước)</span>
             </a>
 
             {onReplayIntro && (
               <button
                 onClick={onReplayIntro}
-                className="flex items-center gap-1 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                className="flex items-center gap-1 text-slate-500 hover:text-slate-300 transition-colors cursor-pointer text-[10.5px]"
                 title="Xem lại hiệu ứng mở đầu"
               >
-                <RotateCcw className="w-3 h-3" />
+                <RotateCcw className="w-2.5 h-2.5" />
                 <span>Xem Intro</span>
               </button>
             )}
@@ -81,45 +81,45 @@ export const Header: React.FC<HeaderProps> = ({ onReplayIntro }) => {
         </div>
       </div>
 
-      {/* Main Sticky Header with Depth Hierarchy */}
+      {/* Main Sticky Header with Balanced Depth */}
       <header
         className={`sticky top-0 z-40 transition-all duration-200 ${
           isScrolled
-            ? "bg-white/92 backdrop-blur-xl shadow-depth-2 py-2.5 border-b border-slate-200/80"
-            : "bg-white/98 backdrop-blur-md py-3.5 border-b border-slate-100"
+            ? "bg-white/95 backdrop-blur-xl shadow-depth-2 py-2 border-b border-slate-200/80"
+            : "bg-white/98 backdrop-blur-md py-2.5 sm:py-3 border-b border-slate-100"
         }`}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between gap-3 md:gap-6">
+          <div className="flex items-center justify-between gap-3 md:gap-5">
             {/* Mobile Menu Button */}
             <button
               onClick={() => setIsMobileDrawerOpen(true)}
               className="p-2 -ml-2 rounded-xl text-slate-700 hover:bg-slate-100 lg:hidden focus:outline-none transition-colors"
               aria-label="Mở menu di động"
             >
-              <Menu className="w-6 h-6" />
+              <Menu className="w-5 h-5" />
             </button>
 
-            {/* H4CARE Logo */}
+            {/* H4CARE Primary Brand Identity */}
             <div className="shrink-0 flex items-center">
               <H4CareLogo size={isScrolled ? "sm" : "md"} withTagline={!isScrolled} />
             </div>
 
             {/* Mega Menu Button (Desktop) */}
-            <div className="hidden lg:block relative">
+            <div className="hidden lg:block relative shrink-0">
               <button
                 onClick={() => setIsMegaMenuOpen(!isMegaMenuOpen)}
                 aria-expanded={isMegaMenuOpen}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl font-semibold text-xs sm:text-sm transition-all duration-150 active:scale-95 ${
+                className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl font-semibold text-xs sm:text-[13px] transition-all duration-150 active:scale-95 ${
                   isMegaMenuOpen
-                    ? "bg-brand-blue-600 text-white shadow-depth-2"
-                    : "bg-brand-blue-50/80 hover:bg-brand-blue-100/70 text-brand-blue-700 border border-brand-blue-100"
+                    ? "bg-brand-blue-600 text-white shadow-depth-1"
+                    : "bg-slate-100/80 hover:bg-slate-200/70 text-slate-700 border border-slate-200/60"
                 }`}
               >
-                <LayoutGrid className="w-4 h-4" />
-                <span>Danh mục</span>
+                <LayoutGrid className="w-4 h-4 text-brand-blue-600" />
+                <span>Danh mục thuốc</span>
                 <ChevronDown
-                  className={`w-3.5 h-3.5 transition-transform duration-200 ${
+                  className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${
                     isMegaMenuOpen ? "rotate-180" : ""
                   }`}
                 />
@@ -131,9 +131,9 @@ export const Header: React.FC<HeaderProps> = ({ onReplayIntro }) => {
               <SearchExperience />
             </div>
 
-            {/* Right Action Icons & Hotline */}
-            <div className="flex items-center gap-2 sm:gap-3.5">
-              {/* Mobile Search Button */}
+            {/* Right Action Navigation */}
+            <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+              {/* Mobile Search Trigger */}
               <button
                 onClick={() => setIsMobileSearchOpen(true)}
                 className="p-2.5 rounded-xl text-slate-700 hover:bg-slate-100 md:hidden transition-colors"
@@ -142,47 +142,45 @@ export const Header: React.FC<HeaderProps> = ({ onReplayIntro }) => {
                 <Search className="w-5 h-5 text-slate-600" />
               </button>
 
-              {/* Consultation Hotline Pill (Desktop) */}
-              <div className="hidden xl:flex items-center gap-2.5 px-3 py-1.5 rounded-2xl border border-slate-200/80 bg-slate-50/60 shadow-depth-1">
-                <div className="w-8 h-8 rounded-xl bg-brand-blue-50 text-brand-blue-600 flex items-center justify-center">
-                  <PhoneCall className="w-4 h-4" />
+              {/* Consultation Hotline Pill - Minimalist on xl */}
+              <a
+                href="tel:18006868"
+                className="hidden xl:flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200/80 hover:border-brand-blue-200 bg-slate-50/50 hover:bg-brand-blue-50/40 text-slate-700 transition-all duration-150"
+                title="Gọi tư vấn Dược sĩ miễn cước"
+              >
+                <div className="w-6 h-6 rounded-lg bg-brand-blue-100/60 text-brand-blue-600 flex items-center justify-center shrink-0">
+                  <PhoneCall className="w-3.5 h-3.5" />
                 </div>
-                <div className="text-left leading-tight">
-                  <span className="text-[10px] text-slate-500 font-medium block">Tư vấn miễn cước</span>
-                  <a
-                    href="tel:18006868"
-                    className="text-xs font-bold text-slate-800 hover:text-brand-blue-600 transition-colors"
-                  >
-                    1800 6868
-                  </a>
+                <div className="text-left leading-none">
+                  <span className="text-[10px] text-slate-400 block font-normal">Tư vấn Dược sĩ</span>
+                  <span className="text-xs font-bold text-slate-800">1800 6868</span>
                 </div>
-              </div>
+              </a>
 
               {/* Account Dropdown Trigger */}
-              <div className="hidden sm:flex items-center">
-                <Link
-                  href="/account"
-                  className="flex items-center gap-2 p-1.5 rounded-xl text-slate-700 hover:text-brand-blue-600 hover:bg-slate-100 transition-colors"
-                >
-                  <div className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center border border-slate-200/60 shadow-sm">
-                    <User className="w-4 h-4 text-slate-600" />
-                  </div>
-                  <div className="hidden 2xl:block text-left">
-                    <span className="text-[10px] text-slate-400 block font-normal">Xin chào,</span>
-                    <span className="text-xs font-bold text-slate-800">Tài khoản</span>
-                  </div>
-                </Link>
-              </div>
+              <Link
+                href="/account"
+                className="hidden sm:flex items-center gap-2 p-2 rounded-xl text-slate-700 hover:bg-slate-100 transition-colors"
+                title="Tài khoản cá nhân"
+              >
+                <div className="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center border border-slate-200/60 text-slate-600 hover:text-brand-blue-600">
+                  <User className="w-4 h-4" />
+                </div>
+                <div className="hidden 2xl:block text-left leading-none">
+                  <span className="text-[10px] text-slate-400 block font-normal">Thành viên</span>
+                  <span className="text-xs font-bold text-slate-800">Tài khoản</span>
+                </div>
+              </Link>
 
               {/* Cart Button with Count Badge */}
               <Link
                 href="/cart"
-                className="relative flex items-center justify-center p-2.5 rounded-2xl bg-brand-blue-50 text-brand-blue-700 hover:bg-brand-blue-100 border border-brand-blue-100 transition-all duration-150 group active:scale-95 shadow-sm"
+                className="relative flex items-center justify-center w-10 h-10 rounded-xl bg-brand-blue-50 text-brand-blue-700 hover:bg-brand-blue-100/80 border border-brand-blue-100 transition-all duration-150 group active:scale-95"
                 title="Giỏ hàng H4CARE"
               >
-                <ShoppingBag className="w-5 h-5 group-hover:scale-110 transition-transform duration-150" />
+                <ShoppingBag className="w-4.5 h-4.5 group-hover:scale-110 transition-transform duration-150" />
                 {cartCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center shadow-sm ring-2 ring-white animate-pulse-subtle">
+                  <span className="absolute -top-1 -right-1 w-4.5 h-4.5 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center ring-2 ring-white">
                     {cartCount}
                   </span>
                 )}

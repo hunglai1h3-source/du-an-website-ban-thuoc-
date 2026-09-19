@@ -15,12 +15,12 @@ export const AbstractSymbol: React.FC<AbstractSymbolProps> = ({
 }) => {
   return (
     <div
-      className={`relative inline-flex items-center justify-center ${className}`}
+      className={`relative inline-flex items-center justify-center shrink-0 ${className}`}
       style={{ width: size, height: size }}
     >
       {withGlow && (
         <div
-          className="absolute inset-0 rounded-full blur-md opacity-40 bg-gradient-to-tr from-brand-blue-600 via-brand-cyan-500 to-brand-emerald-400"
+          className="absolute inset-0 rounded-2xl blur-lg opacity-35 bg-gradient-to-tr from-brand-blue-600 via-brand-cyan-500 to-brand-emerald-400 pointer-events-none"
           style={{ transform: "scale(1.2)" }}
         />
       )}
@@ -30,62 +30,72 @@ export const AbstractSymbol: React.FC<AbstractSymbolProps> = ({
         viewBox="0 0 100 100"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
-        className="relative z-10 transition-transform duration-300 hover:scale-105"
+        className="relative z-10 transition-transform duration-300 group-hover:scale-105"
       >
         <defs>
-          {/* Gradients for the 4 distinct elements representing Hùng, Đức Anh, Hoàn, Cường */}
-          <linearGradient id="symGrad1" x1="10" y1="10" x2="46" y2="46" gradientUnits="userSpaceOnUse">
+          {/* Continuous harmonic gradient ring representing 4 founders: Hùng, Đức Anh, Hoàn, Cường */}
+          <linearGradient id="h4-petal-nw" x1="16" y1="16" x2="48" y2="48" gradientUnits="userSpaceOnUse">
             <stop offset="0%" stopColor="#0052cc" />
             <stop offset="100%" stopColor="#0284c7" />
           </linearGradient>
-          <linearGradient id="symGrad2" x1="90" y1="10" x2="54" y2="46" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="#06b6d4" />
-            <stop offset="100%" stopColor="#0284c7" />
-          </linearGradient>
-          <linearGradient id="symGrad3" x1="10" y1="90" x2="46" y2="54" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="#0041a3" />
-            <stop offset="100%" stopColor="#0066cc" />
-          </linearGradient>
-          <linearGradient id="symGrad4" x1="90" y1="90" x2="54" y2="54" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="#10b981" />
+
+          <linearGradient id="h4-petal-ne" x1="84" y1="16" x2="52" y2="48" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stopColor="#0284c7" />
             <stop offset="100%" stopColor="#06b6d4" />
           </linearGradient>
 
-          {/* Central pulse dot glow */}
-          <radialGradient id="centerCore" cx="50" cy="50" r="12" gradientUnits="userSpaceOnUse">
+          <linearGradient id="h4-petal-se" x1="84" y1="84" x2="52" y2="52" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stopColor="#059669" />
+            <stop offset="100%" stopColor="#06b6d4" />
+          </linearGradient>
+
+          <linearGradient id="h4-petal-sw" x1="16" y1="84" x2="48" y2="52" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stopColor="#0041a3" />
+            <stop offset="100%" stopColor="#059669" />
+          </linearGradient>
+
+          {/* Central core medical jewel */}
+          <radialGradient id="h4-core-glow" cx="50" cy="50" r="14" gradientUnits="userSpaceOnUse">
             <stop offset="0%" stopColor="#ffffff" />
-            <stop offset="100%" stopColor="#cffafe" stopOpacity="0.8" />
+            <stop offset="60%" stopColor="#e0f2fe" />
+            <stop offset="100%" stopColor="#bae6fd" stopOpacity="0.4" />
           </radialGradient>
         </defs>
 
-        {/* 1. Element: Hùng (Top-Left: Innovation & Leadership) */}
+        {/* 1. North-West Element: Hùng (Leadership & Foundation) */}
         <path
-          d="M 22 18 C 14 18 12 24 12 34 L 12 40 C 12 46 16 48 24 48 L 38 48 C 44 48 47 45 47 39 L 47 25 C 47 19 43 18 36 18 Z"
-          fill="url(#symGrad1)"
+          d="M 33 13 C 44 13 48.5 21 48.5 33.5 C 48.5 42 42 48.5 33.5 48.5 C 21 48.5 13 44 13 33 C 13 21 21 13 33 13 Z"
+          fill="url(#h4-petal-nw)"
         />
 
-        {/* 2. Element: Đức Anh (Top-Right: Technology & Precision) */}
+        {/* 2. North-East Element: Đức Anh (Precision & Digital Health) */}
         <path
-          d="M 78 18 C 86 18 88 24 88 34 L 88 40 C 88 46 84 48 76 48 L 62 48 C 56 48 53 45 53 39 L 53 25 C 53 19 57 18 64 18 Z"
-          fill="url(#symGrad2)"
+          d="M 67 13 C 79 13 87 21 87 33 C 87 44 79 48.5 66.5 48.5 C 58 48.5 51.5 42 51.5 33.5 C 51.5 21 56 13 67 13 Z"
+          fill="url(#h4-petal-ne)"
         />
 
-        {/* 3. Element: Hoàn (Bottom-Left: Care & Reliability) */}
+        {/* 3. South-East Element: Cường (Vitality & Care Growth) */}
         <path
-          d="M 22 82 C 14 82 12 76 12 66 L 12 60 C 12 54 16 52 24 52 L 38 52 C 44 52 47 55 47 61 L 47 75 C 47 81 43 82 36 82 Z"
-          fill="url(#symGrad3)"
+          d="M 66.5 51.5 C 79 51.5 87 56 87 67 C 87 79 79 87 67 87 C 56 87 51.5 79 51.5 66.5 C 51.5 58 58 51.5 66.5 51.5 Z"
+          fill="url(#h4-petal-se)"
         />
 
-        {/* 4. Element: Cường (Bottom-Right: Vitality & Growth - Emerald Touch) */}
+        {/* 4. South-West Element: Hoàn (Reliability & Human Care) */}
         <path
-          d="M 78 82 C 86 82 88 76 88 66 L 88 60 C 88 54 84 52 76 52 L 62 52 C 56 52 53 55 53 61 L 53 75 C 53 81 57 82 64 82 Z"
-          fill="url(#symGrad4)"
+          d="M 33.5 51.5 C 42 51.5 48.5 58 48.5 66.5 C 48.5 79 44 87 33 87 C 21 87 13 79 13 67 C 13 56 21 51.5 33.5 51.5 Z"
+          fill="url(#h4-petal-sw)"
         />
 
-        {/* Center Precision Intersection - Abstract Medical Cross Focal Point */}
-        <circle cx="50" cy="50" r="5.5" fill="url(#centerCore)" />
-        <circle cx="50" cy="50" r="2" fill="#0052cc" />
+        {/* Negative Space Medical Cross Enhancement: Inner aperture ring */}
+        <circle cx="50" cy="50" r="8" fill="url(#h4-core-glow)" />
+        <path
+          d="M 50 44 L 50 56 M 44 50 L 56 50"
+          stroke="#0052cc"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+        />
       </svg>
     </div>
   );
 };
+

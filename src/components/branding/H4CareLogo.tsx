@@ -41,45 +41,44 @@ export const H4CareLogo: React.FC<H4CareLogoProps> = ({
 
   const content = (
     <div className={`inline-flex items-center gap-2.5 group select-none ${className}`}>
-      {/* Abstract 4-part Symbol */}
+      {/* Bespoke 4-part Symbol */}
       <AbstractSymbol size={symbolSizes[size]} withGlow={!isWhite} />
 
       {/* Brand Wordmark */}
-      <div className="flex flex-col">
-        <div className="flex items-center tracking-tight leading-none">
+      <div className="flex flex-col justify-center">
+        <div className="flex items-baseline tracking-tight leading-none">
           <span
-            className={`font-black tracking-wider ${textSizes[size]} ${
+            className={`font-black tracking-tight ${textSizes[size]} ${
               isWhite ? "text-white" : "text-brand-blue-700"
             }`}
           >
-            H
+            H<span className={isWhite ? "text-brand-cyan-300" : "text-brand-cyan-500"}>4</span>
           </span>
           <span
-            className={`font-black tracking-wider ${textSizes[size]} ${
-              isWhite ? "text-brand-cyan-300" : "text-brand-cyan-500"
-            }`}
-          >
-            4
-          </span>
-          <span
-            className={`font-extrabold tracking-tight ${textSizes[size]} ${
-              isWhite ? "text-white" : "text-slate-900"
+            className={`font-extrabold tracking-tight ml-0.5 ${textSizes[size]} ${
+              isWhite ? "text-slate-100" : "text-slate-900"
             }`}
           >
             CARE
           </span>
-          <span className="ml-0.5 text-brand-emerald-500 font-bold text-base leading-none">
+          <span
+            className={`ml-1 text-[0.6em] font-black leading-none px-1 py-0.5 rounded-md ${
+              isWhite
+                ? "bg-brand-emerald-500/20 text-brand-emerald-300 border border-brand-emerald-400/30"
+                : "bg-emerald-50 text-brand-emerald-600 border border-emerald-200/80"
+            }`}
+          >
             +
           </span>
         </div>
 
         {withTagline && (
           <span
-            className={`font-medium tracking-wide mt-0.5 uppercase ${taglineSizes[size]} ${
-              isWhite ? "text-slate-300" : "text-slate-500"
+            className={`font-medium tracking-wider mt-1 uppercase ${taglineSizes[size]} ${
+              isWhite ? "text-slate-400" : "text-slate-400"
             }`}
           >
-            Nhà thuốc trực tuyến cao cấp
+            Hệ thống Dược phẩm Trực tuyến
           </span>
         )}
       </div>

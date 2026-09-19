@@ -183,26 +183,26 @@ export const SUGGESTED_PRODUCTS: SearchSuggestionItem[] = [
 export const TRUST_STATS: TrustStat[] = [
   {
     value: "100%",
-    label: "Thuốc Chính Hãng",
-    sublabel: "Đầy đủ hóa đơn & tem kiểm định",
+    label: "Nguồn Gốc Minh Bạch",
+    sublabel: "Sản phẩm dược phẩm chọn lọc",
     icon: "ShieldCheck",
   },
   {
-    value: "500+",
-    label: "Dược Sĩ Đại Học",
-    sublabel: "Tư vấn chuyên môn trực tuyến 24/7",
+    value: "24/7",
+    label: "Tư Vấn Dược Khoa",
+    sublabel: "Hỗ trợ hướng dẫn sử dụng an toàn",
     icon: "UserCheck",
   },
   {
     value: "2 Giờ",
-    label: "Giao Hỏa Tốc",
-    sublabel: "Đảm bảo điều kiện bảo quản GSP",
+    label: "Giao Hàng Tiêu Chuẩn",
+    sublabel: "Bảo quản theo quy chuẩn GSP",
     icon: "Clock",
   },
   {
-    value: "10.000+",
-    label: "Sản Phẩm Y Tế",
-    sublabel: "Cập nhật liên tục theo Bộ Y Tế",
+    value: "Đa Dạng",
+    label: "Danh Mục Y Tế",
+    sublabel: "Thuốc, TPCN & thiết bị chăm sóc",
     icon: "PackageCheck",
   },
 ];
