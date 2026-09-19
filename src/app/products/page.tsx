@@ -10,7 +10,7 @@ import { ProductFilterSidebar } from "@/components/product/ProductFilterSidebar"
 import { ProductSortBar } from "@/components/product/ProductSortBar";
 import { ProductQuickViewModal } from "@/components/product/ProductQuickViewModal";
 import { RxConsultModal } from "@/components/product/RxConsultModal";
-import { FptPolyBadge } from "@/components/branding/FptPolyBadge";
+import { Footer } from "@/components/layout/Footer";
 import {
   ChevronRight,
   Home,
@@ -255,11 +255,11 @@ export default function ProductsPage() {
             {/* Product Cards Grid */}
             {paginatedProducts.length > 0 ? (
               <div
-                className={`grid grid-cols-1 sm:grid-cols-2 ${
+                className={`grid grid-cols-2 sm:grid-cols-2 ${
                   gridCols === 4
-                    ? "lg:grid-cols-4 gap-4"
-                    : "lg:grid-cols-3 gap-5"
-                }`}
+                    ? "lg:grid-cols-4 gap-3 sm:gap-4"
+                    : "lg:grid-cols-3 gap-3 sm:gap-5"
+                } items-stretch`}
               >
                 {paginatedProducts.map((product) => (
                   <ProductCard
@@ -391,15 +391,8 @@ export default function ProductsPage() {
         onClose={() => setRxConsultProduct(null)}
       />
 
-      {/* Academic Project Footer */}
-      <footer className="border-t border-slate-200 bg-slate-900 text-slate-400 text-xs py-8 mt-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <FptPolyBadge variant="dark" />
-          <p className="text-[11px] text-slate-400">
-            H4CARE Pharmacy • Đồ án sinh viên FPT Polytechnic • Hùng - Đức Anh - Hoàn - Cường
-          </p>
-        </div>
-      </footer>
+      {/* Customer-Facing Shared Footer */}
+      <Footer />
     </div>
   );
 }

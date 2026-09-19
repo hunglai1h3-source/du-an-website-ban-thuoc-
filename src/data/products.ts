@@ -15,7 +15,7 @@ export const PRODUCTS_DATA: Product[] = [
     salePrice: 230000,
     images: [
       "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&auto=format&fit=crop&q=80",
-      "https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1587854692152-cbe660dbde88?w=800&auto=format&fit=crop&q=80",
     ],
     shortDescription: "Giảm nhanh các cơn đau từ nhẹ đến vừa như đau đầu, đau cơ, đau nửa đầu, đau bụng kinh và hạ sốt nhanh chóng.",
     description: "Panadol Extra chứa Paracetamol kết hợp cùng Caffeine giúp tăng cường hiệu quả giảm đau gấp nhiều lần so với Paracetamol đơn thuần mà không gây buồn ngủ. Thích hợp cho người làm việc căng thẳng bị đau đầu, đau nửa đầu.",
@@ -155,9 +155,7 @@ export const PRODUCTS_DATA: Product[] = [
     subCategory: "da-day-tieu-hoa",
     price: 195000,
     salePrice: 185000,
-    images: [
-      "https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=800&auto=format&fit=crop&q=80",
-    ],
+    images: [],
     shortDescription: "Tác động kép: tạo màng chắn ngăn trào ngược dạ dày thực quản và trung hòa acid dư thừa tức thì.",
     description: "Gaviscon Double Action phản ứng nhanh với acid dạ dày để tạo thành lớp gel acid alginic nổi trên bề mặt chất chứa trong dạ dày, ngăn ngừa acid trào ngược lên thực quản gây ợ nóng rát cổ họng.",
     activeIngredient: "Natri alginate 500mg, Natri bicarbonate 213mg, Canxi carbonate 325mg",
@@ -226,7 +224,7 @@ export const PRODUCTS_DATA: Product[] = [
     subCategory: "tim-mach-huyet-ap",
     price: 325000,
     images: [
-      "https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1587854692152-cbe660dbde88?w=800&auto=format&fit=crop&q=80",
     ],
     shortDescription: "Thuốc chẹn kênh canxi điều trị tăng huyết áp nguyên phát và dự phòng cơn đau thắt ngực ổn định.",
     description: "Amlor chứa Amlodipine besylate giúp giãn cơ trơn mạch máu, hạ kháng lực mạch máu ngoại biên, từ đó hạ huyết áp êm dịu suốt 24 giờ mà không gây nhịp tim nhanh phản xạ.",
@@ -328,7 +326,7 @@ export const PRODUCTS_DATA: Product[] = [
     subCategory: "tim-mach-huyet-ap",
     price: 275000,
     images: [
-      "https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1471864190281-a93a3070b6de?w=800&auto=format&fit=crop&q=80",
     ],
     shortDescription: "Thuốc ức chế thụ thể Angiotensin II điều trị tăng huyết áp và bảo vệ chức năng thận ở bệnh nhân đái tháo đường.",
     description: "Cozaar làm giãn mạch và giảm bài tiết aldosterone, kiểm soát huyết áp ổn định mà không gây tác dụng phụ ho khan như nhóm thuốc ức chế men chuyển ACE.",
@@ -401,7 +399,7 @@ export const PRODUCTS_DATA: Product[] = [
     price: 520000,
     salePrice: 480000,
     images: [
-      "https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=800&auto=format&fit=crop&q=80",
+      "https://images.unsplash.com/photo-1550572017-edd951aa8f72?w=800&auto=format&fit=crop&q=80",
     ],
     shortDescription: "Bổ sung Omega-3 EPA & DHA tự nhiên giúp sáng mắt, tăng cường trí nhớ và bảo vệ sức khỏe tim mạch.",
     description: "Được chiết xuất từ cá biển sâu đại dương bằng công nghệ chưng cất phân tử tiên tiến, loại bỏ hoàn toàn thủy ngân và kim loại nặng, đạt tiêu chuẩn tinh khiết dược khoa nghiêm ngặt của Úc.",

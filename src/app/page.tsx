@@ -5,16 +5,13 @@ import Link from "next/link";
 import { IntroAnimation } from "@/components/intro/IntroAnimation";
 import { Header } from "@/components/layout/Header";
 import { HeroSection } from "@/components/hero/HeroSection";
-import { FptPolyBadge } from "@/components/branding/FptPolyBadge";
-import { AbstractSymbol } from "@/components/branding/AbstractSymbol";
+import { Footer } from "@/components/layout/Footer";
 import { PRODUCTS_DATA } from "@/data/products";
 import { Product } from "@/types";
 import { ProductCard } from "@/components/product/ProductCard";
 import { ProductQuickViewModal } from "@/components/product/ProductQuickViewModal";
 import { RxConsultModal } from "@/components/product/RxConsultModal";
 import {
-  ShieldCheck,
-  Sparkles,
   ArrowRight,
   Flame,
   Award,
@@ -55,28 +52,28 @@ export default function HomePage() {
       {/* 3. Hero Section (Phase UI-1 Benchmark) */}
       <HeroSection />
 
-      {/* 4. REAL PRODUCTS SHOWCASE: SẢN PHẨM BÁN CHẠY NHẤT (CORE-1 to CORE-4) */}
-      <section className="py-14 bg-white border-t border-slate-100">
+      {/* 4. REAL PRODUCTS SHOWCASE: SẢN PHẨM BÁN CHẠY NHẤT */}
+      <section className="py-12 sm:py-16 bg-white border-t border-slate-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
             <div>
-              <div className="flex items-center gap-1.5 text-xs font-bold text-rose-600 uppercase tracking-wider mb-1">
-                <Flame className="w-4 h-4 fill-current" />
+              <div className="flex items-center gap-1.5 text-xs font-bold text-rose-600 uppercase tracking-wider mb-1.5">
+                <Flame className="w-3.5 h-3.5 fill-current text-rose-500" />
                 <span>Bán Chạy Nhất Tại Nhà Thuốc</span>
               </div>
               <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
                 Sản Phẩm Y Tế Được Tin Dùng
               </h2>
-              <p className="text-xs text-slate-500 mt-1">
-                100% Thuốc chính hãng, date mới nhất, được kiểm định bởi Hội đồng Dược sĩ H4CARE.
+              <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-2xl">
+                Danh mục sản phẩm chọn lọc, hạn dùng mới, quy trình kiểm soát chất lượng định hướng chuẩn GPP.
               </p>
             </div>
 
-            <Link href="/products">
+            <Link href="/products" className="shrink-0">
               <Button
                 variant="outline"
                 size="sm"
-                className="group"
+                className="group border-slate-200 hover:border-brand-blue-300 text-xs sm:text-sm"
                 rightIcon={<ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />}
               >
                 Xem tất cả {PRODUCTS_DATA.length} sản phẩm
@@ -84,8 +81,8 @@ export default function HomePage() {
             </Link>
           </div>
 
-          {/* Product Cards Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          {/* Product Cards Grid: 2 cols on mobile, 4 cols on desktop */}
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5 items-stretch">
             {bestSellers.map((product) => (
               <ProductCard
                 key={product.id}
@@ -99,36 +96,36 @@ export default function HomePage() {
       </section>
 
       {/* 5. NỔI BẬT & THUỐC KÊ ĐƠN TƯ VẤN (Rx Showcase) */}
-      <section className="py-14 bg-slate-50/70 border-t border-slate-200/80">
+      <section className="py-12 sm:py-16 bg-[#f8fafc] border-t border-slate-200/80">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
             <div>
-              <div className="flex items-center gap-1.5 text-xs font-bold text-brand-blue-600 uppercase tracking-wider mb-1">
-                <Award className="w-4 h-4" />
-                <span>Danh Mục Thuốc Tiêu Biểu</span>
+              <div className="flex items-center gap-1.5 text-xs font-bold text-brand-blue-600 uppercase tracking-wider mb-1.5">
+                <Award className="w-3.5 h-3.5" />
+                <span>Chuyên Khoa & Thuốc Kê Đơn</span>
               </div>
               <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
                 Chuyên Khoa & Hỗ Trợ Đơn Thuốc
               </h2>
-              <p className="text-xs text-slate-500 mt-1">
-                Bao gồm thuốc kê đơn điều trị bệnh mạn tính và sản phẩm chăm sóc sức khỏe chất lượng cao.
+              <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-2xl">
+                Thuốc điều trị theo phác đồ và sản phẩm chăm sóc đặc thù cần có tư vấn & hướng dẫn của Dược sĩ chuyên môn.
               </p>
             </div>
 
-            <Link href="/category/thuoc-ke-don">
+            <Link href="/category/thuoc-ke-don" className="shrink-0">
               <Button
                 variant="primary"
                 size="sm"
-                className="bg-brand-blue-700 hover:bg-brand-blue-800 text-xs"
+                className="bg-brand-blue-700 hover:bg-brand-blue-800 text-xs sm:text-sm"
                 rightIcon={<ArrowRight className="w-3.5 h-3.5" />}
               >
-                Gửi toa thuốc khám
+                Tư vấn đơn thuốc
               </Button>
             </Link>
           </div>
 
-          {/* Featured Cards Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          {/* Featured Cards Grid: 2 cols on mobile, 4 cols on desktop */}
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5 items-stretch">
             {featuredProducts.map((product) => (
               <ProductCard
                 key={product.id}
@@ -137,43 +134,6 @@ export default function HomePage() {
                 onOpenRxConsult={(p) => setRxConsultProduct(p)}
               />
             ))}
-          </div>
-        </div>
-      </section>
-
-      {/* 6. Phase UI Milestone Showcase & Status Bar */}
-      <section className="py-10 border-t border-slate-100 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="bg-slate-50 rounded-3xl p-6 sm:p-8 border border-slate-200/90 flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-brand-blue-50 text-brand-blue-600 flex items-center justify-center shrink-0 border border-brand-blue-100">
-                <AbstractSymbol size={28} />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-brand-blue-600 uppercase tracking-wider">
-                    Trạng Thái Dự Án: Hoàn Thành CORE-0 Đến CORE-4
-                  </span>
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                </div>
-                <h3 className="text-base font-bold text-slate-900 mt-0.5">
-                  Hệ thống Dữ liệu Sản phẩm Dược khoa & Điều hướng Thực tế Đã Hoạt Động
-                </h3>
-                <p className="text-xs text-slate-500 mt-1 max-w-xl">
-                  Bao gồm: Data Model 25 sản phẩm y tế • Trang danh sách /products có lọc đa chiều & sắp xếp • Trang danh mục /category/[slug] • Product Card tuân thủ quy tắc Rx • Trang chi tiết /product/[slug] chuyên sâu.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <button
-                onClick={handleReplayIntro}
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold text-brand-blue-700 bg-white hover:bg-brand-blue-50 border border-slate-200 transition-all duration-200 active:scale-95 shadow-sm"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-brand-cyan-500" />
-                <span>Phát lại Intro 5 Cảnh</span>
-              </button>
-            </div>
           </div>
         </div>
       </section>
@@ -193,26 +153,8 @@ export default function HomePage() {
         onClose={() => setRxConsultProduct(null)}
       />
 
-      {/* 7. Clean Academic Project Footer */}
-      <footer className="mt-auto border-t border-slate-200 bg-slate-900 text-slate-400 text-xs py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="flex flex-col sm:flex-row items-center gap-4 text-center sm:text-left">
-              <FptPolyBadge variant="dark" />
-              <div className="text-[11px] text-slate-400">
-                <span className="text-slate-300 font-semibold">Đồ án sinh viên FPT Polytechnic</span>
-                <span className="mx-2">•</span>
-                <span>Thực hiện bởi nhóm 4 thành viên: Hùng • Đức Anh • Hoàn • Cường</span>
-              </div>
-            </div>
-
-            <div className="text-[11px] text-slate-500 text-center md:text-right">
-              <p>© 2026 H4CARE. Dự án nghiên cứu trải nghiệm người dùng E-Commerce Dược Phẩm.</p>
-              <p className="text-slate-400 text-[10px] mt-0.5">Giao diện độc bản • Tuân thủ chuẩn thông tin y tế</p>
-            </div>
-          </div>
-        </div>
-      </footer>
+      {/* 6. Customer-facing Shared Footer */}
+      <Footer />
     </main>
   );
 }
