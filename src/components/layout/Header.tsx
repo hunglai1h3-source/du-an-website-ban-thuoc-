@@ -18,17 +18,23 @@ import {
   ShieldCheck,
   RotateCcw,
   Search,
+  LogOut,
+  FileText,
+  UserCheck,
 } from "lucide-react";
+import { useAuth } from "@/lib/auth/auth-context";
 
 interface HeaderProps {
   onReplayIntro?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({ onReplayIntro }) => {
+  const { user, isAuthenticated, logout } = useAuth();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMegaMenuOpen, setIsMegaMenuOpen] = useState(false);
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
+  const [isAccountDropdownOpen, setIsAccountDropdownOpen] = useState(false);
   const [cartCount, setCartCount] = useState(2); // Demo mock count
 
   useEffect(() => {
@@ -157,20 +163,86 @@ export const Header: React.FC<HeaderProps> = ({ onReplayIntro }) => {
                 </div>
               </a>
 
-              {/* Account Dropdown Trigger */}
-              <Link
-                href="/login"
-                className="hidden sm:flex items-center gap-2 p-2 rounded-xl text-slate-700 hover:bg-slate-100 transition-colors"
-                title="Đăng nhập / Tài khoản"
-              >
-                <div className="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center border border-slate-200/60 text-slate-600 hover:text-brand-blue-600">
-                  <User className="w-4 h-4" />
+              {/* Account Trigger (Long Chau style: User profile or Login) */}
+              {isAuthenticated && user ? (
+                <div className="relative">
+                  <button
+                    onClick={() => setIsAccountDropdownOpen(!isAccountDropdownOpen)}
+                    className="hidden sm:flex items-center gap-2 p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl hover:bg-slate-100 text-slate-800 transition-colors border border-slate-200/80 bg-white"
+                  >
+                    <div className="w-7 h-7 rounded-lg bg-[#1250dc] text-white flex items-center justify-center font-bold text-xs shadow-xs">
+                      {user.fullName ? user.fullName.charAt(0).toUpperCase() : "U"}
+                    </div>
+                    <div className="hidden xl:block text-left leading-tight">
+                      <span className="text-[10px] text-slate-400 block font-normal">{user.role || "Hội viên"}</span>
+                      <span className="text-xs font-bold text-slate-900 line-clamp-1 max-w-[120px]">{user.fullName}</span>
+                    </div>
+                    <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                  </button>
+
+                  {/* Dropdown Menu */}
+                  {isAccountDropdownOpen && (
+                    <div
+                      className="absolute right-0 mt-2 w-64 bg-white rounded-2xl shadow-xl border border-slate-200 py-2 z-50 animate-in fade-in zoom-in-95 duration-150"
+                      onMouseLeave={() => setIsAccountDropdownOpen(false)}
+                    >
+                      <div className="px-4 py-2.5 border-b border-slate-100">
+                        <p className="text-xs font-bold text-slate-900">{user.fullName}</p>
+                        <p className="text-[11px] text-slate-500">{user.phone || user.email}</p>
+                        <span className="inline-block mt-1 px-2 py-0.5 rounded bg-blue-50 text-[#1250dc] text-[10px] font-bold border border-blue-100">
+                          {user.role} • {user.points || 0} điểm
+                        </span>
+                      </div>
+
+                      <div className="py-1 text-xs text-slate-700">
+                        <Link
+                          href="/account"
+                          onClick={() => setIsAccountDropdownOpen(false)}
+                          className="flex items-center gap-2 px-4 py-2 hover:bg-slate-50 font-medium"
+                        >
+                          <UserCheck className="w-4 h-4 text-slate-500" />
+                          <span>Hồ sơ sức khỏe của tôi</span>
+                        </Link>
+                        <Link
+                          href="/account#orders"
+                          onClick={() => setIsAccountDropdownOpen(false)}
+                          className="flex items-center gap-2 px-4 py-2 hover:bg-slate-50 font-medium"
+                        >
+                          <FileText className="w-4 h-4 text-slate-500" />
+                          <span>Đơn thuốc & Lịch sử mua hàng</span>
+                        </Link>
+                      </div>
+
+                      <div className="pt-1 border-t border-slate-100">
+                        <button
+                          onClick={() => {
+                            logout();
+                            setIsAccountDropdownOpen(false);
+                          }}
+                          className="w-full flex items-center gap-2 px-4 py-2 text-xs text-rose-600 hover:bg-rose-50 font-bold transition-colors"
+                        >
+                          <LogOut className="w-4 h-4" />
+                          <span>Đăng xuất tài khoản</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <div className="hidden 2xl:block text-left leading-none">
-                  <span className="text-[10px] text-slate-400 block font-normal">Thành viên</span>
-                  <span className="text-xs font-bold text-slate-800">Tài khoản</span>
-                </div>
-              </Link>
+              ) : (
+                <Link
+                  href="/login"
+                  className="hidden sm:flex items-center gap-2 p-2 rounded-xl text-slate-700 hover:bg-slate-100 transition-colors"
+                  title="Đăng nhập / Đăng ký"
+                >
+                  <div className="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center border border-slate-200/60 text-slate-600 hover:text-[#1250dc]">
+                    <User className="w-4 h-4" />
+                  </div>
+                  <div className="hidden 2xl:block text-left leading-none">
+                    <span className="text-[10px] text-slate-400 block font-normal">Thành viên</span>
+                    <span className="text-xs font-bold text-slate-800">Tài khoản</span>
+                  </div>
+                </Link>
+              )}
 
               {/* Cart Button with Count Badge */}
               <Link

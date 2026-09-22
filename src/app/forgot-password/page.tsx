@@ -1,230 +1,166 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import Link from "next/link";
-import { AuthLayout } from "@/components/auth/AuthLayout";
-import { FormField } from "@/components/auth/FormField";
-import { AuthButton } from "@/components/auth/AuthButton";
-import { AuthAlert } from "@/components/auth/AuthAlert";
-import { ForgotPasswordFormState, FormErrorState } from "@/types/auth";
-import { isValidIdentifier } from "@/lib/validation/auth";
-import { Mail, ArrowLeft, ArrowRight, RotateCcw, ShieldAlert, KeyRound } from "lucide-react";
-import { motion } from "framer-motion";
+import { useRouter } from "next/navigation";
+import { ArrowLeft, ArrowRight, KeyRound, CheckCircle2 } from "lucide-react";
+import { useAuth } from "@/lib/auth/auth-context";
 
 export default function ForgotPasswordPage() {
-  const [formData, setFormData] = useState<ForgotPasswordFormState>({
-    identifier: "",
-  });
+  const router = useRouter();
+  const { sendPhoneOtp } = useAuth();
 
-  const [errors, setErrors] = useState<FormErrorState>({});
-  const [touched, setTouched] = useState<boolean>(false);
-  const [generalError, setGeneralError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [isSent, setIsSent] = useState<boolean>(false);
-  const [resendCountdown, setResendCountdown] = useState<number>(60);
-  const [canResend, setCanResend] = useState<boolean>(false);
+  const [identifier, setIdentifier] = useState<string>("0901234567");
+  const [step, setStep] = useState<"input" | "otp">("input");
+  const [otp, setOtp] = useState<string[]>(["8", "4", "2", "6", "9", "1"]);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
-  // Countdown timer for resend
-  useEffect(() => {
-    let timer: NodeJS.Timeout;
-    if (isSent && resendCountdown > 0) {
-      timer = setTimeout(() => {
-        setResendCountdown((prev) => prev - 1);
-      }, 1000);
-    } else if (isSent && resendCountdown === 0) {
-      setCanResend(true);
-    }
-    return () => clearTimeout(timer);
-  }, [isSent, resendCountdown]);
-
-  const validate = (value: string) => {
-    const trimmed = value.trim();
-    if (!trimmed) {
-      return "Vui lòng nhập email hoặc số điện thoại đã đăng ký.";
-    }
-    if (!isValidIdentifier(trimmed)) {
-      return "Email hoặc số điện thoại chưa đúng định dạng.";
-    }
-    return undefined;
-  };
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { value } = e.target;
-    setFormData({ identifier: value });
-
-    if (touched) {
-      const error = validate(value);
-      setErrors({ identifier: error });
-    }
-    if (generalError) {
-      setGeneralError(null);
-    }
-  };
-
-  const handleBlur = () => {
-    setTouched(true);
-    const error = validate(formData.identifier);
-    setErrors({ identifier: error });
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    setTouched(true);
+    setErrorMsg(null);
 
-    const error = validate(formData.identifier);
-    if (error) {
-      setErrors({ identifier: error });
+    if (!identifier.trim()) {
+      setErrorMsg("Vui lòng nhập số điện thoại hoặc email.");
       return;
     }
 
-    setIsLoading(true);
-    setGeneralError(null);
+    setIsSubmitting(true);
+    await sendPhoneOtp(identifier);
+    setIsSubmitting(false);
 
-    setTimeout(() => {
-      setIsLoading(false);
-      setIsSent(true);
-      setResendCountdown(60);
-      setCanResend(false);
-    }, 900);
+    setStep("otp");
   };
 
-  const handleResend = () => {
-    if (!canResend) return;
-    setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
-      setResendCountdown(60);
-      setCanResend(false);
-    }, 600);
+  const handleVerifyOtp = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (otp.join("").length < 6) {
+      setErrorMsg("Vui lòng nhập đủ 6 chữ số OTP.");
+      return;
+    }
+    router.push("/reset-password");
   };
-
-  // Sent State (Interactive confirmation with countdown)
-  if (isSent) {
-    return (
-      <AuthLayout>
-        <motion.div
-          initial={{ opacity: 0, scale: 0.96 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-          className="text-center py-6 px-2 space-y-6 max-w-md mx-auto"
-        >
-          {/* Animated Mail Sent Icon */}
-          <div className="relative mx-auto w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center">
-            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-brand-blue-50 text-brand-blue-600 border border-brand-blue-200/80 flex items-center justify-center shadow-xs">
-              <Mail className="w-8 h-8 sm:w-10 sm:h-10 animate-pulse-slow" />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-              Kiểm tra hộp thư của bạn
-            </h2>
-            <p className="text-xs sm:text-sm text-slate-600 leading-relaxed font-normal">
-              Nếu thông tin <strong className="text-slate-800">{formData.identifier}</strong> khớp với tài khoản đã đăng ký trong hệ thống, H4CARE đã gửi hướng dẫn đặt lại mật khẩu.
-            </p>
-          </div>
-
-          {/* Security Note */}
-          <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 text-left text-xs text-slate-600 space-y-1">
-            <div className="flex items-center gap-1.5 font-semibold text-slate-800">
-              <ShieldAlert className="w-4 h-4 text-brand-blue-600" />
-              <span>Lưu ý bảo mật y tế</span>
-            </div>
-            <p className="text-[11px] text-slate-500 leading-normal">
-              Liên kết đặt lại mật khẩu có hiệu lực trong vòng 15 phút. Tuyệt đối không chia sẻ mã này cho bất kỳ ai.
-            </p>
-          </div>
-
-          {/* Action Row */}
-          <div className="space-y-3 pt-2">
-            <Link href="/login" className="block w-full">
-              <AuthButton rightIcon={<ArrowRight className="w-4 h-4" />}>
-                Quay lại Đăng nhập
-              </AuthButton>
-            </Link>
-
-            <div className="flex items-center justify-center gap-4 text-xs font-semibold text-slate-500">
-              <button
-                type="button"
-                onClick={handleResend}
-                disabled={!canResend || isLoading}
-                className="inline-flex items-center gap-1.5 hover:text-brand-blue-600 disabled:opacity-50 disabled:hover:text-slate-500 py-2 transition-colors"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-                <span>Gửi lại hướng dẫn</span>
-                {!canResend && <span className="font-normal">({resendCountdown}s)</span>}
-              </button>
-            </div>
-
-            {/* Quick Demo Shortcut Link to /reset-password for evaluation */}
-            <div className="pt-4 border-t border-slate-100">
-              <Link
-                href="/reset-password"
-                className="inline-flex items-center gap-1.5 text-xs text-brand-blue-600 hover:text-brand-blue-700 hover:underline font-medium"
-              >
-                <KeyRound className="w-3.5 h-3.5" />
-                <span>Mô phỏng bấm vào liên kết đặt lại mật khẩu →</span>
-              </Link>
-            </div>
-          </div>
-        </motion.div>
-      </AuthLayout>
-    );
-  }
 
   return (
-    <AuthLayout>
-      <div className="w-full max-w-md mx-auto space-y-6">
-        {/* Header Title */}
-        <div className="space-y-1.5 text-left">
-          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-            Quên mật khẩu?
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-500 font-normal">
-            Nhập email hoặc số điện thoại đã đăng ký để nhận hướng dẫn khôi phục mật khẩu.
-          </p>
-        </div>
+    <div className="min-h-screen flex flex-col justify-between bg-[#f4f6f9] text-slate-900">
+      <header className="bg-[#1250dc] text-white shadow-xs sticky top-0 z-30">
+        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+          <Link href="/" className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-white text-[#1250dc] font-black text-xl flex items-center justify-center shadow-xs">
+              H4
+            </div>
+            <div>
+              <span className="text-lg font-black tracking-tight block leading-none">H4CARE</span>
+              <span className="text-[10px] tracking-wider text-cyan-200 uppercase font-semibold">NHÀ THUỐC TRỰC TUYẾN</span>
+            </div>
+          </Link>
 
-        {generalError && <AuthAlert type="error" message={generalError} />}
-
-        {/* Forgot Form */}
-        <form onSubmit={handleSubmit} noValidate className="space-y-4">
-          <FormField
-            id="forgot-identifier"
-            name="identifier"
-            label="Email hoặc số điện thoại"
-            placeholder="nhathuoc@h4care.vn hoặc 0901234567"
-            value={formData.identifier}
-            onChange={handleChange}
-            onBlur={handleBlur}
-            error={touched ? errors.identifier : undefined}
-            leadingIcon={<Mail className="w-4 h-4" />}
-            autoComplete="username"
-            required
-          />
-
-          <div className="pt-2">
-            <AuthButton
-              isLoading={isLoading}
-              loadingText="Đang gửi hướng dẫn..."
-              rightIcon={<ArrowRight className="w-4 h-4" />}
-            >
-              Gửi hướng dẫn đặt lại mật khẩu
-            </AuthButton>
-          </div>
-        </form>
-
-        {/* Back to Login Link */}
-        <div className="text-center pt-2 select-none">
           <Link
             href="/login"
-            className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-slate-600 hover:text-brand-blue-600 transition-colors py-1"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-semibold transition-colors"
           >
-            <ArrowLeft className="w-4 h-4" />
-            <span>Quay lại đăng nhập</span>
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Đăng nhập</span>
           </Link>
         </div>
-      </div>
-    </AuthLayout>
+      </header>
+
+      <main className="flex-1 max-w-md w-full mx-auto p-4 sm:p-6 flex items-center justify-center">
+        <div className="w-full bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-slate-200">
+          
+          <div className="text-center mb-6">
+            <div className="w-14 h-14 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center mx-auto mb-3 shadow-xs text-[#1250dc]">
+              <KeyRound className="w-7 h-7" />
+            </div>
+            <h1 className="text-2xl font-black text-slate-900 tracking-tight">
+              Khôi phục quyền truy cập
+            </h1>
+            <p className="text-xs text-slate-500 mt-1">
+              Nhập thông tin tài khoản để nhận mã xác thực đặt lại mật khẩu
+            </p>
+          </div>
+
+          {errorMsg && (
+            <div className="mb-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold">
+              {errorMsg}
+            </div>
+          )}
+
+          {step === "input" ? (
+            <form onSubmit={handleSendOtp} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">Số điện thoại hoặc Email</label>
+                <input
+                  type="text"
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
+                  placeholder="0912 345 678 hoặc email..."
+                  className="w-full h-12 px-4 text-sm font-semibold rounded-xl border border-slate-300 text-slate-900 focus:outline-none focus:border-[#1250dc] focus:ring-3 focus:ring-blue-500/15"
+                  required
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full h-12 rounded-xl bg-[#1250dc] hover:bg-[#0d42b8] text-white text-sm font-bold shadow-md shadow-blue-600/20 active:scale-[0.99] transition-all flex items-center justify-center gap-2 disabled:opacity-70"
+              >
+                <span>{isSubmitting ? "Đang gửi OTP..." : "Gửi mã xác nhận"}</span>
+                {!isSubmitting && <ArrowRight className="w-4 h-4" />}
+              </button>
+
+              <div className="text-center pt-2 text-xs">
+                <Link href="/login" className="font-bold text-[#1250dc] hover:underline">← Quay lại Đăng nhập</Link>
+              </div>
+            </form>
+          ) : (
+            <form onSubmit={handleVerifyOtp} className="space-y-4">
+              <div className="p-3 bg-blue-50 border border-blue-100 rounded-xl text-xs text-blue-900 leading-relaxed">
+                Mã xác thực đã gửi tới <strong>{identifier}</strong>. Vui lòng kiểm tra tin nhắn.
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-2">Nhập mã OTP (6 số)</label>
+                <div className="grid grid-cols-6 gap-2">
+                  {otp.map((val, idx) => (
+                    <input
+                      key={idx}
+                      type="text"
+                      maxLength={1}
+                      value={val}
+                      onChange={(e) => {
+                        const newOtp = [...otp];
+                        newOtp[idx] = e.target.value.slice(-1);
+                        setOtp(newOtp);
+                      }}
+                      className="w-full h-12 text-center text-lg font-bold rounded-xl border border-slate-300 text-slate-900 focus:outline-none focus:border-[#1250dc]"
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                className="w-full h-12 rounded-xl bg-[#1250dc] hover:bg-[#0d42b8] text-white text-sm font-bold shadow-md shadow-blue-600/20 active:scale-[0.99] transition-all flex items-center justify-center gap-2"
+              >
+                <span>Xác nhận & Tiếp tục</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+
+              <div className="text-center pt-2 text-xs">
+                <button type="button" onClick={() => setStep("input")} className="font-bold text-[#1250dc] hover:underline">
+                  ← Đổi số điện thoại / email
+                </button>
+              </div>
+            </form>
+          )}
+
+        </div>
+      </main>
+
+      <footer className="bg-white border-t border-slate-200 py-4 px-4 text-xs text-slate-500 text-center">
+        <span>Hỗ trợ khách hàng: 1800 6868 (Miễn cước)</span>
+      </footer>
+    </div>
   );
 }

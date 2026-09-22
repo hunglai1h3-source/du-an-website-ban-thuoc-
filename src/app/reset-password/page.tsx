@@ -2,249 +2,130 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { AuthLayout } from "@/components/auth/AuthLayout";
-import { PasswordField } from "@/components/auth/PasswordField";
-import { PasswordStrength } from "@/components/auth/PasswordStrength";
-import { AuthButton } from "@/components/auth/AuthButton";
-import { AuthAlert } from "@/components/auth/AuthAlert";
-import { AuthSuccessState } from "@/components/auth/AuthSuccessState";
-import { ResetPasswordFormState, FormErrorState } from "@/types/auth";
-import { evaluatePasswordStrength } from "@/lib/validation/auth";
-import { ArrowRight, KeyRound, AlertTriangle, RefreshCw } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ArrowLeft, ArrowRight, Lock, CheckCircle2 } from "lucide-react";
 
 export default function ResetPasswordPage() {
-  const [formData, setFormData] = useState<ResetPasswordFormState>({
-    newPassword: "",
-    confirmPassword: "",
-  });
-
-  const [errors, setErrors] = useState<FormErrorState>({});
-  const [touched, setTouched] = useState<{ [key: string]: boolean }>({});
-  const [generalError, setGeneralError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [isSuccess, setIsSuccess] = useState<boolean>(false);
-  const [isExpiredDemo, setIsExpiredDemo] = useState<boolean>(false);
-
-  const validateField = (name: keyof ResetPasswordFormState, value: string, currentVals = formData) => {
-    let error: string | undefined = undefined;
-
-    if (name === "newPassword") {
-      if (!value) {
-        error = "Vui lòng nhập mật khẩu mới.";
-      } else if (value.length < 8) {
-        error = "Mật khẩu cần tối thiểu 8 ký tự.";
-      }
-    }
-
-    if (name === "confirmPassword") {
-      if (!value) {
-        error = "Vui lòng xác nhận mật khẩu mới.";
-      } else if (value !== currentVals.newPassword) {
-        error = "Mật khẩu xác nhận chưa khớp.";
-      }
-    }
-
-    return error;
-  };
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    const newForm = { ...formData, [name]: value };
-    setFormData(newForm);
-
-    if (touched[name]) {
-      const error = validateField(name as keyof ResetPasswordFormState, value, newForm);
-      setErrors((prev) => ({ ...prev, [name]: error }));
-    }
-
-    if (name === "newPassword" && touched.confirmPassword && formData.confirmPassword) {
-      const confirmError = validateField("confirmPassword", formData.confirmPassword, newForm);
-      setErrors((prev) => ({ ...prev, confirmPassword: confirmError }));
-    }
-
-    if (generalError) {
-      setGeneralError(null);
-    }
-  };
-
-  const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setTouched((prev) => ({ ...prev, [name]: true }));
-    const error = validateField(name as keyof ResetPasswordFormState, value);
-    setErrors((prev) => ({ ...prev, [name]: error }));
-  };
+  const router = useRouter();
+  const [password, setPassword] = useState<string>("H4careNew@2026");
+  const [confirmPassword, setConfirmPassword] = useState<string>("H4careNew@2026");
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMsg(null);
 
-    setTouched({ newPassword: true, confirmPassword: true });
-
-    const newPasswordError = validateField("newPassword", formData.newPassword);
-    const confirmPasswordError = validateField("confirmPassword", formData.confirmPassword);
-
-    if (newPasswordError || confirmPasswordError) {
-      setErrors({
-        newPassword: newPasswordError,
-        confirmPassword: confirmPasswordError,
-      });
+    if (password.length < 6) {
+      setErrorMsg("Mật khẩu mới tối thiểu 6 ký tự.");
+      return;
+    }
+    if (password !== confirmPassword) {
+      setErrorMsg("Mật khẩu xác nhận không khớp.");
       return;
     }
 
-    const strength = evaluatePasswordStrength(formData.newPassword);
-    if (strength.score < 2) {
-      setErrors((prev) => ({
-        ...prev,
-        newPassword: "Mật khẩu quá yếu. Vui lòng bổ sung thêm chữ hoa, số hoặc ký tự đặc biệt.",
-      }));
-      return;
-    }
-
-    setIsLoading(true);
-    setGeneralError(null);
-
+    setIsSubmitting(true);
     setTimeout(() => {
-      setIsLoading(false);
-      setIsSuccess(true);
-    }, 900);
+      setIsSubmitting(false);
+      setSuccessMsg("Cập nhật mật khẩu thành công! Đang chuyển về Đăng nhập...");
+      setTimeout(() => {
+        router.push("/login");
+      }, 1000);
+    }, 400);
   };
 
-  const isMatched =
-    Boolean(formData.newPassword) &&
-    Boolean(formData.confirmPassword) &&
-    formData.newPassword === formData.confirmPassword;
+  return (
+    <div className="min-h-screen flex flex-col justify-between bg-[#f4f6f9] text-slate-900">
+      <header className="bg-[#1250dc] text-white shadow-xs sticky top-0 z-30">
+        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+          <Link href="/" className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-white text-[#1250dc] font-black text-xl flex items-center justify-center shadow-xs">
+              H4
+            </div>
+            <div>
+              <span className="text-lg font-black tracking-tight block leading-none">H4CARE</span>
+              <span className="text-[10px] tracking-wider text-cyan-200 uppercase font-semibold">NHÀ THUỐC TRỰC TUYẾN</span>
+            </div>
+          </Link>
 
-  // Expired Link Fallback State
-  if (isExpiredDemo) {
-    return (
-      <AuthLayout>
-        <div className="w-full max-w-md mx-auto text-center py-6 px-2 space-y-6">
-          <div className="mx-auto w-16 h-16 rounded-full bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center">
-            <AlertTriangle className="w-8 h-8" />
-          </div>
+          <Link
+            href="/login"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-semibold transition-colors"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Đăng nhập</span>
+          </Link>
+        </div>
+      </header>
 
-          <div className="space-y-2">
-            <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-              Liên kết đã hết hạn
-            </h2>
-            <p className="text-xs sm:text-sm text-slate-600 leading-relaxed font-normal">
-              Vì lý do an toàn bảo mật y tế, liên kết đặt lại mật khẩu chỉ có giá trị trong 15 phút và đã quá thời hạn sử dụng.
+      <main className="flex-1 max-w-md w-full mx-auto p-4 sm:p-6 flex items-center justify-center">
+        <div className="w-full bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-slate-200">
+          
+          <div className="text-center mb-6">
+            <div className="w-14 h-14 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center mx-auto mb-3 shadow-xs text-[#1250dc]">
+              <Lock className="w-7 h-7" />
+            </div>
+            <h1 className="text-2xl font-black text-slate-900 tracking-tight">
+              Tạo mật khẩu mới
+            </h1>
+            <p className="text-xs text-slate-500 mt-1">
+              Thiết lập mật khẩu bảo vệ hồ sơ đơn thuốc của bạn
             </p>
           </div>
 
-          <div className="space-y-3 pt-2">
-            <Link href="/forgot-password" className="block w-full">
-              <AuthButton rightIcon={<RefreshCw className="w-4 h-4" />}>
-                Yêu cầu gửi liên kết mới
-              </AuthButton>
-            </Link>
+          {errorMsg && (
+            <div className="mb-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold">
+              {errorMsg}
+            </div>
+          )}
+          {successMsg && (
+            <div className="mb-4 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+              <span>{successMsg}</span>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">Mật khẩu mới</label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full h-12 px-4 text-sm font-semibold rounded-xl border border-slate-300 text-slate-900 focus:outline-none focus:border-[#1250dc] focus:ring-3 focus:ring-blue-500/15"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">Xác nhận lại mật khẩu mới</label>
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="w-full h-12 px-4 text-sm font-semibold rounded-xl border border-slate-300 text-slate-900 focus:outline-none focus:border-[#1250dc] focus:ring-3 focus:ring-blue-500/15"
+                required
+              />
+            </div>
 
             <button
-              type="button"
-              onClick={() => setIsExpiredDemo(false)}
-              className="text-xs font-semibold text-slate-500 hover:text-brand-blue-600 transition-colors py-2"
+              type="submit"
+              disabled={isSubmitting}
+              className="w-full h-12 rounded-xl bg-[#1250dc] hover:bg-[#0d42b8] text-white text-sm font-bold shadow-md shadow-blue-600/20 active:scale-[0.99] transition-all flex items-center justify-center gap-2 disabled:opacity-70"
             >
-              ← Quay lại thử nghiệm nhập mật khẩu mới
+              <span>{isSubmitting ? "Đang lưu..." : "Lưu mật khẩu & Đăng nhập"}</span>
+              {!isSubmitting && <ArrowRight className="w-4 h-4" />}
             </button>
-          </div>
+          </form>
+
         </div>
-      </AuthLayout>
-    );
-  }
+      </main>
 
-  // Success State
-  if (isSuccess) {
-    return (
-      <AuthLayout>
-        <AuthSuccessState
-          title="Mật khẩu đã được cập nhật"
-          description="Mật khẩu tài khoản H4CARE của bạn đã được thay đổi thành công. Bạn có thể sử dụng mật khẩu mới này để đăng nhập ngay bây giờ."
-          primaryActionText="Đăng nhập ngay"
-          primaryActionHref="/login"
-        />
-      </AuthLayout>
-    );
-  }
-
-  return (
-    <AuthLayout>
-      <div className="w-full max-w-md mx-auto space-y-6">
-        {/* Header Title */}
-        <div className="space-y-1.5 text-left">
-          <div className="inline-flex items-center gap-1.5 text-[11px] font-bold text-brand-blue-700 bg-brand-blue-50 px-2.5 py-0.5 rounded-full border border-brand-blue-100">
-            <KeyRound className="w-3.5 h-3.5 text-brand-blue-600" />
-            Bảo Mật Tài Khoản
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-            Đặt lại mật khẩu mới
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-500 font-normal">
-            Thiết lập mật khẩu an toàn và dễ nhớ để bảo vệ tài khoản H4CARE của bạn.
-          </p>
-        </div>
-
-        {generalError && <AuthAlert type="error" message={generalError} />}
-
-        {/* Reset Form */}
-        <form onSubmit={handleSubmit} noValidate className="space-y-4">
-          <div className="space-y-2">
-            <PasswordField
-              id="reset-newPassword"
-              name="newPassword"
-              label="Mật khẩu mới"
-              placeholder="Tối thiểu 8 ký tự, có chữ hoa, số"
-              value={formData.newPassword}
-              onChange={handleChange}
-              onBlur={handleBlur}
-              error={touched.newPassword ? errors.newPassword : undefined}
-              autoComplete="new-password"
-              required
-            />
-            <PasswordStrength password={formData.newPassword} showChecklist={true} />
-          </div>
-
-          <div className="space-y-1">
-            <PasswordField
-              id="reset-confirmPassword"
-              name="confirmPassword"
-              label="Xác nhận mật khẩu mới"
-              placeholder="Nhập lại chính xác mật khẩu mới"
-              value={formData.confirmPassword}
-              onChange={handleChange}
-              onBlur={handleBlur}
-              error={touched.confirmPassword ? errors.confirmPassword : undefined}
-              success={isMatched}
-              autoComplete="new-password"
-              required
-            />
-            {isMatched && (
-              <p className="text-[11px] text-emerald-600 font-medium select-none pl-1">
-                ✓ Mật khẩu xác nhận khớp hoàn toàn
-              </p>
-            )}
-          </div>
-
-          <div className="pt-3">
-            <AuthButton
-              isLoading={isLoading}
-              loadingText="Đang cập nhật mật khẩu..."
-              rightIcon={<ArrowRight className="w-4 h-4" />}
-            >
-              Cập nhật mật khẩu
-            </AuthButton>
-          </div>
-        </form>
-
-        {/* Demo Toggle for Link Expired Edge Case */}
-        <div className="pt-4 border-t border-slate-100 text-center select-none">
-          <button
-            type="button"
-            onClick={() => setIsExpiredDemo(true)}
-            className="text-[11px] text-slate-400 hover:text-amber-600 hover:underline transition-colors"
-          >
-            [Mô phỏng trường hợp liên kết token hết hạn]
-          </button>
-        </div>
-      </div>
-    </AuthLayout>
+      <footer className="bg-white border-t border-slate-200 py-4 px-4 text-xs text-slate-500 text-center">
+        <span>Hỗ trợ kỹ thuật: 1800 6868</span>
+      </footer>
+    </div>
   );
 }
