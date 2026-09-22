@@ -4,8 +4,21 @@ import React, { useState, useEffect, useRef, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth/auth-context";
-import { ArrowLeft, ArrowRight, ShieldCheck, PhoneCall, Lock, Sparkles, CheckCircle2 } from "lucide-react";
-import { H4CareLogo } from "@/components/branding/H4CareLogo";
+import {
+  ArrowLeft,
+  ArrowRight,
+  ShieldCheck,
+  PhoneCall,
+  Lock,
+  CheckCircle2,
+  X,
+  MessageSquare,
+  Smartphone,
+  Award,
+  Zap,
+  FileText,
+  UserCheck,
+} from "lucide-react";
 
 function LoginForm() {
   const router = useRouter();
@@ -14,7 +27,6 @@ function LoginForm() {
 
   const { user, isAuthenticated, loginWithPhone, loginWithPassword, sendPhoneOtp } = useAuth();
 
-  // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated) {
       router.push(redirectUrl);
@@ -24,12 +36,34 @@ function LoginForm() {
   // View state: 'phone' | 'otp' | 'password'
   const [viewState, setViewState] = useState<"phone" | "otp" | "password">("phone");
 
-  // Phone flow state
-  const [phone, setPhone] = useState<string>("0901234567");
+  // Dynamic Time Greeting
+  const [greeting, setGreeting] = useState<{ icon: string; text: string }>({
+    icon: "☀️",
+    text: "Chào mừng bạn đến với H4CARE",
+  });
+
+  useEffect(() => {
+    const hour = new Date().getHours();
+    if (hour < 12) {
+      setGreeting({ icon: "☀️", text: "Chào buổi sáng, chúc bạn một ngày dồi dào sức khỏe!" });
+    } else if (hour < 18) {
+      setGreeting({ icon: "🌤️", text: "Chào buổi chiều, mua sắm thuốc chính hãng tại H4CARE" });
+    } else {
+      setGreeting({ icon: "🌙", text: "Chào buổi tối, Dược sĩ H4CARE luôn sẵn sàng hỗ trợ" });
+    }
+  }, []);
+
+  // Phone flow state with smart formatting
+  const [rawPhone, setRawPhone] = useState<string>("0901234567");
+  const [formattedPhone, setFormattedPhone] = useState<string>("0901 234 567");
+  const [carrier, setCarrier] = useState<string>("MobiFone");
+  const [otpChannel, setOtpChannel] = useState<"zalo" | "sms">("zalo");
+
+  // 6-digit OTP state
   const [otpValues, setOtpValues] = useState<string[]>(["8", "4", "2", "6", "9", "1"]);
   const otpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
-  // Password flow state
+  // Password state
   const [identifier, setIdentifier] = useState<string>("khachhang@h4care.vn");
   const [password, setPassword] = useState<string>("H4carePass@2026");
 
@@ -38,6 +72,37 @@ function LoginForm() {
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [timer, setTimer] = useState<number>(60);
+
+  // Phone formatter
+  const handlePhoneInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let val = e.target.value.replace(/\D/g, "");
+    if (val.length > 10) val = val.substring(0, 10);
+    setRawPhone(val);
+
+    // Format 4-3-3
+    let formatted = "";
+    if (val.length > 0) formatted += val.substring(0, 4);
+    if (val.length > 4) formatted += " " + val.substring(4, 7);
+    if (val.length > 7) formatted += " " + val.substring(7, 10);
+    setFormattedPhone(formatted);
+
+    // Carrier detection
+    if (val.startsWith("090") || val.startsWith("093") || val.startsWith("070") || val.startsWith("079")) {
+      setCarrier("MobiFone");
+    } else if (val.startsWith("098") || val.startsWith("097") || val.startsWith("086") || val.startsWith("03")) {
+      setCarrier("Viettel");
+    } else if (val.startsWith("091") || val.startsWith("094") || val.startsWith("088")) {
+      setCarrier("VinaPhone");
+    } else {
+      setCarrier("Việt Nam (+84)");
+    }
+  };
+
+  const handleClearPhone = () => {
+    setRawPhone("");
+    setFormattedPhone("");
+    setCarrier("Việt Nam (+84)");
+  };
 
   // Countdown timer for OTP
   useEffect(() => {
@@ -50,25 +115,26 @@ function LoginForm() {
     return () => clearInterval(interval);
   }, [viewState, timer]);
 
-  // Handle phone submission -> send OTP
+  // Submit phone -> send OTP
   const handlePhoneSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
 
-    const cleanPhone = phone.trim();
-    if (!cleanPhone || cleanPhone.length < 9) {
+    if (!rawPhone || rawPhone.length < 9) {
       setErrorMsg("Vui lòng nhập số điện thoại hợp lệ (9 - 10 chữ số).");
       return;
     }
 
     setIsSubmitting(true);
-    const res = await sendPhoneOtp(cleanPhone);
+    const res = await sendPhoneOtp(rawPhone);
     setIsSubmitting(false);
 
     if (res.success) {
       setViewState("otp");
       setTimer(60);
-      setSuccessMsg(`Mã xác thực OTP đã được gửi tới số ${cleanPhone}`);
+      setSuccessMsg(
+        `Mã xác thực OTP đã được gửi qua ${otpChannel === "zalo" ? "Zalo ZNS" : "Tin nhắn SMS"} tới số ${formattedPhone}`
+      );
     } else {
       setErrorMsg(res.error || "Gửi OTP không thành công.");
     }
@@ -93,6 +159,13 @@ function LoginForm() {
     }
   };
 
+  // Quick paste OTP
+  const handleQuickPasteOtp = () => {
+    const defaultCode = ["8", "4", "2", "6", "9", "1"];
+    setOtpValues(defaultCode);
+    otpInputRefs.current[5]?.focus();
+  };
+
   // Submit OTP
   const handleOtpSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -105,11 +178,11 @@ function LoginForm() {
     }
 
     setIsSubmitting(true);
-    const res = await loginWithPhone(phone, otp);
+    const res = await loginWithPhone(rawPhone, otp);
     setIsSubmitting(false);
 
     if (res.success) {
-      setSuccessMsg("Xác thực thành công! Đang chuyển hướng...");
+      setSuccessMsg("Xác thực thành công! Đang chuyển hướng vào nhà thuốc...");
       setTimeout(() => {
         router.push(redirectUrl);
       }, 600);
@@ -137,47 +210,44 @@ function LoginForm() {
     }
   };
 
-  // Resend OTP
-  const handleResendOtp = async () => {
-    if (timer > 0) return;
-    setErrorMsg(null);
-    await sendPhoneOtp(phone);
-    setTimer(60);
-    setSuccessMsg("Mã OTP mới đã được gửi lại!");
-  };
-
   return (
     <div className="min-h-screen flex flex-col justify-between bg-[#f4f6f9] text-slate-900">
       
-      {/* ================= TOP LONG CHAU TRUST BAR ================= */}
+      {/* ================= TOP LONG CHÂU 2.0 TRUST BAR ================= */}
       <header className="bg-[#1250dc] text-white shadow-xs sticky top-0 z-30">
         {/* Micro Bar */}
         <div className="border-b border-white/10 text-xs py-1.5 px-4 hidden sm:block">
           <div className="max-w-6xl mx-auto flex items-center justify-between text-[11px] text-white/90">
             <div className="flex items-center gap-4">
-              <span>Cam kết 100% thuốc chính hãng</span>
+              <span className="flex items-center gap-1 font-medium">
+                <ShieldCheck className="w-3.5 h-3.5 text-cyan-300" />
+                100% Thuốc chính hãng • Chuẩn GPP Bộ Y Tế
+              </span>
               <span>•</span>
-              <span>Chuẩn GPP Bộ Y Tế</span>
+              <span>Bảo quản chuẩn GSP • Giao hỏa tốc 2 giờ</span>
               <span>•</span>
-              <span>Bảo quản GSP giao nhanh 2 giờ</span>
+              <span>Đổi trả 30 ngày tận nhà</span>
             </div>
             <div>
-              <a href="tel:18006868" className="hover:underline font-bold flex items-center gap-1.5">
+              <a href="tel:18006868" className="hover:underline font-extrabold flex items-center gap-1.5 text-white">
                 <PhoneCall className="w-3 h-3 text-cyan-300" />
-                <span>Tư vấn Dược sĩ miễn cước: 1800 6868</span>
+                <span>Tổng đài Dược sĩ: 1800 6868 (Miễn phí)</span>
               </a>
             </div>
           </div>
         </div>
 
-        {/* Main Brand Bar */}
+        {/* Main Bar */}
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-white text-[#1250dc] font-black text-xl flex items-center justify-center shadow-xs">
+            <div className="w-10 h-10 rounded-2xl bg-white text-[#1250dc] font-black text-xl flex items-center justify-center shadow-xs">
               H4
             </div>
             <div>
-              <span className="text-lg font-black tracking-tight block leading-none">H4CARE</span>
+              <div className="flex items-center gap-2">
+                <span className="text-xl font-black tracking-tight leading-none">H4CARE</span>
+                <span className="px-1.5 py-0.5 text-[9px] font-extrabold rounded-md bg-white/20 text-white">PRO 2.0</span>
+              </div>
               <span className="text-[10px] tracking-wider text-cyan-200 uppercase font-semibold">NHÀ THUỐC TRỰC TUYẾN</span>
             </div>
           </Link>
@@ -192,25 +262,29 @@ function LoginForm() {
         </div>
       </header>
 
+      {/* ================= MAIN CARD CONTAINER ================= */}
+      <main className="flex-1 max-w-md w-full mx-auto p-4 sm:p-6 lg:p-8 flex flex-col justify-center">
+        
+        <div className="w-full bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-slate-200/90 relative overflow-hidden">
+          {/* Top Blue Accent */}
+          <div className="absolute top-0 inset-x-0 h-1.5 bg-gradient-to-r from-blue-600 via-cyan-500 to-blue-600"></div>
 
-      {/* ================= MAIN AUTH CARD (LONG CHAU STYLE) ================= */}
-      <main className="flex-1 max-w-md w-full mx-auto p-4 sm:p-6 flex items-center justify-center">
-        <div className="w-full bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-slate-200">
-          
-          {/* Card Top Icon */}
-          <div className="text-center mb-6">
-            <div className="w-14 h-14 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center mx-auto mb-3 shadow-xs">
-              <ShieldCheck className="w-7 h-7 text-[#1250dc]" />
+          {/* Time Greeting & Headline */}
+          <div className="text-center mb-6 pt-1">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 text-[#1250dc] text-xs font-bold mb-3 border border-blue-100/80">
+              <span>{greeting.icon}</span>
+              <span>{greeting.text}</span>
             </div>
+
             <h1 className="text-2xl font-black text-slate-900 tracking-tight">
               Đăng nhập hoặc Đăng ký
             </h1>
             <p className="text-xs text-slate-500 mt-1">
-              Nhập số điện thoại để mua thuốc, tích điểm & nhận tư vấn Dược sĩ
+              Nhập số điện thoại để mua thuốc, tích điểm & kết nối Dược sĩ
             </p>
           </div>
 
-          {/* Feedback Messages */}
+          {/* Alerts */}
           {errorMsg && (
             <div className="mb-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold">
               {errorMsg}
@@ -223,43 +297,106 @@ function LoginForm() {
             </div>
           )}
 
-          {/* ================= STEP 1: ENTER PHONE NUMBER ================= */}
+          {/* ================= STEP 1: PHONE INPUT (LONG CHÂU 2.0) ================= */}
           {viewState === "phone" && (
             <form onSubmit={handlePhoneSubmit} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">Số điện thoại của bạn</label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-bold text-slate-700">Số điện thoại của bạn</label>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-50 text-[#1250dc] border border-blue-100">
+                    {carrier}
+                  </span>
+                </div>
+
                 <div className="relative flex items-center">
-                  <span className="absolute left-3 text-xs font-bold text-slate-600 border-r border-slate-200 pr-2 flex items-center gap-1 select-none">
+                  <span className="absolute left-3 text-xs font-bold text-slate-600 border-r border-slate-200 pr-2.5 flex items-center gap-1 select-none">
                     <span>🇻🇳</span> +84
                   </span>
                   <input
                     type="tel"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="Ví dụ: 0912 345 678"
-                    className="w-full h-12 pl-20 pr-4 text-sm font-semibold rounded-xl border border-slate-300 text-slate-900 focus:outline-none focus:border-[#1250dc] focus:ring-3 focus:ring-blue-500/15 transition-all"
+                    value={formattedPhone}
+                    onChange={handlePhoneInputChange}
+                    placeholder="0912 345 678"
+                    className="w-full h-12 pl-20 pr-10 text-sm font-bold rounded-xl border border-slate-300 text-slate-900 focus:outline-none focus:border-[#1250dc] focus:ring-3 focus:ring-blue-500/15 tracking-wide transition-all"
                     required
                   />
+                  {rawPhone && (
+                    <button
+                      type="button"
+                      onClick={handleClearPhone}
+                      className="absolute right-3 text-slate-400 hover:text-slate-600 p-1"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+                <span className="text-[11px] text-slate-400 mt-1 block">Tự động nhận diện hội viên cũ hoặc tạo mới hồ sơ</span>
+              </div>
+
+              {/* Channel Selector: Zalo ZNS vs SMS */}
+              <div>
+                <label className="block text-[11px] font-bold text-slate-600 mb-1.5">Kênh nhận mã OTP:</label>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <label
+                    className={`flex items-center gap-2 p-2.5 rounded-xl border cursor-pointer font-bold transition-colors ${
+                      otpChannel === "zalo"
+                        ? "border-blue-200 bg-blue-50/80 text-[#1250dc]"
+                        : "border-slate-200 hover:bg-slate-50 text-slate-700"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="otp-channel"
+                      value="zalo"
+                      checked={otpChannel === "zalo"}
+                      onChange={() => setOtpChannel("zalo")}
+                      className="text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="flex items-center gap-1.5">
+                      <span className="w-4 h-4 rounded bg-[#0068ff] text-white text-[9px] font-black flex items-center justify-center">Z</span>
+                      <span>Zalo ZNS (1s)</span>
+                    </span>
+                  </label>
+
+                  <label
+                    className={`flex items-center gap-2 p-2.5 rounded-xl border cursor-pointer font-bold transition-colors ${
+                      otpChannel === "sms"
+                        ? "border-blue-200 bg-blue-50/80 text-[#1250dc]"
+                        : "border-slate-200 hover:bg-slate-50 text-slate-700"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="otp-channel"
+                      value="sms"
+                      checked={otpChannel === "sms"}
+                      onChange={() => setOtpChannel("sms")}
+                      className="text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="flex items-center gap-1.5">
+                      <Smartphone className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Tin nhắn SMS</span>
+                    </span>
+                  </label>
                 </div>
               </div>
 
-              {/* Long Chau Blue Submit Button */}
               <button
                 type="submit"
                 disabled={isSubmitting}
                 className="w-full h-12 rounded-xl bg-[#1250dc] hover:bg-[#0d42b8] text-white text-sm font-bold shadow-md shadow-blue-600/20 active:scale-[0.99] transition-all flex items-center justify-center gap-2 disabled:opacity-70"
               >
-                <span>{isSubmitting ? "Đang gửi OTP..." : "Tiếp tục"}</span>
+                <span>{isSubmitting ? "Đang gửi OTP..." : "Tiếp tục bằng mã OTP"}</span>
                 {!isSubmitting && <ArrowRight className="w-4 h-4" />}
               </button>
 
               {/* Divider */}
-              <div className="relative flex items-center justify-center pt-2">
+              <div className="relative flex items-center justify-center pt-1">
                 <div className="border-t border-slate-200 w-full"></div>
                 <span className="bg-white px-3 text-[11px] text-slate-400 font-medium uppercase tracking-wider">hoặc</span>
               </div>
 
-              {/* Secondary Login Options */}
+              {/* Secondary Alternatives */}
               <div className="space-y-2">
                 <button
                   type="button"
@@ -298,19 +435,18 @@ function LoginForm() {
                     className="h-10 rounded-xl border border-blue-200 bg-blue-50/50 hover:bg-blue-100/50 text-xs font-bold text-blue-800 flex items-center justify-center gap-2 transition-colors"
                   >
                     <span className="w-4 h-4 rounded bg-[#0068ff] text-white text-[9px] font-black flex items-center justify-center">Z</span>
-                    <span>Zalo</span>
+                    <span>Zalo Login</span>
                   </button>
                 </div>
               </div>
 
-              {/* Long Chau Legal Note */}
-              <p className="text-[11px] text-slate-400 text-center leading-relaxed pt-2">
-                Bằng việc tiếp tục, bạn đồng ý với <Link href="/terms" className="text-[#1250dc] hover:underline font-medium">Điều khoản dịch vụ</Link> và <Link href="/privacy" className="text-[#1250dc] hover:underline font-medium">Chính sách bảo mật đơn thuốc</Link> của H4CARE.
+              <p className="text-[11px] text-slate-400 text-center leading-relaxed pt-1">
+                Bằng việc tiếp tục, bạn đồng ý với <Link href="/terms" className="text-[#1250dc] hover:underline font-semibold">Điều khoản dịch vụ</Link> và <Link href="/privacy" className="text-[#1250dc] hover:underline font-semibold">Chính sách bảo mật đơn thuốc</Link> của H4CARE.
               </p>
             </form>
           )}
 
-          {/* ================= STEP 2: ENTER OTP CODE ================= */}
+          {/* ================= STEP 2: OTP INPUT (WITH QUICK PASTE) ================= */}
           {viewState === "otp" && (
             <form onSubmit={handleOtpSubmit} className="space-y-5">
               <div className="flex items-center justify-between">
@@ -328,12 +464,27 @@ function LoginForm() {
                 <span className="text-[11px] text-slate-400">Bước 2/2</span>
               </div>
 
-              <div className="p-3.5 bg-blue-50/80 border border-blue-100 rounded-2xl text-xs text-blue-900 leading-relaxed">
-                Mã xác thực 6 chữ số đã được gửi qua tin nhắn SMS tới số <strong className="text-[#1250dc] font-extrabold">{phone}</strong>.
+              <div className="p-3.5 bg-blue-50/90 border border-blue-100 rounded-2xl text-xs text-blue-900 flex items-start gap-2.5">
+                <div className="w-5 h-5 rounded-md bg-[#1250dc] text-white font-black text-[10px] flex items-center justify-center shrink-0 mt-0.5">
+                  ✓
+                </div>
+                <div>
+                  Mã OTP 6 số đã được gửi qua <strong className="text-[#1250dc]">{otpChannel === "zalo" ? "Zalo ZNS" : "Tin nhắn SMS"}</strong> tới số <strong className="text-slate-900 font-extrabold">{formattedPhone}</strong>.
+                </div>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-2">Nhập mã OTP</label>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-xs font-bold text-slate-700">Nhập mã OTP</label>
+                  <button
+                    type="button"
+                    onClick={handleQuickPasteOtp}
+                    className="text-[11px] font-bold text-[#1250dc] hover:underline"
+                  >
+                    Dán mã nhanh (842691)
+                  </button>
+                </div>
+
                 <div className="grid grid-cols-6 gap-2">
                   {otpValues.map((val, idx) => (
                     <input
@@ -347,7 +498,7 @@ function LoginForm() {
                       value={val}
                       onChange={(e) => handleOtpChange(idx, e.target.value)}
                       onKeyDown={(e) => handleOtpKeyDown(idx, e)}
-                      className="w-full h-12 text-center text-lg font-bold rounded-xl border border-slate-300 text-slate-900 focus:outline-none focus:border-[#1250dc] focus:ring-3 focus:ring-blue-500/15"
+                      className="w-full h-12 text-center text-lg font-black rounded-xl border border-slate-300 text-slate-900 focus:outline-none focus:border-[#1250dc] focus:ring-3 focus:ring-blue-500/15"
                     />
                   ))}
                 </div>
@@ -358,13 +509,19 @@ function LoginForm() {
                 disabled={isSubmitting}
                 className="w-full h-12 rounded-xl bg-[#1250dc] hover:bg-[#0d42b8] text-white text-sm font-bold shadow-md shadow-blue-600/20 active:scale-[0.99] transition-all flex items-center justify-center gap-2 disabled:opacity-70"
               >
-                <span>{isSubmitting ? "Đang kiểm tra..." : "Xác nhận & Đăng nhập"}</span>
+                <span>{isSubmitting ? "Đang kiểm tra..." : "Xác nhận & Vào nhà thuốc"}</span>
+                {!isSubmitting && <ArrowRight className="w-4 h-4" />}
               </button>
 
               <div className="flex items-center justify-between text-xs text-slate-500 pt-1">
                 <button
                   type="button"
-                  onClick={handleResendOtp}
+                  onClick={async () => {
+                    if (timer > 0) return;
+                    await sendPhoneOtp(rawPhone);
+                    setTimer(60);
+                    setSuccessMsg("Mã OTP mới đã được gửi lại!");
+                  }}
                   disabled={timer > 0}
                   className={`font-bold ${timer === 0 ? "text-[#1250dc] hover:underline cursor-pointer" : "text-slate-400 cursor-not-allowed"}`}
                 >
@@ -438,34 +595,64 @@ function LoginForm() {
 
         </div>
 
-        {/* 3 Long Chau Trust Badges underneath */}
-        <div className="mt-6 grid grid-cols-3 gap-2 text-center text-[11px] text-slate-500">
-          <div className="p-2.5 bg-white rounded-2xl border border-slate-200/80 shadow-xs">
-            <span className="font-bold text-slate-900 block text-xs">100% Chính hãng</span>
-            <span>Thuốc chuẩn GPP</span>
+        {/* 3 MEMBER PERKS LONG CHÂU 2.0 (ĐẶC QUYỀN THỰC TẾ) */}
+        <div className="mt-5 grid grid-cols-3 gap-2 text-center text-xs">
+          <div className="p-3 bg-white rounded-2xl border border-slate-200/90 shadow-2xs">
+            <div className="w-7 h-7 rounded-lg bg-blue-50 text-[#1250dc] flex items-center justify-center mx-auto mb-1 font-black text-xs">
+              %
+            </div>
+            <span className="font-extrabold text-slate-900 block text-[11px]">Tích lũy 2%</span>
+            <span className="text-[10px] text-slate-500 leading-tight block">Trừ thẳng đơn sau</span>
           </div>
-          <div className="p-2.5 bg-white rounded-2xl border border-slate-200/80 shadow-xs">
-            <span className="font-bold text-slate-900 block text-xs">Giao trong 2h</span>
-            <span>Bảo quản chuẩn GSP</span>
+
+          <div className="p-3 bg-white rounded-2xl border border-slate-200/90 shadow-2xs">
+            <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-1 font-black text-xs">
+              ⚡
+            </div>
+            <span className="font-extrabold text-slate-900 block text-[11px]">Giao nhanh 2h</span>
+            <span className="text-[10px] text-slate-500 leading-tight block">Freeship từ 300k</span>
           </div>
-          <div className="p-2.5 bg-white rounded-2xl border border-slate-200/80 shadow-xs">
-            <span className="font-bold text-slate-900 block text-xs">Dược sĩ 1800 6868</span>
-            <span>Tư vấn miễn cước</span>
+
+          <div className="p-3 bg-white rounded-2xl border border-slate-200/90 shadow-2xs">
+            <div className="w-7 h-7 rounded-lg bg-cyan-50 text-cyan-600 flex items-center justify-center mx-auto mb-1 font-black text-xs">
+              📋
+            </div>
+            <span className="font-extrabold text-slate-900 block text-[11px]">Sổ toa thuốc</span>
+            <span className="text-[10px] text-slate-500 leading-tight block">Lưu đơn trọn đời</span>
           </div>
+        </div>
+
+        {/* Live Pharmacist Helpline Pill */}
+        <div className="mt-3.5 p-2.5 sm:p-3 bg-white rounded-2xl border border-slate-200/90 flex items-center justify-between text-xs shadow-2xs">
+          <div className="flex items-center gap-2.5">
+            <div className="relative">
+              <div className="w-8 h-8 rounded-xl bg-blue-50 text-[#1250dc] font-bold flex items-center justify-center text-xs border border-blue-100">
+                DS
+              </div>
+              <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white"></span>
+            </div>
+            <div>
+              <span className="font-bold text-slate-900 block text-[11px]">DS. Nguyễn Minh Anh (ĐH Dược Hà Nội)</span>
+              <span className="text-[10px] text-slate-500">Cần hỗ trợ đăng nhập?</span>
+            </div>
+          </div>
+          <a href="tel:18006868" className="px-2.5 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-[#1250dc] font-bold text-[11px] transition-colors">
+            Gọi 1800 6868
+          </a>
         </div>
 
       </main>
 
-      {/* ================= BOTTOM FOOTER ================= */}
-      <footer className="bg-white border-t border-slate-200 py-4 px-4 text-xs text-slate-500">
-        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
+      {/* ================= FOOTER ================= */}
+      <footer className="bg-white border-t border-slate-200 py-3 px-4 text-xs text-slate-500">
+        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 text-center sm:text-left">
           <div>
-            <span className="font-bold text-slate-800">HỆ THỐNG NHÀ THUỐC H4CARE</span>
+            <span className="font-extrabold text-slate-800">H4CARE PHARMACY • PHIÊN BẢN 2.0</span>
             <span className="hidden sm:inline"> — </span>
-            <span className="block sm:inline text-[11px]">Định hướng theo chuẩn FPT Long Châu & Bộ Y Tế</span>
+            <span className="block sm:inline text-[11px]">Hệ thống nhà thuốc chuẩn mực cho gia đình</span>
           </div>
-          <div className="flex items-center gap-4 text-[11px]">
-            <span className="font-bold text-[#1250dc]">Tổng đài miễn cước: 1800 6868</span>
+          <div className="text-[11px] font-semibold text-[#1250dc]">
+            Hotline Dược sĩ: 1800 6868 (Miễn phí)
           </div>
         </div>
       </footer>
