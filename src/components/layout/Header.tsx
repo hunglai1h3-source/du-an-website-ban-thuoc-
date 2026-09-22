@@ -159,9 +159,9 @@ export const Header: React.FC<HeaderProps> = ({ onReplayIntro }) => {
 
               {/* Account Dropdown Trigger */}
               <Link
-                href="/account"
+                href="/login"
                 className="hidden sm:flex items-center gap-2 p-2 rounded-xl text-slate-700 hover:bg-slate-100 transition-colors"
-                title="Tài khoản cá nhân"
+                title="Đăng nhập / Tài khoản"
               >
                 <div className="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center border border-slate-200/60 text-slate-600 hover:text-brand-blue-600">
                   <User className="w-4 h-4" />

@@ -88,7 +88,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
 
         {/* 5. Tài khoản */}
         <Link
-          href="/account"
+          href="/login"
           onClick={() => setActiveTab("account")}
           className="flex flex-col items-center justify-center w-14 py-1 relative text-slate-500 hover:text-brand-blue-600 transition-colors"
         >

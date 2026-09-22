@@ -175,12 +175,12 @@ export const MobileDrawer: React.FC<MobileDrawerProps> = ({ isOpen, onClose }) =
                 <span>Gửi đơn thuốc theo toa Bác sĩ</span>
               </Link>
               <Link
-                href="/account"
+                href="/login"
                 onClick={onClose}
                 className="flex items-center gap-3 p-2.5 text-xs sm:text-sm font-medium text-slate-700 hover:bg-slate-50 rounded-xl transition-colors"
               >
                 <User className="w-4 h-4 text-slate-400" />
-                <span>Tài khoản của tôi</span>
+                <span>Đăng nhập / Tài khoản</span>
               </Link>
               <Link
                 href="/help"
