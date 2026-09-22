@@ -163,7 +163,7 @@ export const Header: React.FC<HeaderProps> = ({ onReplayIntro }) => {
                 </div>
               </a>
 
-              {/* Account Trigger (Long Chau style: User profile or Login) */}
+              {/* Account Trigger: User profile or Login */}
               {isAuthenticated && user ? (
                 <div className="relative">
                   <button

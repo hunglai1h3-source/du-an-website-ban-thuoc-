@@ -48,7 +48,7 @@ export default function AccountPage() {
 
       <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-8 sm:py-10">
         
-        {/* Top Member Card (Long Chau Style) */}
+        {/* Top Member Card */}
         <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-xs mb-6">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="flex items-center gap-4">

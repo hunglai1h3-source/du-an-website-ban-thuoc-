@@ -252,7 +252,7 @@ function LoginForm() {
   return (
     <div className="min-h-screen flex flex-col justify-between bg-[#f4f6f9] text-slate-900">
       
-      {/* ================= TOP LONG CHÂU BAR ================= */}
+      {/* ================= TOP PHARMACY TRUST BAR ================= */}
       <header className="bg-[#1250dc] text-white shadow-xs sticky top-0 z-30">
         <div className="border-b border-white/10 text-xs py-1.5 px-4 hidden sm:block">
           <div className="max-w-6xl mx-auto flex items-center justify-between text-[11px] text-white/90">
@@ -283,7 +283,6 @@ function LoginForm() {
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-xl font-black tracking-tight leading-none">H4CARE</span>
-                <span className="px-1.5 py-0.5 text-[9px] font-extrabold rounded-md bg-white/20 text-white">LONG CHÂU 2.0</span>
               </div>
               <span className="text-[10px] tracking-wider text-cyan-200 uppercase font-semibold">HỆ THỐNG NHÀ THUỐC TIÊN PHONG</span>
             </div>
@@ -847,7 +846,7 @@ function LoginForm() {
 
         </div>
 
-        {/* 3 Long Chau Member Perks */}
+        {/* 3 H4CARE Member Perks */}
         <div className="mt-5 grid grid-cols-3 gap-2 text-center text-xs">
           <div className="p-3 bg-white rounded-2xl border border-slate-200/90 shadow-2xs">
             <div className="w-7 h-7 rounded-lg bg-blue-50 text-[#1250dc] flex items-center justify-center mx-auto mb-1 font-black text-xs">
@@ -899,9 +898,9 @@ function LoginForm() {
       <footer className="bg-white border-t border-slate-200 py-3 px-4 text-xs text-slate-500">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 text-center sm:text-left">
           <div>
-            <span className="font-extrabold text-slate-800">H4CARE PHARMACY • ĐẦY ĐỦ XÁC THỰC LONG CHÂU 2.0</span>
+            <span className="font-extrabold text-slate-800">HỆ THỐNG NHÀ THUỐC H4CARE</span>
             <span className="hidden sm:inline"> — </span>
-            <span className="block sm:inline text-[11px]">Hệ thống nhà thuốc chuẩn mực cho gia đình</span>
+            <span className="block sm:inline text-[11px]">Chăm sóc sức khỏe gia đình chuẩn GPP & GSP</span>
           </div>
           <div className="text-[11px] font-semibold text-[#1250dc]">
             Hotline Dược sĩ: 1800 6868 (Miễn phí)
