@@ -65,6 +65,16 @@ export const Header: React.FC<HeaderProps> = ({ onReplayIntro }) => {
           </div>
 
           <div className="flex items-center gap-4">
+            <Link
+              href="/prescription"
+              className="flex items-center gap-1.5 text-slate-300 hover:text-cyan-400 font-medium transition-colors"
+            >
+              <FileText className="w-3 h-3 text-cyan-400" />
+              <span>Gửi đơn thuốc trực tuyến</span>
+            </Link>
+
+            <span className="text-slate-800">|</span>
+
             <a
               href="tel:18006868"
               className="flex items-center gap-1.5 text-slate-300 hover:text-cyan-400 font-medium transition-colors"

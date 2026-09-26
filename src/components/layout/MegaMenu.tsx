@@ -242,7 +242,7 @@ export const MegaMenu: React.FC<MegaMenuProps> = ({ isOpen, onClose }) => {
                   <button
                     onClick={() => {
                       onClose();
-                      router.push("/category/thuoc-ke-don");
+                      router.push("/prescription");
                     }}
                     className="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-brand-blue-600 to-brand-cyan-600 text-white font-semibold text-xs shadow-sm hover:brightness-105 transition-all duration-150 active:scale-95"
                   >

@@ -167,7 +167,7 @@ export const MobileDrawer: React.FC<MobileDrawerProps> = ({ isOpen, onClose }) =
                 <span>Khám phá toàn bộ thuốc</span>
               </Link>
               <Link
-                href="/category/thuoc-ke-don"
+                href="/prescription"
                 onClick={onClose}
                 className="flex items-center gap-3 p-2.5 text-xs sm:text-sm font-medium text-slate-700 hover:bg-slate-50 rounded-xl transition-colors"
               >
