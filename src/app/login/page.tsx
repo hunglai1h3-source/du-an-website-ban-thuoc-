@@ -3,911 +3,579 @@
 import React, { useState, useEffect, useRef, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { useAuth } from "@/lib/auth/auth-context";
+import { LiquidMetalButton } from "@/components/auth/LiquidMetalButton";
+import { SpatialLoginBackground } from "@/components/auth/SpatialLoginBackground";
 import {
   ArrowLeft,
-  ArrowRight,
-  ShieldCheck,
-  PhoneCall,
+  Mail,
   Lock,
+  Eye,
+  EyeOff,
   CheckCircle2,
-  X,
+  AlertCircle,
   Smartphone,
+  ShieldCheck,
+  Sparkles,
   KeyRound,
-  User,
+  RotateCcw,
 } from "lucide-react";
 
-function LoginForm() {
+function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectUrl = searchParams.get("redirect") || "/account";
-  const initialTab = (searchParams.get("tab") as "login" | "register" | "forgot") || "login";
+  const shouldReduceMotion = useReducedMotion();
 
-  const { isAuthenticated, loginWithPhone, loginWithPassword, sendPhoneOtp, register } = useAuth();
+  const { isAuthenticated, loginWithPassword, loginWithPhone, sendPhoneOtp } = useAuth();
 
+  // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated) {
       router.push(redirectUrl);
     }
   }, [isAuthenticated, router, redirectUrl]);
 
-  // Main Tab State: 'login' | 'register' | 'forgot'
-  const [activeTab, setActiveTab] = useState<"login" | "register" | "forgot">(initialTab);
+  // ================= FORM STATE =================
+  const [identifier, setIdentifier] = useState<string>("0901234567");
+  const [password, setPassword] = useState<string>("H4carePass@2026");
+  const [showPassword, setShowPassword] = useState<boolean>(false);
+  const [rememberMe, setRememberMe] = useState<boolean>(true);
 
-  // Sync tab with searchParams if it changes
-  useEffect(() => {
-    const tabParam = searchParams.get("tab");
-    if (tabParam === "register" || tabParam === "forgot" || tabParam === "login") {
-      setActiveTab(tabParam);
-    }
-  }, [searchParams]);
+  // Quick OTP sub-mode (optional toggle for mobile users)
+  const [useOtpMode, setUseOtpMode] = useState<boolean>(false);
+  const [otpStep, setOtpStep] = useState<"phone" | "verify">("phone");
+  const [otpValues, setOtpValues] = useState<string[]>(["8", "4", "2", "6", "9", "1"]);
+  const [countdown, setCountdown] = useState<number>(60);
 
-  // ================= LOGIN STATE =================
-  const [loginMode, setLoginMode] = useState<"phone" | "otp" | "password">("phone");
-  const [loginPhone, setLoginPhone] = useState<string>("0901234567");
-  const [formattedLoginPhone, setFormattedLoginPhone] = useState<string>("0901 234 567");
-  const [loginCarrier, setLoginCarrier] = useState<string>("MobiFone");
-  const [loginChannel, setLoginChannel] = useState<"zalo" | "sms">("zalo");
-  const [loginOtp, setLoginOtp] = useState<string[]>(["8", "4", "2", "6", "9", "1"]);
-  const [loginIdentifier, setLoginIdentifier] = useState<string>("khachhang@h4care.vn");
-  const [loginPassword, setLoginPassword] = useState<string>("H4carePass@2026");
-
-  // ================= REGISTER STATE =================
-  const [regName, setRegName] = useState<string>("Nguyễn Văn An");
-  const [regPhone, setRegPhone] = useState<string>("0901 234 567");
-  const [regRawPhone, setRegRawPhone] = useState<string>("0901234567");
-  const [regCarrier, setRegCarrier] = useState<string>("Việt Nam (+84)");
-  const [regEmail, setRegEmail] = useState<string>("an.nguyen@example.com");
-  const [regPass, setRegPass] = useState<string>("H4carePass@2026");
-  const [regConfirmPass, setRegConfirmPass] = useState<string>("H4carePass@2026");
-
-  // ================= FORGOT PASSWORD STATE =================
-  const [forgotTarget, setForgotTarget] = useState<string>("0901234567");
-  const [forgotStep, setForgotStep] = useState<"input" | "verify">("input");
-  const [forgotOtp, setForgotOtp] = useState<string[]>(["8", "4", "2", "6", "9", "1"]);
-  const [forgotNewPass, setForgotNewPass] = useState<string>("H4careNew@2026");
-  const [forgotConfirmPass, setForgotConfirmPass] = useState<string>("H4careNew@2026");
-
-  // Feedback & Loading
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  // Status feedback
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
-  const [timer, setTimer] = useState<number>(60);
+  const [isSuccess, setIsSuccess] = useState<boolean>(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Phone Formatter Utility
-  const formatPhoneString = (inputVal: string) => {
-    let val = inputVal.replace(/\D/g, "");
-    if (val.length > 10) val = val.substring(0, 10);
+  // Input focus indicators
+  const [focusedField, setFocusedField] = useState<"identifier" | "password" | "otp" | null>(null);
 
-    let formatted = "";
-    if (val.length > 0) formatted += val.substring(0, 4);
-    if (val.length > 4) formatted += " " + val.substring(4, 7);
-    if (val.length > 7) formatted += " " + val.substring(7, 10);
+  // Desktop Mouse Parallax state (2-6px)
+  const [mouseParallax, setMouseParallax] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [isTouchDevice, setIsTouchDevice] = useState<boolean>(false);
 
-    let detectedCarrier = "Việt Nam (+84)";
-    if (val.startsWith("090") || val.startsWith("093") || val.startsWith("070") || val.startsWith("079")) {
-      detectedCarrier = "MobiFone";
-    } else if (val.startsWith("098") || val.startsWith("097") || val.startsWith("086") || val.startsWith("03")) {
-      detectedCarrier = "Viettel";
-    } else if (val.startsWith("091") || val.startsWith("094") || val.startsWith("088")) {
-      detectedCarrier = "VinaPhone";
-    }
-
-    return { raw: val, formatted, carrier: detectedCarrier };
-  };
-
-  // Timer countdown
   useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (loginMode === "otp" && timer > 0) {
-      interval = setInterval(() => setTimer((t) => t - 1), 1000);
+    // Detect touch device to disable parallax
+    if (typeof window !== "undefined") {
+      setIsTouchDevice("ontouchstart" in window || navigator.maxTouchPoints > 0);
     }
-    return () => clearInterval(interval);
-  }, [loginMode, timer]);
+  }, []);
 
-  // ================= HANDLERS: LOGIN =================
-  const handleLoginPhoneSubmit = async (e: React.FormEvent) => {
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (isTouchDevice || shouldReduceMotion) return;
+    const { clientX, clientY } = e;
+    const centerX = window.innerWidth / 2;
+    const centerY = window.innerHeight / 2;
+    // Normalized parallax between -4 and +4 pixels
+    const px = ((clientX - centerX) / centerX) * 4;
+    const py = ((clientY - centerY) / centerY) * 4;
+    setMouseParallax({ x: px, y: py });
+  };
+
+  // OTP Countdown timer
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (useOtpMode && otpStep === "verify" && countdown > 0) {
+      timer = setInterval(() => setCountdown((c) => c - 1), 1000);
+    }
+    return () => clearInterval(timer);
+  }, [useOtpMode, otpStep, countdown]);
+
+  // Detect input type: Phone or Email
+  const isPhone = /^[0-9+ \-]+$/.test(identifier.trim());
+
+  // ================= SUBMIT HANDLERS =================
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setErrorMsg(null);
+    setErrorMessage(null);
 
-    if (!loginPhone || loginPhone.length < 9) {
-      setErrorMsg("Vui lòng nhập số điện thoại hợp lệ (9 - 10 chữ số).");
+    if (!identifier.trim()) {
+      setErrorMessage("Vui lòng nhập Email hoặc Số điện thoại.");
+      return;
+    }
+    if (!password) {
+      setErrorMessage("Vui lòng nhập mật khẩu tài khoản.");
       return;
     }
 
     setIsSubmitting(true);
-    const res = await sendPhoneOtp(loginPhone);
+    const result = await loginWithPassword(identifier.trim(), password);
+    setIsSubmitting(false);
+
+    if (result.success) {
+      setIsSuccess(true);
+      // Smooth visual confirmation sequence before page redirect
+      setTimeout(() => {
+        router.push(redirectUrl);
+      }, 750);
+    } else {
+      setErrorMessage(result.error || "Thông tin đăng nhập không chính xác. Vui lòng kiểm tra lại.");
+    }
+  };
+
+  const handleOtpRequest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage(null);
+
+    const cleanPhone = identifier.replace(/\D/g, "");
+    if (cleanPhone.length < 9) {
+      setErrorMessage("Vui lòng nhập số điện thoại hợp lệ (9 - 10 chữ số).");
+      return;
+    }
+
+    setIsSubmitting(true);
+    const res = await sendPhoneOtp(cleanPhone);
     setIsSubmitting(false);
 
     if (res.success) {
-      setLoginMode("otp");
-      setTimer(60);
-      setSuccessMsg(`Mã OTP đã gửi qua ${loginChannel === "zalo" ? "Zalo ZNS" : "Tin nhắn SMS"}`);
+      setOtpStep("verify");
+      setCountdown(60);
     } else {
-      setErrorMsg(res.error || "Gửi OTP không thành công.");
+      setErrorMessage(res.error || "Gửi OTP không thành công.");
     }
   };
 
-  const handleLoginOtpSubmit = async (e: React.FormEvent) => {
+  const handleOtpVerify = async (e: React.FormEvent) => {
     e.preventDefault();
-    setErrorMsg(null);
+    setErrorMessage(null);
 
-    const otp = loginOtp.join("");
-    if (otp.length < 6) {
-      setErrorMsg("Vui lòng nhập đủ 6 chữ số mã OTP.");
+    const otpCode = otpValues.join("");
+    if (otpCode.length < 6) {
+      setErrorMessage("Vui lòng nhập đầy đủ 6 chữ số mã xác thực OTP.");
       return;
     }
 
     setIsSubmitting(true);
-    const res = await loginWithPhone(loginPhone, otp);
+    const cleanPhone = identifier.replace(/\D/g, "");
+    const res = await loginWithPhone(cleanPhone, otpCode);
     setIsSubmitting(false);
 
     if (res.success) {
-      setSuccessMsg("Xác thực thành công! Đang chuyển hướng...");
-      setTimeout(() => router.push(redirectUrl), 500);
+      setIsSuccess(true);
+      setTimeout(() => {
+        router.push(redirectUrl);
+      }, 750);
     } else {
-      setErrorMsg(res.error || "Mã OTP không chính xác.");
+      setErrorMessage(res.error || "Mã OTP không chính xác.");
     }
   };
 
-  const handleLoginPasswordSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMsg(null);
-
-    setIsSubmitting(true);
-    const res = await loginWithPassword(loginIdentifier, loginPassword);
-    setIsSubmitting(false);
-
-    if (res.success) {
-      setSuccessMsg("Đăng nhập thành công! Đang chuyển hướng...");
-      setTimeout(() => router.push(redirectUrl), 500);
-    } else {
-      setErrorMsg(res.error || "Thông tin đăng nhập không chính xác.");
-    }
+  // Motion Variants for Opening Sequence (0.8s - 1.4s)
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.12,
+        delayChildren: 0.1,
+      },
+    },
   };
 
-  // ================= HANDLERS: REGISTER =================
-  const handleRegisterSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMsg(null);
-
-    if (!regName.trim() || regName.trim().length < 2) {
-      setErrorMsg("Vui lòng nhập họ và tên của bạn.");
-      return;
-    }
-    if (!regRawPhone || regRawPhone.length < 9) {
-      setErrorMsg("Số điện thoại chưa đúng định dạng.");
-      return;
-    }
-    if (regPass.length < 6) {
-      setErrorMsg("Mật khẩu tối thiểu 6 ký tự.");
-      return;
-    }
-    if (regPass !== regConfirmPass) {
-      setErrorMsg("Mật khẩu xác nhận không khớp.");
-      return;
-    }
-
-    setIsSubmitting(true);
-    const res = await register({
-      fullName: regName,
-      phone: regRawPhone,
-      email: regEmail,
-      password: regPass,
-    });
-    setIsSubmitting(false);
-
-    if (res.success) {
-      setSuccessMsg("Đăng ký thành công! Đang chuyển hướng vào tài khoản...");
-      setTimeout(() => router.push("/account"), 500);
-    } else {
-      setErrorMsg(res.error || "Đăng ký không thành công.");
-    }
-  };
-
-  // ================= HANDLERS: FORGOT PASSWORD =================
-  const handleForgotTargetSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMsg(null);
-
-    if (!forgotTarget.trim()) {
-      setErrorMsg("Vui lòng nhập số điện thoại hoặc email.");
-      return;
-    }
-
-    setIsSubmitting(true);
-    await sendPhoneOtp(forgotTarget);
-    setIsSubmitting(false);
-
-    setForgotStep("verify");
-    setSuccessMsg(`Mã OTP đã được gửi tới ${forgotTarget}`);
-  };
-
-  const handleForgotResetSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMsg(null);
-
-    if (forgotOtp.join("").length < 6) {
-      setErrorMsg("Vui lòng nhập đủ 6 chữ số mã OTP.");
-      return;
-    }
-    if (forgotNewPass.length < 6) {
-      setErrorMsg("Mật khẩu mới tối thiểu 6 ký tự.");
-      return;
-    }
-    if (forgotNewPass !== forgotConfirmPass) {
-      setErrorMsg("Mật khẩu xác nhận không khớp.");
-      return;
-    }
-
-    setIsSubmitting(true);
-    setTimeout(() => {
-      setIsSubmitting(false);
-      setSuccessMsg("Cập nhật mật khẩu thành công! Bạn có thể đăng nhập ngay.");
-      setActiveTab("login");
-      setLoginMode("password");
-    }, 400);
+  const itemVariants = {
+    hidden: { opacity: 0, y: 18, filter: "blur(6px)" },
+    visible: {
+      opacity: 1,
+      y: 0,
+      filter: "blur(0px)",
+      transition: { duration: 0.65, ease: [0.16, 1, 0.3, 1] },
+    },
   };
 
   return (
-    <div className="min-h-screen flex flex-col justify-between bg-[#f4f6f9] text-slate-900">
-      
-      {/* ================= TOP PHARMACY TRUST BAR ================= */}
-      <header className="bg-[#1250dc] text-white shadow-xs sticky top-0 z-30">
-        <div className="border-b border-white/10 text-xs py-1.5 px-4 hidden sm:block">
-          <div className="max-w-6xl mx-auto flex items-center justify-between text-[11px] text-white/90">
-            <div className="flex items-center gap-4">
-              <span className="flex items-center gap-1 font-medium">
-                <ShieldCheck className="w-3.5 h-3.5 text-cyan-300" />
-                100% Thuốc chính hãng • Chuẩn GPP Bộ Y Tế
+    <div
+      onMouseMove={handleMouseMove}
+      className="relative min-h-screen w-full flex flex-col justify-between overflow-x-hidden text-slate-100 selection:bg-cyan-500/30 selection:text-cyan-200"
+    >
+      {/* ================= SPATIAL MULTI-LAYER BACKGROUND ================= */}
+      <SpatialLoginBackground mouseParallax={mouseParallax} />
+
+      {/* ================= TOP NAVIGATION BAR ================= */}
+      <header className="relative z-20 w-full max-w-6xl mx-auto px-4 sm:px-6 py-5 sm:py-7 flex items-center justify-between">
+        {/* H4CARE Animated Logo */}
+        <Link
+          href="/"
+          className="group flex items-center gap-3 focus:outline-none"
+          title="Trở về trang chủ H4CARE"
+        >
+          <div className="relative w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-gradient-to-br from-cyan-400 via-blue-600 to-blue-800 p-0.5 shadow-[0_0_20px_rgba(34,211,238,0.35)] transition-transform duration-300 group-hover:scale-105">
+            <div className="w-full h-full rounded-[14px] bg-[#071329] flex items-center justify-center font-black text-lg sm:text-xl tracking-tighter text-white">
+              <span className="bg-gradient-to-r from-white via-cyan-200 to-cyan-400 bg-clip-text text-transparent">
+                H4
               </span>
-              <span>•</span>
-              <span>Bảo quản chuẩn GSP • Giao hỏa tốc 2 giờ</span>
-              <span>•</span>
-              <span>Đổi trả 30 ngày tận nhà</span>
-            </div>
-            <div>
-              <a href="tel:18006868" className="hover:underline font-extrabold flex items-center gap-1.5 text-white">
-                <PhoneCall className="w-3 h-3 text-cyan-300" />
-                <span>Tổng đài Dược sĩ: 1800 6868 (Miễn phí)</span>
-              </a>
             </div>
           </div>
-        </div>
 
-        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-2xl bg-white text-[#1250dc] font-black text-xl flex items-center justify-center shadow-xs">
-              H4
+          <div className="flex flex-col">
+            <div className="flex items-center gap-1.5">
+              <span className="text-xl sm:text-2xl font-black tracking-tight text-white">
+                H4CARE
+              </span>
+              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-xl font-black tracking-tight leading-none">H4CARE</span>
-              </div>
-              <span className="text-[10px] tracking-wider text-cyan-200 uppercase font-semibold">HỆ THỐNG NHÀ THUỐC TIÊN PHONG</span>
-            </div>
-          </Link>
+            <span className="text-[10px] tracking-widest text-cyan-300/70 font-semibold uppercase hidden sm:block">
+              HỆ THỐNG Y TẾ SỐ
+            </span>
+          </div>
+        </Link>
 
-          <Link
-            href="/"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-semibold transition-colors"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Về trang chủ</span>
-          </Link>
-        </div>
+        {/* Minimal Back to Home Link */}
+        <Link
+          href="/"
+          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full text-xs font-semibold text-slate-300 hover:text-white bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 hover:border-cyan-400/40 backdrop-blur-md transition-all duration-200 active:scale-95 shadow-xs"
+        >
+          <ArrowLeft className="w-3.5 h-3.5 text-cyan-400" />
+          <span>Về trang chủ</span>
+        </Link>
       </header>
 
-      {/* ================= MAIN CARD CONTAINER ================= */}
-      <main className="flex-1 max-w-lg w-full mx-auto p-4 sm:p-6 lg:p-8 flex flex-col justify-center">
+      {/* ================= MAIN INTERACTION STAGE ================= */}
+      <main className="relative z-20 flex-1 w-full max-w-md mx-auto px-4 sm:px-6 flex flex-col justify-center py-6 sm:py-10">
         
-        <div className="w-full bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-slate-200/90 relative overflow-hidden">
-          <div className="absolute top-0 inset-x-0 h-1.5 bg-gradient-to-r from-blue-600 via-cyan-500 to-blue-600"></div>
+        {/* PARALLAX CARD WRAPPER */}
+        <motion.div
+          initial="hidden"
+          animate="visible"
+          variants={containerVariants}
+          style={{
+            transform: shouldReduceMotion
+              ? undefined
+              : `translate3d(${mouseParallax.x * -3}px, ${mouseParallax.y * -3}px, 0)`,
+          }}
+          className="relative w-full"
+        >
+          {/* Outer Specular Edge Glow */}
+          <div className="absolute -inset-0.5 rounded-[32px] bg-gradient-to-b from-cyan-400/30 via-blue-600/10 to-transparent blur-md opacity-70 pointer-events-none" />
 
-          {/* 3 TABS SWITCHER: ĐĂNG NHẬP | ĐĂNG KÝ | QUÊN MẬT KHẨU */}
-          <div className="grid grid-cols-3 p-1 bg-slate-100 rounded-2xl mb-6 text-xs font-bold border border-slate-200">
-            <button
-              type="button"
-              onClick={() => {
-                setErrorMsg(null);
-                setSuccessMsg(null);
-                setActiveTab("login");
-              }}
-              className={`py-2.5 rounded-xl transition-all ${
-                activeTab === "login"
-                  ? "bg-[#1250dc] text-white shadow-xs"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              1. Đăng nhập
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setErrorMsg(null);
-                setSuccessMsg(null);
-                setActiveTab("register");
-              }}
-              className={`py-2.5 rounded-xl transition-all ${
-                activeTab === "register"
-                  ? "bg-[#1250dc] text-white shadow-xs"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              2. Đăng ký
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setErrorMsg(null);
-                setSuccessMsg(null);
-                setActiveTab("forgot");
-              }}
-              className={`py-2.5 rounded-xl transition-all ${
-                activeTab === "forgot"
-                  ? "bg-[#1250dc] text-white shadow-xs"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              3. Quên mật khẩu
-            </button>
-          </div>
+          {/* Core Architectural Glass Slab Card */}
+          <div className="relative rounded-[28px] sm:rounded-[32px] bg-[#081224]/85 border border-white/[0.12] backdrop-blur-2xl p-6 sm:p-9 shadow-[0_20px_60px_-15px_rgba(0,18,50,0.8)] overflow-hidden">
+            
+            {/* Top Prismatic Sheen Highlight Line */}
+            <div className="absolute top-0 inset-x-8 h-px bg-gradient-to-r from-transparent via-cyan-400/60 to-transparent" />
 
-          {/* Alert Messages */}
-          {errorMsg && (
-            <div className="mb-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold">
-              {errorMsg}
-            </div>
-          )}
-          {successMsg && (
-            <div className="mb-4 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
-              <span>{successMsg}</span>
-            </div>
-          )}
-
-          {/* ==========================================================
-               TAB 1: ĐĂNG NHẬP
-          ========================================================== */}
-          {activeTab === "login" && (
-            <div className="space-y-4">
-              <div className="text-center mb-5">
-                <h1 className="text-2xl font-black text-slate-900 tracking-tight">Đăng nhập tài khoản</h1>
-                <p className="text-xs text-slate-500 mt-1">Nhập số điện thoại để mua thuốc & tích điểm thành viên</p>
+            {/* HEADER TYPOGRAPHY */}
+            <motion.div variants={itemVariants} className="text-center mb-6 sm:mb-8">
+              {/* Trust Pill */}
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-950/60 border border-cyan-400/30 text-[11px] font-bold text-cyan-300 mb-3 shadow-[0_0_12px_rgba(6,182,212,0.15)]">
+                <ShieldCheck className="w-3.5 h-3.5 text-cyan-400" />
+                <span>Cổng kết nối hồ sơ y tế bảo mật</span>
               </div>
 
-              {loginMode === "phone" && (
-                <form onSubmit={handleLoginPhoneSubmit} className="space-y-4">
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className="block text-xs font-bold text-slate-700">Số điện thoại của bạn</label>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-50 text-[#1250dc] border border-blue-100">
-                        {loginCarrier}
-                      </span>
-                    </div>
+              {/* Headline */}
+              <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
+                Chào mừng trở lại.
+              </h1>
 
-                    <div className="relative flex items-center">
-                      <span className="absolute left-3 text-xs font-bold text-slate-600 border-r border-slate-200 pr-2.5 select-none">
-                        🇻🇳 +84
+              {/* Subtext */}
+              <p className="text-xs sm:text-sm text-slate-400 mt-1.5 leading-relaxed">
+                Đăng nhập để tiếp tục hành trình cùng{" "}
+                <span className="text-cyan-300 font-semibold">H4CARE</span>.
+              </p>
+            </motion.div>
+
+            {/* ALERT / ERROR NOTIFICATION */}
+            <AnimatePresence>
+              {errorMessage && (
+                <motion.div
+                  initial={{ opacity: 0, y: -8, height: 0 }}
+                  animate={{ opacity: 1, y: 0, height: "auto" }}
+                  exit={{ opacity: 0, y: -8, height: 0 }}
+                  className="mb-5 overflow-hidden"
+                >
+                  <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-medium flex items-start gap-2.5">
+                    <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                    <span>{errorMessage}</span>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* ================= PRIMARY LOGIN FORM ================= */}
+            {!useOtpMode ? (
+              <form onSubmit={handlePasswordSubmit} className="space-y-4 sm:space-y-5">
+                
+                {/* 1. EMAIL OR PHONE INPUT */}
+                <motion.div variants={itemVariants} className="space-y-1.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <label className="font-semibold text-slate-300">
+                      Email hoặc Số điện thoại
+                    </label>
+                    {identifier && (
+                      <span className="text-[10px] font-bold text-cyan-400/90 uppercase tracking-wider">
+                        {isPhone ? "Điện thoại" : "Tài khoản Email"}
                       </span>
-                      <input
-                        type="tel"
-                        value={formattedLoginPhone}
-                        onChange={(e) => {
-                          const res = formatPhoneString(e.target.value);
-                          setLoginPhone(res.raw);
-                          setFormattedLoginPhone(res.formatted);
-                          setLoginCarrier(res.carrier);
-                        }}
-                        placeholder="0912 345 678"
-                        className="w-full h-12 pl-20 pr-10 text-sm font-bold rounded-xl border border-slate-300 text-slate-900 focus:outline-none focus:border-[#1250dc] focus:ring-3 focus:ring-blue-500/15 tracking-wide"
-                        required
-                      />
-                      {loginPhone && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setLoginPhone("");
-                            setFormattedLoginPhone("");
-                            setLoginCarrier("Việt Nam (+84)");
-                          }}
-                          className="absolute right-3 text-slate-400 hover:text-slate-600 p-1"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
+                    )}
+                  </div>
+
+                  <div
+                    className={`relative rounded-2xl bg-white/[0.03] border transition-all duration-200 flex items-center ${
+                      focusedField === "identifier"
+                        ? "border-cyan-400/80 bg-cyan-950/20 shadow-[0_0_16px_rgba(34,211,238,0.18)]"
+                        : "border-white/10 hover:border-white/20"
+                    }`}
+                  >
+                    <div className="pl-4 pr-2 text-slate-400">
+                      {isPhone ? (
+                        <Smartphone
+                          className={`w-4 h-4 transition-colors ${
+                            focusedField === "identifier" ? "text-cyan-400" : ""
+                          }`}
+                        />
+                      ) : (
+                        <Mail
+                          className={`w-4 h-4 transition-colors ${
+                            focusedField === "identifier" ? "text-cyan-400" : ""
+                          }`}
+                        />
                       )}
                     </div>
-                  </div>
 
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-600 mb-1.5">Kênh nhận mã OTP:</label>
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      <label
-                        className={`flex items-center gap-2 p-2.5 rounded-xl border cursor-pointer font-bold ${
-                          loginChannel === "zalo"
-                            ? "border-blue-200 bg-blue-50/80 text-[#1250dc]"
-                            : "border-slate-200 hover:bg-slate-50 text-slate-700"
-                        }`}
-                      >
-                        <input
-                          type="radio"
-                          name="login-channel"
-                          value="zalo"
-                          checked={loginChannel === "zalo"}
-                          onChange={() => setLoginChannel("zalo")}
-                          className="text-blue-600"
-                        />
-                        <span className="flex items-center gap-1.5">
-                          <span className="w-4 h-4 rounded bg-[#0068ff] text-white text-[9px] font-black flex items-center justify-center">Z</span>
-                          <span>Zalo ZNS (1s)</span>
-                        </span>
-                      </label>
-
-                      <label
-                        className={`flex items-center gap-2 p-2.5 rounded-xl border cursor-pointer font-bold ${
-                          loginChannel === "sms"
-                            ? "border-blue-200 bg-blue-50/80 text-[#1250dc]"
-                            : "border-slate-200 hover:bg-slate-50 text-slate-700"
-                        }`}
-                      >
-                        <input
-                          type="radio"
-                          name="login-channel"
-                          value="sms"
-                          checked={loginChannel === "sms"}
-                          onChange={() => setLoginChannel("sms")}
-                          className="text-blue-600"
-                        />
-                        <span>Tin nhắn SMS</span>
-                      </label>
-                    </div>
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="w-full h-12 rounded-xl bg-[#1250dc] hover:bg-[#0d42b8] text-white text-sm font-bold shadow-md shadow-blue-600/20 active:scale-[0.99] transition-all flex items-center justify-center gap-2 disabled:opacity-70"
-                  >
-                    <span>{isSubmitting ? "Đang gửi OTP..." : "Tiếp tục bằng mã OTP"}</span>
-                    {!isSubmitting && <ArrowRight className="w-4 h-4" />}
-                  </button>
-
-                  <div className="flex items-center justify-between text-xs pt-1">
-                    <button
-                      type="button"
-                      onClick={() => setLoginMode("password")}
-                      className="font-bold text-[#1250dc] hover:underline"
-                    >
-                      Đăng nhập bằng Mật khẩu
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setActiveTab("forgot")}
-                      className="font-bold text-slate-500 hover:text-[#1250dc] hover:underline"
-                    >
-                      Quên mật khẩu?
-                    </button>
-                  </div>
-
-                  <div className="text-center pt-2 text-xs text-slate-500 border-t border-slate-100">
-                    Chưa có tài khoản?{" "}
-                    <button
-                      type="button"
-                      onClick={() => setActiveTab("register")}
-                      className="font-extrabold text-[#1250dc] hover:underline"
-                    >
-                      Đăng ký thành viên mới
-                    </button>
-                  </div>
-                </form>
-              )}
-
-              {loginMode === "otp" && (
-                <form onSubmit={handleLoginOtpSubmit} className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <button
-                      type="button"
-                      onClick={() => setLoginMode("phone")}
-                      className="text-xs font-bold text-[#1250dc] hover:underline flex items-center gap-1"
-                    >
-                      <ArrowLeft className="w-3.5 h-3.5" />
-                      <span>Đổi số điện thoại</span>
-                    </button>
-                    <span className="text-[11px] text-slate-400">Bước 2/2</span>
-                  </div>
-
-                  <div className="p-3.5 bg-blue-50/90 border border-blue-100 rounded-2xl text-xs text-blue-900 leading-relaxed">
-                    Mã xác thực đã được gửi qua <strong className="text-[#1250dc]">{loginChannel === "zalo" ? "Zalo ZNS" : "Tin nhắn SMS"}</strong> tới số <strong className="text-slate-900 font-extrabold">{formattedLoginPhone}</strong>.
-                  </div>
-
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <label className="block text-xs font-bold text-slate-700">Nhập mã OTP</label>
-                      <button
-                        type="button"
-                        onClick={() => setLoginOtp(["8", "4", "2", "6", "9", "1"])}
-                        className="text-[11px] font-bold text-[#1250dc] hover:underline"
-                      >
-                        Dán mã nhanh (842691)
-                      </button>
-                    </div>
-                    <div className="grid grid-cols-6 gap-2">
-                      {loginOtp.map((val, idx) => (
-                        <input
-                          key={idx}
-                          type="text"
-                          inputMode="numeric"
-                          maxLength={1}
-                          value={val}
-                          onChange={(e) => {
-                            const newOtp = [...loginOtp];
-                            newOtp[idx] = e.target.value.slice(-1);
-                            setLoginOtp(newOtp);
-                          }}
-                          className="w-full h-12 text-center text-lg font-black rounded-xl border border-slate-300 text-slate-900 focus:outline-none focus:border-[#1250dc] focus:ring-3 focus:ring-blue-500/15"
-                        />
-                      ))}
-                    </div>
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="w-full h-12 rounded-xl bg-[#1250dc] hover:bg-[#0d42b8] text-white text-sm font-bold shadow-md shadow-blue-600/20 active:scale-[0.99] transition-all flex items-center justify-center gap-2 disabled:opacity-70"
-                  >
-                    <span>{isSubmitting ? "Đang kiểm tra..." : "Xác nhận & Đăng nhập"}</span>
-                  </button>
-                </form>
-              )}
-
-              {loginMode === "password" && (
-                <form onSubmit={handleLoginPasswordSubmit} className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <button
-                      type="button"
-                      onClick={() => setLoginMode("phone")}
-                      className="text-xs font-bold text-[#1250dc] hover:underline flex items-center gap-1"
-                    >
-                      <ArrowLeft className="w-3.5 h-3.5" />
-                      <span>Dùng Số điện thoại (OTP)</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setActiveTab("forgot")}
-                      className="text-xs font-bold text-slate-500 hover:text-[#1250dc] hover:underline"
-                    >
-                      Quên mật khẩu?
-                    </button>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1.5">Số điện thoại hoặc Email</label>
                     <input
                       type="text"
-                      value={loginIdentifier}
-                      onChange={(e) => setLoginIdentifier(e.target.value)}
-                      className="w-full h-12 px-4 text-sm font-semibold rounded-xl border border-slate-300 text-slate-900 focus:outline-none focus:border-[#1250dc] focus:ring-3 focus:ring-blue-500/15"
+                      value={identifier}
+                      onChange={(e) => setIdentifier(e.target.value)}
+                      onFocus={() => setFocusedField("identifier")}
+                      onBlur={() => setFocusedField(null)}
+                      placeholder="0901 234 567 hoặc ten@email.com"
+                      className="w-full h-12 pr-4 bg-transparent text-sm font-semibold text-white placeholder-slate-500 focus:outline-none"
                       required
                     />
                   </div>
+                </motion.div>
 
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1.5">Mật khẩu</label>
-                    <input
-                      type="password"
-                      value={loginPassword}
-                      onChange={(e) => setLoginPassword(e.target.value)}
-                      className="w-full h-12 px-4 text-sm font-semibold rounded-xl border border-slate-300 text-slate-900 focus:outline-none focus:border-[#1250dc] focus:ring-3 focus:ring-blue-500/15"
-                      required
-                    />
+                {/* 2. PASSWORD INPUT */}
+                <motion.div variants={itemVariants} className="space-y-1.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <label className="font-semibold text-slate-300">Mật khẩu</label>
+                    <Link
+                      href="/forgot-password"
+                      className="text-cyan-400 hover:text-cyan-300 font-semibold hover:underline transition-colors"
+                    >
+                      Quên mật khẩu?
+                    </Link>
                   </div>
 
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="w-full h-12 rounded-xl bg-[#1250dc] hover:bg-[#0d42b8] text-white text-sm font-bold shadow-md shadow-blue-600/20 active:scale-[0.99] transition-all flex items-center justify-center gap-2 disabled:opacity-70"
+                  <div
+                    className={`relative rounded-2xl bg-white/[0.03] border transition-all duration-200 flex items-center ${
+                      focusedField === "password"
+                        ? "border-cyan-400/80 bg-cyan-950/20 shadow-[0_0_16px_rgba(34,211,238,0.18)]"
+                        : "border-white/10 hover:border-white/20"
+                    }`}
                   >
-                    <span>{isSubmitting ? "Đang đăng nhập..." : "Đăng nhập"}</span>
-                    {!isSubmitting && <ArrowRight className="w-4 h-4" />}
-                  </button>
-                </form>
-              )}
-            </div>
-          )}
+                    <div className="pl-4 pr-2 text-slate-400">
+                      <Lock
+                        className={`w-4 h-4 transition-colors ${
+                          focusedField === "password" ? "text-cyan-400" : ""
+                        }`}
+                      />
+                    </div>
 
-          {/* ==========================================================
-               TAB 2: ĐĂNG KÝ THÀNH VIÊN
-          ========================================================== */}
-          {activeTab === "register" && (
-            <div className="space-y-4">
-              <div className="text-center mb-5">
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 text-xs font-bold mb-2 border border-emerald-200">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Hồ sơ chăm sóc sức khỏe gia đình</span>
-                </div>
-                <h2 className="text-2xl font-black text-slate-900 tracking-tight">Tạo tài khoản hội viên</h2>
-                <p className="text-xs text-slate-500 mt-1">Lưu trữ đơn thuốc trọn đời, tích điểm 2% & tư vấn Dược sĩ 1-1</p>
-              </div>
-
-              <form onSubmit={handleRegisterSubmit} className="space-y-3.5">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5">Họ và tên của bạn <span className="text-rose-500">*</span></label>
-                  <input
-                    type="text"
-                    value={regName}
-                    onChange={(e) => setRegName(e.target.value)}
-                    placeholder="Nhập họ và tên..."
-                    className="w-full h-11 px-4 text-sm font-semibold rounded-xl border border-slate-300 text-slate-900 focus:outline-none focus:border-[#1250dc] focus:ring-3 focus:ring-blue-500/15"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="block text-xs font-bold text-slate-700">Số điện thoại di động <span className="text-rose-500">*</span></label>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-50 text-[#1250dc]">
-                      {regCarrier}
-                    </span>
-                  </div>
-                  <div className="relative flex items-center">
-                    <span className="absolute left-3 text-xs font-bold text-slate-600 border-r border-slate-200 pr-2 select-none">🇻🇳 +84</span>
                     <input
-                      type="tel"
-                      value={regPhone}
-                      onChange={(e) => {
-                        const res = formatPhoneString(e.target.value);
-                        setRegRawPhone(res.raw);
-                        setRegPhone(res.formatted);
-                        setRegCarrier(res.carrier);
-                      }}
-                      placeholder="0912 345 678"
-                      className="w-full h-11 pl-20 pr-4 text-sm font-semibold rounded-xl border border-slate-300 text-slate-900 focus:outline-none focus:border-[#1250dc] focus:ring-3 focus:ring-blue-500/15"
+                      type={showPassword ? "text" : "password"}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      onFocus={() => setFocusedField("password")}
+                      onBlur={() => setFocusedField(null)}
+                      placeholder="••••••••••••"
+                      className="w-full h-12 pr-11 bg-transparent text-sm font-semibold text-white placeholder-slate-500 focus:outline-none"
                       required
                     />
-                  </div>
-                </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5">Địa chỉ Email (nhận đơn thuốc điện tử)</label>
-                  <input
-                    type="email"
-                    value={regEmail}
-                    onChange={(e) => setRegEmail(e.target.value)}
-                    placeholder="ten@example.com"
-                    className="w-full h-11 px-4 text-sm font-semibold rounded-xl border border-slate-300 text-slate-900 focus:outline-none focus:border-[#1250dc] focus:ring-3 focus:ring-blue-500/15"
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1.5">Mật khẩu <span className="text-rose-500">*</span></label>
-                    <input
-                      type="password"
-                      value={regPass}
-                      onChange={(e) => setRegPass(e.target.value)}
-                      className="w-full h-11 px-4 text-sm font-semibold rounded-xl border border-slate-300 text-slate-900 focus:outline-none focus:border-[#1250dc] focus:ring-3 focus:ring-blue-500/15"
-                      required
-                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3.5 text-slate-400 hover:text-white p-1 focus:outline-none transition-colors"
+                      title={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="w-4 h-4 text-cyan-400" />
+                      ) : (
+                        <Eye className="w-4 h-4" />
+                      )}
+                    </button>
                   </div>
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1.5">Xác nhận lại <span className="text-rose-500">*</span></label>
-                    <input
-                      type="password"
-                      value={regConfirmPass}
-                      onChange={(e) => setRegConfirmPass(e.target.value)}
-                      className="w-full h-11 px-4 text-sm font-semibold rounded-xl border border-slate-300 text-slate-900 focus:outline-none focus:border-[#1250dc] focus:ring-3 focus:ring-blue-500/15"
-                      required
-                    />
-                  </div>
-                </div>
+                </motion.div>
 
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="w-full h-12 rounded-xl bg-[#1250dc] hover:bg-[#0d42b8] text-white text-sm font-bold shadow-md shadow-blue-600/20 active:scale-[0.99] transition-all flex items-center justify-center gap-2 disabled:opacity-70 mt-2"
+                {/* 3. REMEMBER ME & TEST ACCOUNT HINT */}
+                <motion.div
+                  variants={itemVariants}
+                  className="flex items-center justify-between text-xs pt-0.5"
                 >
-                  <span>{isSubmitting ? "Đang tạo hồ sơ..." : "Tạo tài khoản thành viên"}</span>
-                  {!isSubmitting && <ArrowRight className="w-4 h-4" />}
-                </button>
+                  <label className="flex items-center gap-2 cursor-pointer select-none text-slate-300 hover:text-white transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={rememberMe}
+                      onChange={(e) => setRememberMe(e.target.checked)}
+                      className="w-4 h-4 rounded border-slate-700 bg-white/5 text-cyan-500 focus:ring-0 focus:ring-offset-0 cursor-pointer accent-cyan-500"
+                    />
+                    <span>Ghi nhớ đăng nhập</span>
+                  </label>
 
-                <div className="text-center pt-2 text-xs text-slate-500 border-t border-slate-100">
-                  Đã có tài khoản?{" "}
+                  {/* Demo test account helper */}
                   <button
                     type="button"
-                    onClick={() => setActiveTab("login")}
-                    className="font-extrabold text-[#1250dc] hover:underline"
+                    onClick={() => {
+                      setIdentifier("0901234567");
+                      setPassword("H4carePass@2026");
+                    }}
+                    className="text-[11px] font-semibold text-cyan-400/80 hover:text-cyan-300 hover:underline"
                   >
-                    Đăng nhập tại đây
+                    Điền tài khoản mẫu
                   </button>
-                </div>
+                </motion.div>
+
+                {/* 4. SIGNATURE LIQUID METAL CTA BUTTON */}
+                <motion.div variants={itemVariants} className="pt-2">
+                  <LiquidMetalButton
+                    type="submit"
+                    isLoading={isSubmitting}
+                    isSuccess={isSuccess}
+                  >
+                    Đăng nhập H4CARE
+                  </LiquidMetalButton>
+                </motion.div>
+
+                {/* 5. TOGGLE FAST PHONE OTP LOGIN */}
+                <motion.div variants={itemVariants} className="text-center pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setErrorMessage(null);
+                      setUseOtpMode(true);
+                      setOtpStep("phone");
+                    }}
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-400 hover:text-cyan-300 transition-colors"
+                  >
+                    <Smartphone className="w-3.5 h-3.5 text-cyan-400" />
+                    <span>Hoặc đăng nhập nhanh qua mã OTP di động</span>
+                  </button>
+                </motion.div>
               </form>
-            </div>
-          )}
-
-          {/* ==========================================================
-               TAB 3: QUÊN MẬT KHẨU
-          ========================================================== */}
-          {activeTab === "forgot" && (
-            <div className="space-y-4">
-              <div className="text-center mb-5">
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 text-amber-800 text-xs font-bold mb-2 border border-amber-200">
-                  <KeyRound className="w-3.5 h-3.5 text-amber-600" />
-                  <span>Khôi phục quyền truy cập</span>
+            ) : (
+              /* ================= OTP SUB-MODE FORM ================= */
+              <div className="space-y-4">
+                <div className="flex items-center justify-between mb-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setErrorMessage(null);
+                      setUseOtpMode(false);
+                    }}
+                    className="text-xs font-semibold text-cyan-400 hover:text-cyan-300 flex items-center gap-1"
+                  >
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                    <span>Dùng Mật khẩu thông thường</span>
+                  </button>
+                  <span className="text-[11px] font-bold text-slate-400">
+                    {otpStep === "phone" ? "Bước 1/2" : "Bước 2/2"}
+                  </span>
                 </div>
-                <h2 className="text-2xl font-black text-slate-900 tracking-tight">Đặt lại mật khẩu</h2>
-                <p className="text-xs text-slate-500 mt-1">Xác thực mã OTP để bảo vệ an toàn hồ sơ đơn thuốc của bạn</p>
-              </div>
 
-              {forgotStep === "input" ? (
-                <form onSubmit={handleForgotTargetSubmit} className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1.5">Số điện thoại hoặc Email đã đăng ký</label>
-                    <input
-                      type="text"
-                      value={forgotTarget}
-                      onChange={(e) => setForgotTarget(e.target.value)}
-                      placeholder="0912 345 678 hoặc email..."
-                      className="w-full h-12 px-4 text-sm font-semibold rounded-xl border border-slate-300 text-slate-900 focus:outline-none focus:border-[#1250dc] focus:ring-3 focus:ring-blue-500/15"
-                      required
-                    />
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="w-full h-12 rounded-xl bg-[#1250dc] hover:bg-[#0d42b8] text-white text-sm font-bold shadow-md shadow-blue-600/20 active:scale-[0.99] transition-all flex items-center justify-center gap-2 disabled:opacity-70"
-                  >
-                    <span>{isSubmitting ? "Đang gửi OTP..." : "Gửi mã xác thực OTP"}</span>
-                    {!isSubmitting && <ArrowRight className="w-4 h-4" />}
-                  </button>
-
-                  <div className="text-center pt-2 text-xs border-t border-slate-100">
-                    <button
-                      type="button"
-                      onClick={() => setActiveTab("login")}
-                      className="font-extrabold text-[#1250dc] hover:underline"
-                    >
-                      ← Quay lại Đăng nhập
-                    </button>
-                  </div>
-                </form>
-              ) : (
-                <form onSubmit={handleForgotResetSubmit} className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <button
-                      type="button"
-                      onClick={() => setForgotStep("input")}
-                      className="text-xs font-bold text-[#1250dc] hover:underline flex items-center gap-1"
-                    >
-                      <ArrowLeft className="w-3.5 h-3.5" />
-                      <span>Nhập lại số điện thoại</span>
-                    </button>
-                    <span className="text-[11px] text-slate-400">Bước 2/2</span>
-                  </div>
-
-                  <div className="p-3 bg-blue-50 border border-blue-100 rounded-xl text-xs text-blue-900 leading-relaxed">
-                    Mã xác thực đã được gửi tới <strong>{forgotTarget}</strong>.
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-2">Mã xác thực OTP (6 số)</label>
-                    <div className="grid grid-cols-6 gap-2">
-                      {forgotOtp.map((val, idx) => (
+                {otpStep === "phone" ? (
+                  <form onSubmit={handleOtpRequest} className="space-y-4">
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-semibold text-slate-300">
+                        Số điện thoại nhận mã OTP
+                      </label>
+                      <div className="relative rounded-2xl bg-white/[0.03] border border-cyan-400/40 p-1 flex items-center">
+                        <span className="pl-3 pr-2 text-xs font-bold text-cyan-300 select-none border-r border-white/10">
+                          🇻🇳 +84
+                        </span>
                         <input
-                          key={idx}
-                          type="text"
-                          maxLength={1}
-                          value={val}
-                          onChange={(e) => {
-                            const newOtp = [...forgotOtp];
-                            newOtp[idx] = e.target.value.slice(-1);
-                            setForgotOtp(newOtp);
-                          }}
-                          className="w-full h-11 text-center text-lg font-bold rounded-xl border border-slate-300 text-slate-900 focus:outline-none focus:border-[#1250dc]"
+                          type="tel"
+                          value={identifier}
+                          onChange={(e) => setIdentifier(e.target.value)}
+                          placeholder="0901 234 567"
+                          className="w-full h-11 px-3 bg-transparent text-sm font-bold text-white focus:outline-none"
+                          required
                         />
-                      ))}
+                      </div>
                     </div>
-                  </div>
 
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1.5">Mật khẩu mới</label>
-                    <input
-                      type="password"
-                      value={forgotNewPass}
-                      onChange={(e) => setForgotNewPass(e.target.value)}
-                      className="w-full h-11 px-4 text-sm font-semibold rounded-xl border border-slate-300 text-slate-900 focus:outline-none focus:border-[#1250dc] focus:ring-3 focus:ring-blue-500/15"
-                      required
-                    />
-                  </div>
+                    <LiquidMetalButton type="submit" isLoading={isSubmitting}>
+                      Nhận mã OTP bảo mật
+                    </LiquidMetalButton>
+                  </form>
+                ) : (
+                  <form onSubmit={handleOtpVerify} className="space-y-4">
+                    <div className="p-3 rounded-2xl bg-cyan-950/40 border border-cyan-500/20 text-xs text-cyan-200">
+                      Mã xác thực gồm 6 chữ số đã được gửi tới SĐT{" "}
+                      <strong className="text-white font-bold">{identifier}</strong>.
+                    </div>
 
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1.5">Xác nhận lại mật khẩu mới</label>
-                    <input
-                      type="password"
-                      value={forgotConfirmPass}
-                      onChange={(e) => setForgotConfirmPass(e.target.value)}
-                      className="w-full h-11 px-4 text-sm font-semibold rounded-xl border border-slate-300 text-slate-900 focus:outline-none focus:border-[#1250dc] focus:ring-3 focus:ring-blue-500/15"
-                      required
-                    />
-                  </div>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-xs">
+                        <label className="font-semibold text-slate-300">Nhập 6 số OTP</label>
+                        <button
+                          type="button"
+                          onClick={() => setOtpValues(["8", "4", "2", "6", "9", "1"])}
+                          className="text-[11px] font-bold text-cyan-400 hover:underline"
+                        >
+                          Dán mã mẫu (842691)
+                        </button>
+                      </div>
 
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="w-full h-12 rounded-xl bg-[#1250dc] hover:bg-[#0d42b8] text-white text-sm font-bold shadow-md shadow-blue-600/20 active:scale-[0.99] transition-all flex items-center justify-center gap-2 disabled:opacity-70"
-                  >
-                    <span>{isSubmitting ? "Đang lưu..." : "Lưu mật khẩu & Đăng nhập ngay"}</span>
-                    {!isSubmitting && <ArrowRight className="w-4 h-4" />}
-                  </button>
-                </form>
-              )}
-            </div>
-          )}
+                      <div className="grid grid-cols-6 gap-2">
+                        {otpValues.map((val, idx) => (
+                          <input
+                            key={idx}
+                            type="text"
+                            inputMode="numeric"
+                            maxLength={1}
+                            value={val}
+                            onChange={(e) => {
+                              const next = [...otpValues];
+                              next[idx] = e.target.value.slice(-1);
+                              setOtpValues(next);
+                            }}
+                            className="w-full h-12 rounded-xl bg-white/[0.04] border border-white/15 focus:border-cyan-400 text-center text-lg font-black text-white focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                          />
+                        ))}
+                      </div>
+                    </div>
 
-        </div>
-
-        {/* 3 H4CARE Member Perks */}
-        <div className="mt-5 grid grid-cols-3 gap-2 text-center text-xs">
-          <div className="p-3 bg-white rounded-2xl border border-slate-200/90 shadow-2xs">
-            <div className="w-7 h-7 rounded-lg bg-blue-50 text-[#1250dc] flex items-center justify-center mx-auto mb-1 font-black text-xs">
-              %
-            </div>
-            <span className="font-extrabold text-slate-900 block text-[11px]">Tích lũy 2%</span>
-            <span className="text-[10px] text-slate-500 leading-tight block">Trừ thẳng đơn sau</span>
-          </div>
-
-          <div className="p-3 bg-white rounded-2xl border border-slate-200/90 shadow-2xs">
-            <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-1 font-black text-xs">
-              ⚡
-            </div>
-            <span className="font-extrabold text-slate-900 block text-[11px]">Giao nhanh 2h</span>
-            <span className="text-[10px] text-slate-500 leading-tight block">Freeship từ 300k</span>
-          </div>
-
-          <div className="p-3 bg-white rounded-2xl border border-slate-200/90 shadow-2xs">
-            <div className="w-7 h-7 rounded-lg bg-cyan-50 text-cyan-600 flex items-center justify-center mx-auto mb-1 font-black text-xs">
-              📋
-            </div>
-            <span className="font-extrabold text-slate-900 block text-[11px]">Sổ toa thuốc</span>
-            <span className="text-[10px] text-slate-500 leading-tight block">Lưu đơn trọn đời</span>
-          </div>
-        </div>
-
-        {/* Live Pharmacist Helpline Pill */}
-        <div className="mt-3.5 p-2.5 sm:p-3 bg-white rounded-2xl border border-slate-200/90 flex items-center justify-between text-xs shadow-2xs">
-          <div className="flex items-center gap-2.5">
-            <div className="relative">
-              <div className="w-8 h-8 rounded-xl bg-blue-50 text-[#1250dc] font-bold flex items-center justify-center text-xs border border-blue-100">
-                DS
+                    <LiquidMetalButton
+                      type="submit"
+                      isLoading={isSubmitting}
+                      isSuccess={isSuccess}
+                    >
+                      Xác nhận đăng nhập
+                    </LiquidMetalButton>
+                  </form>
+                )}
               </div>
-              <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white"></span>
-            </div>
-            <div>
-              <span className="font-bold text-slate-900 block text-[11px]">DS. Nguyễn Minh Anh (ĐH Dược Hà Nội)</span>
-              <span className="text-[10px] text-slate-500">Cần hỗ trợ trực tiếp từ Dược sĩ?</span>
-            </div>
-          </div>
-          <a href="tel:18006868" className="px-2.5 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-[#1250dc] font-bold text-[11px] transition-colors">
-            Gọi 1800 6868
-          </a>
-        </div>
+            )}
 
+            {/* ================= BOTTOM REGISTER LINK ================= */}
+            <motion.div
+              variants={itemVariants}
+              className="mt-6 pt-5 border-t border-white/[0.08] text-center text-xs text-slate-400"
+            >
+              Chưa có tài khoản H4CARE?{" "}
+              <Link
+                href="/register"
+                className="font-extrabold text-cyan-300 hover:text-cyan-200 hover:underline transition-colors"
+              >
+                Đăng ký ngay
+              </Link>
+            </motion.div>
+          </div>
+        </motion.div>
       </main>
 
-      {/* ================= FOOTER ================= */}
-      <footer className="bg-white border-t border-slate-200 py-3 px-4 text-xs text-slate-500">
-        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 text-center sm:text-left">
-          <div>
-            <span className="font-extrabold text-slate-800">HỆ THỐNG NHÀ THUỐC H4CARE</span>
-            <span className="hidden sm:inline"> — </span>
-            <span className="block sm:inline text-[11px]">Chăm sóc sức khỏe gia đình chuẩn GPP & GSP</span>
-          </div>
-          <div className="text-[11px] font-semibold text-[#1250dc]">
-            Hotline Dược sĩ: 1800 6868 (Miễn phí)
-          </div>
-        </div>
+      {/* ================= CLINICAL FOOTER ================= */}
+      <footer className="relative z-20 w-full py-4 text-center text-[11px] text-slate-500">
+        <p>
+          H4CARE • “Chăm sóc sức khỏe, bắt đầu từ sự thấu hiểu.” • Bản quyền thuộc H4CARE
+        </p>
       </footer>
-
     </div>
   );
 }
@@ -916,12 +584,12 @@ export default function LoginPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen flex items-center justify-center bg-[#f4f6f9] text-slate-600 text-sm">
-          Đang tải trang đăng nhập H4CARE...
+        <div className="min-h-screen bg-[#050b18] flex items-center justify-center text-cyan-400">
+          <div className="w-8 h-8 rounded-full border-2 border-cyan-400 border-t-transparent animate-spin" />
         </div>
       }
     >
-      <LoginForm />
+      <LoginContent />
     </Suspense>
   );
 }
