@@ -23,6 +23,7 @@ import {
   UserCheck,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth/auth-context";
+import { useCart } from "@/lib/cart/cart-context";
 
 interface HeaderProps {
   onReplayIntro?: () => void;
@@ -30,12 +31,12 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({ onReplayIntro }) => {
   const { user, isAuthenticated, logout } = useAuth();
+  const { totalItems: cartCount } = useCart();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMegaMenuOpen, setIsMegaMenuOpen] = useState(false);
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const [isAccountDropdownOpen, setIsAccountDropdownOpen] = useState(false);
-  const [cartCount, setCartCount] = useState(2); // Demo mock count
 
   useEffect(() => {
     const handleScroll = () => {

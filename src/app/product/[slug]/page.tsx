@@ -2,10 +2,11 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { useParams, notFound } from "next/navigation";
+import { useParams, useRouter, notFound } from "next/navigation";
 import { Header } from "@/components/layout/Header";
 import { PRODUCTS_DATA } from "@/data/products";
 import { Product } from "@/types";
+import { useCart } from "@/lib/cart/cart-context";
 import { ProductCard } from "@/components/product/ProductCard";
 import { RxConsultModal } from "@/components/product/RxConsultModal";
 import { ProductQuickViewModal } from "@/components/product/ProductQuickViewModal";
@@ -34,6 +35,8 @@ import {
 } from "lucide-react";
 
 export default function ProductDetailPage() {
+  const router = useRouter();
+  const { addToCart } = useCart();
   const params = useParams();
   const slug = params?.slug as string;
 
@@ -395,7 +398,7 @@ export default function ProductDetailPage() {
                         className="w-full sm:flex-1"
                         leftIcon={<ShoppingBag className="w-5 h-5" />}
                         onClick={() => {
-                          alert(`Đã thêm ${quantity} sản phẩm ${product.name} vào giỏ hàng demo!`);
+                          addToCart(product, quantity);
                         }}
                       >
                         Thêm Vào Giỏ Hàng
@@ -406,7 +409,8 @@ export default function ProductDetailPage() {
                         size="lg"
                         className="w-full sm:flex-1 shadow-medical"
                         onClick={() => {
-                          alert(`Chuyển đến trang thanh toán demo cho ${product.name}!`);
+                          addToCart(product, quantity);
+                          router.push("/cart");
                         }}
                       >
                         Mua Ngay

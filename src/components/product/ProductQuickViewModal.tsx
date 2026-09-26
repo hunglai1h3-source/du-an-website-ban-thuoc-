@@ -14,6 +14,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { formatVND } from "@/lib/utils";
+import { useCart } from "@/lib/cart/cart-context";
 import { Button } from "../ui/Button";
 import Link from "next/link";
 
@@ -32,6 +33,7 @@ export const ProductQuickViewModal: React.FC<ProductQuickViewModalProps> = ({
   onOpenRxConsult,
   onAddToCart,
 }) => {
+  const { addToCart } = useCart();
   const [selectedImageIdx, setSelectedImageIdx] = useState(0);
 
   if (!isOpen || !product) return null;
@@ -216,7 +218,11 @@ export const ProductQuickViewModal: React.FC<ProductQuickViewModalProps> = ({
                         className="flex-1 shadow-medical"
                         leftIcon={<ShoppingBag className="w-4 h-4" />}
                         onClick={() => {
-                          if (onAddToCart) onAddToCart(product);
+                          if (onAddToCart) {
+                            onAddToCart(product);
+                          } else {
+                            addToCart(product, 1);
+                          }
                           onClose();
                         }}
                       >

@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { Product } from "@/types";
 import { formatVND } from "@/lib/utils";
+import { useCart } from "@/lib/cart/cart-context";
 import { ProductImageStage } from "./ProductImageStage";
 import {
   Star,
@@ -28,6 +29,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   onAddToCart,
   className = "",
 }) => {
+  const { addToCart } = useCart();
   const [isWishlisted, setIsWishlisted] = useState(false);
 
   const discountPercent =
@@ -49,7 +51,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({
     if (product.isPrescription) {
       if (onOpenRxConsult) onOpenRxConsult(product);
     } else {
-      if (onAddToCart) onAddToCart(product);
+      if (onAddToCart) {
+        onAddToCart(product);
+      } else {
+        addToCart(product, 1);
+      }
     }
   };
 
