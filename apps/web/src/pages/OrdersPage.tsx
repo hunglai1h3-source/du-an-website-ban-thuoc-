@@ -1,19 +1,15 @@
 import {
   AlertCircle,
   CheckCircle2,
-  Clock,
   Eye,
-  Filter,
   Loader2,
-  Package,
   RefreshCw,
   Search,
   ShoppingBag,
   Truck,
   X,
-  XCircle,
 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { api } from '../services/api'
 
 interface OrderSummary {
@@ -72,15 +68,11 @@ export function OrdersPage() {
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL')
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedOrder, setSelectedOrder] = useState<OrderDetailData | null>(null)
-  const [loadingDetail, setLoadingDetail] = useState(false)
+  const [loadingDetailId, setLoadingDetailId] = useState<number | null>(null)
   const [updatingId, setUpdatingId] = useState<number | null>(null)
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
 
-  useEffect(() => {
-    loadOrders()
-  }, [selectedStatus])
-
-  async function loadOrders() {
+  const loadOrders = useCallback(async () => {
     setLoading(true)
     try {
       const q = new URLSearchParams()
@@ -94,7 +86,11 @@ export function OrdersPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [selectedStatus, searchQuery])
+
+  useEffect(() => {
+    loadOrders()
+  }, [loadOrders])
 
   function handleSearchSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -102,14 +98,14 @@ export function OrdersPage() {
   }
 
   async function openOrderDetail(orderId: number) {
-    setLoadingDetail(true)
+    setLoadingDetailId(orderId)
     try {
       const res = await api<OrderDetailData>(`/admin/orders/${orderId}`)
       setSelectedOrder(res)
     } catch (err: any) {
       alert('Không tải được chi tiết đơn hàng: ' + (err?.message || 'Lỗi mạng'))
     } finally {
-      setLoadingDetail(false)
+      setLoadingDetailId(null)
     }
   }
 
@@ -280,11 +276,12 @@ export function OrdersPage() {
                           <button
                             type="button"
                             onClick={() => openOrderDetail(o.id)}
+                            disabled={loadingDetailId === o.id}
                             className="secondary-button"
                             style={{ padding: '4px 10px', fontSize: 12 }}
                             title="Xem chi tiết đơn hàng"
                           >
-                            <Eye size={13} /> Chi tiết
+                            {loadingDetailId === o.id ? <Loader2 size={13} className="spin" /> : <Eye size={13} />} Chi tiết
                           </button>
 
                           {o.order_status === 'PENDING' && (

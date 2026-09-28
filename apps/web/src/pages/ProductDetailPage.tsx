@@ -1,5 +1,5 @@
 import { ArrowLeft, Beaker, CheckCircle2, FileSearch, RefreshCw, ShieldAlert } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ScoreRing } from '../components/ScoreRing'
 import { StatusBadge } from '../components/StatusBadge'
@@ -34,8 +34,11 @@ export function ProductDetailPage() {
   const [product, setProduct] = useState<ProductDetail | null>(null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
-  const load = () => api<ProductDetail>(`/products/${id}`).then(setProduct).catch(err => setError(err.message))
-  useEffect(() => { void load() }, [id])
+  const load = useCallback(() => {
+    if (!id) return Promise.resolve()
+    return api<ProductDetail>(`/products/${id}`).then(setProduct).catch(err => setError(err.message))
+  }, [id])
+  useEffect(() => { void load() }, [load])
 
   async function recalculate() {
     setBusy(true)

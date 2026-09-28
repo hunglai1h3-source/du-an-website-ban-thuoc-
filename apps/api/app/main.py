@@ -1,13 +1,15 @@
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.api.router import api_router
 from app.core.config import settings
 from app.core.middleware import RateLimitMiddleware
-
-
 from app.services.scheduler import scheduler
 
 
@@ -38,9 +40,6 @@ app.add_middleware(
 )
 app.add_middleware(RateLimitMiddleware)
 app.include_router(api_router)
-
-from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
 
 FIELD_NAMES_VI = {
     "customer_name": "Họ và tên người nhận",
@@ -73,10 +72,6 @@ async def validation_exception_handler(request, exc: RequestValidationError):
     detail_str = "; ".join(msgs) if msgs else "Thông tin gửi lên không đúng định dạng."
     return JSONResponse(status_code=422, content={"detail": detail_str, "errors": exc.errors()})
 
-
-from pathlib import Path
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, JSONResponse
 
 web_dist_dir = Path(__file__).resolve().parent.parent.parent / "web" / "dist"
 assets_dir = web_dist_dir / "assets"

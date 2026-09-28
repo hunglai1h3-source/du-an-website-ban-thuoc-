@@ -1,6 +1,5 @@
-import { Database, Play, Plus, RefreshCw, ShieldCheck } from 'lucide-react'
+import { Database, Play, Plus, ShieldCheck } from 'lucide-react'
 import { useEffect, useState, type FormEvent } from 'react'
-import { StatusBadge } from '../components/StatusBadge'
 import { api } from '../services/api'
 import { useAuth } from '../services/auth'
 import type { Source } from '../types'

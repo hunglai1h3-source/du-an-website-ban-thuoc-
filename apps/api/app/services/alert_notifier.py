@@ -96,7 +96,7 @@ def format_telegram_alert(
         f"<b>Mức độ:</b> <code>{severity.upper()}</code>",
         f"<b>Thời gian:</b> <i>{now_str}</i>",
         "",
-        f"<b>Chi tiết:</b>",
+        "<b>Chi tiết:</b>",
         f"{escape_html(message)}",
     ]
 

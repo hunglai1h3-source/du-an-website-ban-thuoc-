@@ -1,7 +1,6 @@
 import unittest
 from unittest.mock import MagicMock, patch
 
-from app.core.config import settings
 from app.services.alert_notifier import (
     dispatch_alert,
     format_telegram_alert,
@@ -9,6 +8,8 @@ from app.services.alert_notifier import (
     send_webhook_alert,
     test_telegram_connection,
 )
+
+test_telegram_connection.__test__ = False
 
 
 class TestAlertNotifier(unittest.TestCase):

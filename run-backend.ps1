@@ -7,7 +7,21 @@ Write-Host "========================================================" -Foregroun
 
 if (-not (Test-Path ".venv")) {
     Write-Host "[THÔNG BÁO] Đang tạo môi trường ảo Python .venv..." -ForegroundColor Yellow
-    py -3.11 -m venv .venv
+    $pyCmd = $null
+    if (Get-Command py -ErrorAction SilentlyContinue) {
+        foreach ($ver in @("-3.11", "-3.12", "-3.13", "-3.14", "-3")) {
+            $null = & py $ver -c "import sys" 2>$null
+            if ($LASTEXITCODE -eq 0) { $pyCmd = "py $ver"; break }
+        }
+    }
+    if (-not $pyCmd -and (Get-Command python -ErrorAction SilentlyContinue)) {
+        $pyCmd = "python"
+    }
+    if (-not $pyCmd) {
+        Write-Host "[LỖI] Không tìm thấy Python runtime trên máy." -ForegroundColor Red
+        exit 1
+    }
+    Invoke-Expression "$pyCmd -m venv .venv"
     & .\.venv\Scripts\pip.exe install -r apps\api\requirements.txt
 }
 

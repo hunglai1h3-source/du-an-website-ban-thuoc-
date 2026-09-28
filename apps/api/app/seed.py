@@ -86,8 +86,48 @@ REAL_SOURCES = [
 ]
 
 
+DEMO_SOURCES = [
+    (
+        "DAV_DEMO",
+        "Cục Quản lý Dược (Demo)",
+        SourceType.REGULATORY,
+        5,
+        1.0,
+        "demo://dav",
+        "Nguồn kiểm thử cơ quan quản lý dược.",
+    ),
+    (
+        "MFR_DEMO",
+        "Nhà sản xuất Dược phẩm (Demo)",
+        SourceType.MANUFACTURER,
+        4,
+        0.9,
+        "demo://mfr",
+        "Nguồn kiểm thử nhà sản xuất.",
+    ),
+    (
+        "RETAIL_DEMO",
+        "Nhà thuốc bán lẻ (Demo)",
+        SourceType.RETAILER,
+        2,
+        0.65,
+        "demo://retail",
+        "Nguồn kiểm thử kênh bán lẻ.",
+    ),
+    (
+        "MANUAL",
+        "Nhập dữ liệu tệp CSV/Excel thủ công",
+        SourceType.MANUAL_UPLOAD,
+        4,
+        0.85,
+        None,
+        "Nguồn nhập dữ liệu tệp nội bộ.",
+    ),
+]
+
+
 def seed_sources(db):
-    for code, name, source_type, level, weight, base_url, note in REAL_SOURCES:
+    for code, name, source_type, level, weight, base_url, note in REAL_SOURCES + DEMO_SOURCES:
         existing = db.scalar(select(DataSource).where(DataSource.code == code))
         if not existing:
             db.add(

@@ -1,14 +1,12 @@
-import os
 import unittest
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from unittest.mock import MagicMock, patch
 
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, select, text
+from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 
-from app.core.config import settings
 from app.db.base import Base
 from app.main import app
 from app.models import (
@@ -18,13 +16,11 @@ from app.models import (
     CrawlRun,
     DataConflict,
     DataSource,
-    FailedCrawlItem,
     PriceObservation,
     ProductSourceField,
     RegulatoryRecord,
-    User,
 )
-from app.models.enums import ConflictSeverity, ConflictStatus, PublishStatus, RegulatoryStatus, RunStatus, RxOtcStatus, SourceType, UserRole
+from app.models.enums import ConflictSeverity, ConflictStatus, PublishStatus, RegulatoryStatus, RunStatus, SourceType
 from app.services.browser_fallback import is_cloudflare_or_captcha
 from app.services.category_classifier import AICategoryClassifier
 from app.services.crawler_pipeline import execute_crawl_pipeline
@@ -196,7 +192,7 @@ class TestAutoCrawlerSuite(unittest.TestCase):
 
         with patch("app.services.crawler_pipeline.SessionLocal", return_value=self.db), \
              patch("app.services.crawler_pipeline.httpx.get", side_effect=fake_get), \
-             patch("app.services.crawler_pipeline.time.sleep") as mock_sleep:
+             patch("app.services.crawler_pipeline.time.sleep"):
 
             # max_retries = 2 -> gọi tối đa 3 lần cho 1 URL
             try:
@@ -268,7 +264,7 @@ class TestAutoCrawlerSuite(unittest.TestCase):
         prod_id = prod.id
 
         # Giả lập phát hiện trùng chắc chắn qua SĐK
-        item = {
+        _item = {
             "name": "Panadol Extra đỏ",
             "registration_number": "VD-25556-16",
             "price": 185000,

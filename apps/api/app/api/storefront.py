@@ -139,7 +139,7 @@ def serialize_product(product: CanonicalProduct, price: int | None = None) -> di
 def get_store_products(
     category: str | None = None,
     subCategory: str | None = None,
-    prescriptionType: str = Query("all", regex="^(all|otc|rx)$"),
+    prescriptionType: str = Query("all", pattern="^(all|otc|rx)$"),
     search: str | None = None,
     sort: str = "popular",
     limit: int = Query(150, ge=1, le=300),

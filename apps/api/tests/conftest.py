@@ -29,8 +29,12 @@ def database():
         db.commit()
     yield
     Base.metadata.drop_all(engine)
+    engine.dispose()
     if TEST_DB.exists():
-        TEST_DB.unlink()
+        try:
+            TEST_DB.unlink()
+        except OSError:
+            pass
 
 
 @pytest.fixture

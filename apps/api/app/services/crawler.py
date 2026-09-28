@@ -13,8 +13,6 @@ from bs4 import BeautifulSoup
 from app.services.normalization import (
     extract_registration_number,
     extract_strengths,
-    normalize_for_match,
-    normalize_registration_number,
 )
 from app.services.url_safety import validate_public_url
 

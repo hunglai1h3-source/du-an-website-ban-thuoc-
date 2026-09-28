@@ -1,14 +1,14 @@
 import datetime
 import random
 from decimal import Decimal
-from typing import Any, List, Optional
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
-from sqlalchemy import desc, or_, select
+from sqlalchemy import desc, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
-from app.api.deps import get_current_user, require_roles
+from app.api.deps import require_roles
 from app.db.session import get_db
 from app.models import CanonicalProduct, Order, OrderItem, PriceObservation, User
 from app.models.enums import UserRole
@@ -275,7 +275,7 @@ def list_orders(
             )
         )
 
-    total = db.scalar(select(Order).with_only_columns(Order.id).order_by(None))
+    total = db.scalar(select(func.count()).select_from(query.subquery()))
     orders = db.scalars(
         query.order_by(desc(Order.id)).offset((page - 1) * page_size).limit(page_size)
     ).all()
@@ -297,6 +297,7 @@ def list_orders(
             }
             for o in orders
         ],
+        "total": total or 0,
         "page": page,
         "page_size": page_size,
     }

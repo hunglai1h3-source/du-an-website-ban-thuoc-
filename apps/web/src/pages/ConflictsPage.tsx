@@ -1,5 +1,5 @@
 import { AlertTriangle, Check, Filter } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { EmptyState } from '../components/EmptyState'
 import { StatusBadge } from '../components/StatusBadge'
 import { api } from '../services/api'
@@ -20,8 +20,8 @@ export function ConflictsPage() {
   const [items, setItems] = useState<Conflict[]>([])
   const [status, setStatus] = useState('OPEN')
   const [error, setError] = useState('')
-  const load = () => api<Conflict[]>(`/conflicts?status=${status}`).then(setItems).catch(err => setError(err.message))
-  useEffect(() => { void load() }, [status])
+  const load = useCallback(() => api<Conflict[]>(`/conflicts?status=${status}`).then(setItems).catch(err => setError(err.message)), [status])
+  useEffect(() => { void load() }, [load])
 
   async function resolve(item: Conflict) {
     const note = window.prompt('Ghi chú quyết định xử lý dữ liệu:')
