@@ -1,0 +1,84 @@
+from enum import StrEnum
+
+
+class UserRole(StrEnum):
+    ADMIN = "ADMIN"
+    DATA_REVIEWER = "DATA_REVIEWER"
+    VIEWER = "VIEWER"
+    CUSTOMER = "CUSTOMER"
+
+
+class SourceType(StrEnum):
+    REGULATORY = "REGULATORY"
+    MANUFACTURER = "MANUFACTURER"
+    APPROVED_LEAFLET = "APPROVED_LEAFLET"
+    RETAILER = "RETAILER"
+    MANUAL_UPLOAD = "MANUAL_UPLOAD"
+    DEMO = "DEMO"
+
+
+class RunStatus(StrEnum):
+    QUEUED = "QUEUED"
+    RUNNING = "RUNNING"
+    SUCCESS = "SUCCESS"
+    PARTIAL = "PARTIAL"
+    FAILED = "FAILED"
+    CANCELLED = "CANCELLED"
+
+
+class ProcessingStatus(StrEnum):
+    NEW = "NEW"
+    EXTRACTED = "EXTRACTED"
+    MATCHED = "MATCHED"
+    REVIEW_REQUIRED = "REVIEW_REQUIRED"
+    REJECTED = "REJECTED"
+
+
+class ConfidenceLabel(StrEnum):
+    HIGH_OFFICIAL_MATCH = "HIGH_OFFICIAL_MATCH"
+    REVIEW_REQUIRED = "REVIEW_REQUIRED"
+    INSUFFICIENT_EVIDENCE = "INSUFFICIENT_EVIDENCE"
+    BLOCKED = "BLOCKED"
+
+
+class PublishStatus(StrEnum):
+    DRAFT = "DRAFT"
+    REVIEW_REQUIRED = "REVIEW_REQUIRED"
+    PUBLISHED = "PUBLISHED"
+    BLOCKED = "BLOCKED"
+
+
+class RxOtcStatus(StrEnum):
+    OTC = "OTC"
+    PRESCRIPTION = "PRESCRIPTION"
+    UNKNOWN = "UNKNOWN"
+
+
+class RegulatoryStatus(StrEnum):
+    ACTIVE = "ACTIVE"
+    EXPIRED = "EXPIRED"
+    RECALLED = "RECALLED"
+    QUALITY_VIOLATION = "QUALITY_VIOLATION"
+    UNKNOWN = "UNKNOWN"
+
+
+class ConflictSeverity(StrEnum):
+    LOW = "LOW"
+    MEDIUM = "MEDIUM"
+    HIGH = "HIGH"
+    CRITICAL = "CRITICAL"
+
+
+class ConflictStatus(StrEnum):
+    OPEN = "OPEN"
+    RESOLVED = "RESOLVED"
+    DISMISSED = "DISMISSED"
+
+
+class ReviewDecisionType(StrEnum):
+    DATA_ACCEPTED = "DATA_ACCEPTED"
+    DATA_REJECTED = "DATA_REJECTED"
+    NEED_MORE_EVIDENCE = "NEED_MORE_EVIDENCE"
+    MERGE_ACCEPTED = "MERGE_ACCEPTED"
+    MERGE_REJECTED = "MERGE_REJECTED"
+
