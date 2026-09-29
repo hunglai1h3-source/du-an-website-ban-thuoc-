@@ -2,6 +2,7 @@ import {
   PrescriptionValidationResult,
   ValidationErrorCode,
 } from "@/types/prescription";
+import { verifyFileSignature } from "./file-signature";
 
 export const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
 
@@ -27,6 +28,32 @@ export function formatFileSize(bytes: number): string {
 }
 
 /**
+ * Kiểm tra và làm sạch tên file người dùng tải lên, ngăn chặn triệt để Path Traversal
+ */
+export function sanitizeFileName(fileName: string): string {
+  if (!fileName) return "unnamed_file";
+  // Loại bỏ các ký tự điều khiển, null bytes, và path traversal indicators (../, ..\, etc.)
+  const baseName = fileName.replace(/[\x00-\x1f\x80-\x9f]/g, "").trim();
+  // Chỉ lấy tên file cuối cùng, bỏ qua mọi đường dẫn tương đối hoặc tuyệt đối
+  const cleanName = baseName.split(/[/\\]/).pop() || "unnamed_file";
+  return cleanName;
+}
+
+/**
+ * Kiểm tra xem tên file có chứa dấu hiệu tấn công Path Traversal không
+ */
+export function hasPathTraversal(fileName: string): boolean {
+  if (!fileName) return false;
+  return (
+    fileName.includes("..") ||
+    fileName.includes("/") ||
+    fileName.includes("\\") ||
+    fileName.includes("%00") ||
+    fileName.includes("\0")
+  );
+}
+
+/**
  * Kiểm tra phần mở rộng file có hợp lệ hay không.
  */
 export function isValidExtension(fileName: string): boolean {
@@ -36,7 +63,7 @@ export function isValidExtension(fileName: string): boolean {
 
 /**
  * Lớp Validation 1: Kiểm tra siêu dữ liệu file (Metadata)
- * Áp dụng cho cả Client-side (trước khi gửi) và Server-side (khi vừa nhận Request).
+ * Áp dụng cho cả Client-side (trước khi gửi) và Server-side.
  */
 export function validateFileMetadata(file: {
   name?: string;
@@ -86,8 +113,6 @@ export function validateFileMetadata(file: {
   }
 
   // 5. Kiểm tra MIME Type
-  // Lưu ý: Trên một số trình duyệt/hệ điều hành, file.type đôi khi có thể bị trống nếu registry không có,
-  // nhưng nếu có type thì phải thuộc danh sách cho phép.
   if (type && !(ALLOWED_MIME_TYPES as readonly string[]).includes(type)) {
     return {
       isValid: false,
@@ -101,78 +126,33 @@ export function validateFileMetadata(file: {
 }
 
 /**
- * Lớp Validation 2: Kiểm tra Magic Bytes (File Signature)
- * Áp dụng tại Backend nhằm ngăn chặn kẻ tấn công đổi đuôi file (ví dụ: đổi virus.exe thành donthuoc.jpg).
+ * Lớp Validation 2: Tích hợp kiểm tra Magic Bytes toàn diện
  */
 export function validateFileMagicBytes(
   buffer: ArrayBuffer | Uint8Array,
-  fileName: string
+  fileName: string,
+  declaredMimeType: string = ""
 ): PrescriptionValidationResult {
-  const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
+  return verifyFileSignature(buffer, fileName, declaredMimeType);
+}
 
-  if (bytes.length < 4) {
-    return {
-      isValid: false,
-      error: "Dữ liệu tệp bị hỏng hoặc kích thước quá nhỏ để xác thực.",
-      code: "INVALID_SIGNATURE",
-      httpStatus: 415,
-    };
+/**
+ * Hàm kiểm định tổng hợp (Master Validator) dành cho Server-side
+ */
+export function validatePrescriptionFile(
+  file: { name: string; size: number; type: string },
+  buffer: ArrayBuffer | Uint8Array
+): PrescriptionValidationResult {
+  // 1. Kiểm tra Metadata
+  const metaResult = validateFileMetadata(file);
+  if (!metaResult.isValid) {
+    return metaResult;
   }
 
-  const extension = fileName.slice(fileName.lastIndexOf(".")).toLowerCase();
-
-  // Signature check:
-  // JPEG / JPG: FF D8 FF
-  const isJpeg = bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
-
-  // PNG: 89 50 4E 47 (0x89 'P' 'N' 'G')
-  const isPng =
-    bytes[0] === 0x89 &&
-    bytes[1] === 0x50 &&
-    bytes[2] === 0x4e &&
-    bytes[3] === 0x47;
-
-  // PDF: 25 50 44 46 ('%' 'P' 'D' 'F')
-  const isPdf =
-    bytes[0] === 0x25 &&
-    bytes[1] === 0x50 &&
-    bytes[2] === 0x44 &&
-    bytes[3] === 0x46;
-
-  if (extension === ".jpg" || extension === ".jpeg") {
-    if (!isJpeg) {
-      return {
-        isValid: false,
-        error: "Chữ ký tệp (File Signature) không khớp với định dạng ảnh JPEG/JPG hợp lệ.",
-        code: "INVALID_SIGNATURE",
-        httpStatus: 415,
-      };
-    }
-  } else if (extension === ".png") {
-    if (!isPng) {
-      return {
-        isValid: false,
-        error: "Chữ ký tệp (File Signature) không khớp với định dạng ảnh PNG hợp lệ.",
-        code: "INVALID_SIGNATURE",
-        httpStatus: 415,
-      };
-    }
-  } else if (extension === ".pdf") {
-    if (!isPdf) {
-      return {
-        isValid: false,
-        error: "Chữ ký tệp (File Signature) không khớp với tài liệu chuẩn PDF.",
-        code: "INVALID_SIGNATURE",
-        httpStatus: 415,
-      };
-    }
-  } else {
-    return {
-      isValid: false,
-      error: "Định dạng tệp không được hỗ trợ bởi hệ thống phân tích đơn thuốc.",
-      code: "UNSUPPORTED_TYPE",
-      httpStatus: 415,
-    };
+  // 2. Kiểm tra Magic Bytes
+  const signatureResult = validateFileMagicBytes(buffer, file.name, file.type);
+  if (!signatureResult.isValid) {
+    return signatureResult;
   }
 
   return { isValid: true };

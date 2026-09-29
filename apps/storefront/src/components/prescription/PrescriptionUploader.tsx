@@ -245,23 +245,34 @@ export const PrescriptionUploader: React.FC<PrescriptionUploaderProps> = ({
                 <FileCheck className="w-6 h-6" />
               </div>
               <div>
-                <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                  Đã tiếp nhận thành công
+                <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                  ✓ Đã lưu trữ an toàn (STORED)
                 </span>
                 <h3 className="text-lg font-bold text-slate-900 mt-1">
-                  Đơn thuốc đã được tải lên máy chủ
+                  Đơn thuốc đã được tải lên an toàn
                 </h3>
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={handleResetAll}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-brand-blue-700 bg-brand-blue-50 hover:bg-brand-blue-100 active:scale-95 transition-all cursor-pointer"
-            >
-              <PlusCircle className="w-4 h-4" />
-              <span>Gửi đơn thuốc khác</span>
-            </button>
+            <div className="flex items-center gap-2.5">
+              <button
+                type="button"
+                disabled={true}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-slate-400 bg-slate-100 border border-slate-200 cursor-not-allowed opacity-80"
+                title="Tính năng bóc tách & phân tích OCR/AI sẽ sẵn sàng ở Phase 3"
+              >
+                <span>Phân tích đơn thuốc (Sắp có ở Phase 3)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleResetAll}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-brand-blue-700 bg-brand-blue-50 hover:bg-brand-blue-100 active:scale-95 transition-all cursor-pointer"
+              >
+                <PlusCircle className="w-4 h-4" />
+                <span>Gửi đơn thuốc khác</span>
+              </button>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 my-6">
@@ -279,10 +290,10 @@ export const PrescriptionUploader: React.FC<PrescriptionUploaderProps> = ({
                 Tệp tiếp nhận
               </span>
               <span className="text-xs font-bold text-slate-800 truncate mt-0.5 block">
-                {successData.fileName}
+                {successData.file?.name || (successData as any).fileName}
               </span>
               <span className="text-[10px] text-slate-400 font-mono">
-                {formatFileSize(successData.fileSize)}
+                {formatFileSize(successData.file?.size || (successData as any).fileSize || 0)}
               </span>
             </div>
 
@@ -306,9 +317,8 @@ export const PrescriptionUploader: React.FC<PrescriptionUploaderProps> = ({
             <Info className="w-4 h-4 text-brand-blue-600 shrink-0 mt-0.5" />
             <p className="text-xs text-slate-600 leading-relaxed">
               {successData.message} Hệ thống bảo mật y tế H4CARE đã lưu vết mã hóa
-              cho đơn thuốc này. Trong các giai đoạn tiếp theo (Phase 2 & 3),
-              dữ liệu sẽ được tự động phân tích OCR và chuyển tiếp đến Dược sĩ phụ
-              trách.
+              và tạo bản ghi cơ sở dữ liệu an toàn cho đơn thuốc này. Toàn bộ thông tin
+              được lưu trữ riêng biệt ngoài thư mục công khai để bảo vệ dữ liệu sức khỏe của bạn.
             </p>
           </div>
         </div>

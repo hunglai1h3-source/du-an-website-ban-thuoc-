@@ -1,0 +1,15 @@
+[PASS] CASE 1: Upload JPG hợp lệ -> file lưu, DB record tạo, STORED (ID: 6ca321e6-045d-4157-a0b8-edd108603fce)
+[PASS] CASE 2: Upload PNG hợp lệ -> success 
+[PASS] CASE 3: Upload PDF hợp lệ -> success 
+[PASS] CASE 4: Hai file cùng tên donthuoc.jpg -> Không overwrite, ID và key riêng biệt (Key A: 99632f03-2eb8-4f13-9561-d995f924d98b.jpg, Key B: 9686e13c-5b1a-4b31-aef3-8d37edcc5120.jpg)
+[PASS] CASE 5: .exe đổi tên thành .jpg -> Reject 
+[PASS] CASE 6: Fake MIME (JPEG giả khai báo image/png) -> Reject 
+[PASS] CASE 7: File rỗng (0 bytes) -> Reject 
+[PASS] CASE 8: File > 10 MB -> Reject (413 FILE_TOO_LARGE) 
+[PASS] CASE 9: Không có file -> Reject (400 FILE_MISSING) 
+[PASS] CASE 10: Storage fail -> DB không được tạo record STORED 
+[PASS] CASE 11: Database fail sau khi lưu file -> Tự động Cleanup/Rollback file mồ côi (File cleared: true)
+[PASS] CASE 12: GET prescription ID hợp lệ -> Trả metadata an toàn, không lộ filePath (Status: STORED)
+[PASS] CASE 13: GET ID không tồn tại -> Trả 404 NotFoundError 
+[PASS] CASE 14: ID malformed (chứa ../) -> Xử lý an toàn (400 ValidationError) 
+[PASS] CASE 15: Restart dev server -> Metadata trong SQLite dev.db còn tồn tại vẹn toàn (Persisted ID: 6ca321e6-045d-4157-a0b8-edd108603fce)

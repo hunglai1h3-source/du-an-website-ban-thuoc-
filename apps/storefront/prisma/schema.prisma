@@ -1,0 +1,32 @@
+// Prisma Schema for H4CARE Storefront Prescription Module
+// Phase 2: Prescription Storage + Database
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Prescription {
+  id               String   @id @default(uuid())
+  userId           String?  // Nullable khi khách hàng chưa đăng nhập tài khoản
+  sessionId        String?  // Mã phiên duyệt để đối soát nếu người dùng là khách vãng lai
+  originalFileName String   // Tên file gốc người dùng tải lên (chỉ dùng hiển thị/metadata)
+  storedFileName   String   // Tên file an toàn do máy chủ sinh: <uuid>.<ext>
+  storageKey       String   // Khóa định danh lưu trữ (ví dụ: prescriptions/2026/09/<uuid>.<ext>)
+  filePath         String   // Đường dẫn vật lý private trên server (tuyệt đối không public)
+  mimeType         String   // image/jpeg, image/png, application/pdf
+  fileExtension    String   // .jpg, .jpeg, .png, .pdf
+  fileSize         Int      // Kích thước tệp (bytes)
+  status           String   @default("STORED") // UPLOADED, STORED, PROCESSING, NEEDS_REVIEW, COMPLETED, FAILED
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([sessionId])
+  @@index([userId])
+  @@index([status])
+  @@map("prescriptions")
+}
