@@ -22,7 +22,7 @@ start "PharmaTrust-Backend-Admin-8000" cmd /k "title PharmaTrust Admin :8000 && 
 
 :: 2. Khoi dong Next.js Storefront tren cong 3000
 echo [2/2] Dang khoi dong Storefront Web Ban Hang (Cong 3000)...
-start "PharmaTrust-Storefront-3000" cmd /k "title PharmaTrust Storefront :3000 && cd /d "%~dp0apps\storefront" && npm run dev -- -p 3000"
+start "PharmaTrust-Storefront-3000" cmd /k "title PharmaTrust Storefront :3000 && cd /d "%~dp0apps\storefront" && if exist .next (rd /s /q .next >nul 2>&1) && npm run dev -- -p 3000"
 
 :: 3. Doi may chu san sang va mo duy nhat trang giao dien chinh
 echo.

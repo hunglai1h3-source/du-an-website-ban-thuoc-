@@ -17,7 +17,7 @@ Start-Process -FilePath "cmd.exe" -ArgumentList "/k title PharmaTrust Admin :800
 
 # 2. Start Storefront
 Write-Host "[2/2] Khoi dong Storefront Web Ban Hang (Cong 3000)..." -ForegroundColor White
-Start-Process -FilePath "cmd.exe" -ArgumentList "/k title PharmaTrust Storefront :3000 && cd /d `"$PSScriptRoot\apps\storefront`" && npm run dev -- -p 3000"
+Start-Process -FilePath "cmd.exe" -ArgumentList "/k title PharmaTrust Storefront :3000 && cd /d `"$PSScriptRoot\apps\storefront`" && if exist .next (rd /s /q .next >nul 2>&1) && npm run dev -- -p 3000"
 
 Start-Sleep -Seconds 3
 Start-Process "http://localhost:3000"
