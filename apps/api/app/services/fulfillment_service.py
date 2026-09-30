@@ -1,0 +1,500 @@
+from datetime import UTC, date, datetime, timedelta
+from decimal import Decimal
+import logging
+from typing import Any, Optional
+
+from fastapi import HTTPException
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session, selectinload
+
+from app.models import (
+    CanonicalProduct,
+    FulfillmentItem,
+    InventoryBatch,
+    Order,
+    OrderFulfillment,
+    OrderItem,
+    OrderItemBatchAllocation,
+    PriceObservation,
+    ProductSku,
+    StockMovement,
+    StockReservation,
+    Warehouse,
+    WarehouseBatchStock,
+)
+
+logger = logging.getLogger("pharmatrust.fulfillment")
+
+
+def utcnow() -> datetime:
+    return datetime.now(UTC)
+
+
+class FulfillmentRoutingService:
+    """
+    Dịch vụ Điều phối Đa Kho & Thuật toán Phân bổ Lô FEFO (First-Expired First-Out).
+    """
+
+    NORTH_PROVINCES = {
+        "hà nội", "ha noi", "hải phòng", "hai phong", "quảng ninh", "quang ninh",
+        "bắc ninh", "bac ninh", "hải dương", "hai duong", "hưng yên", "hung yen",
+        "hà nam", "ha nam", "nam định", "nam dinh", "thái bình", "thai binh",
+        "ninh bình", "ninh binh", "vĩnh phúc", "vinh phuc", "phú thọ", "phu tho",
+        "thái nguyên", "thai nguyen", "bắc giang", "bac giang", "lạng sơn", "lang son",
+        "tuyên quang", "tuyen quang", "hà giang", "ha giang", "cao bằng", "cao bang",
+        "bắc kạn", "bac kan", "lào cai", "lao cai", "yên bái", "yen bai",
+        "sơn la", "son la", "hòa bình", "hoa binh", "điện biên", "dien bien", "lai châu", "lai chau",
+    }
+
+    @classmethod
+    def get_preferred_warehouse_order(cls, db: Session, shipping_city: Optional[str], shipping_address: Optional[str]) -> list[Warehouse]:
+        """
+        Xác định thứ tự ưu tiên kho dựa trên địa chỉ giao nhận (Bắc -> KHO-HN-01, Nam/Khác -> KHO-HCM-01).
+        """
+        all_warehouses = db.scalars(select(Warehouse).where(Warehouse.is_active == True).order_by(Warehouse.id.asc())).all()
+        if not all_warehouses:
+            raise HTTPException(status_code=500, detail="Hệ thống chưa thiết lập kho hàng nào đang hoạt động.")
+
+        hcm_wh = next((w for w in all_warehouses if "HCM" in w.code.upper()), all_warehouses[0])
+        hn_wh = next((w for w in all_warehouses if "HN" in w.code.upper()), None)
+
+        combined_addr = f"{shipping_city or ''} {shipping_address or ''}".lower().strip()
+        is_north = any(prov in combined_addr for prov in cls.NORTH_PROVINCES)
+
+        if is_north and hn_wh:
+            # Ưu tiên Hà Nội trước, TP.HCM sau
+            ordered = [hn_wh] + [w for w in all_warehouses if w.id != hn_wh.id]
+        else:
+            # Ưu tiên TP.HCM trước, Hà Nội sau
+            ordered = [hcm_wh] + [w for w in all_warehouses if w.id != hcm_wh.id]
+
+        return ordered
+
+    @classmethod
+    def get_or_create_default_sku(cls, db: Session, product_id: int) -> ProductSku:
+        """
+        Lấy SKU mặc định của sản phẩm hoặc tạo mới nếu chưa có.
+        """
+        sku = db.scalar(
+            select(ProductSku).where(
+                ProductSku.canonical_product_id == product_id,
+                ProductSku.is_default == True,
+            )
+        )
+        if not sku:
+            sku = db.scalar(select(ProductSku).where(ProductSku.canonical_product_id == product_id))
+
+        if not sku:
+            prod = db.get(CanonicalProduct, product_id)
+            price_row = db.query(PriceObservation.observed_price).filter(PriceObservation.product_id == product_id).first()
+            base_p = Decimal(str(price_row[0])) if (price_row and price_row[0]) else Decimal("50000.0")
+
+            sku = ProductSku(
+                canonical_product_id=product_id,
+                sku_code=f"SKU-{prod.registration_number or product_id:04d}-BOX",
+                barcode=f"893{product_id:09d}",
+                uom=prod.dosage_form or "Hộp",
+                conversion_rate=1,
+                base_price=base_p,
+                is_default=True,
+                is_active=True,
+            )
+            db.add(sku)
+            db.flush()
+
+        return sku
+
+    @classmethod
+    def route_and_allocate_order(
+        cls,
+        db: Session,
+        order: Order,
+        items: list[OrderItem],
+        shipping_city: Optional[str],
+        shipping_address: Optional[str],
+    ) -> list[OrderFulfillment]:
+        """
+        Thực hiện định tuyến kho thông minh & phân bổ lô FEFO cho đơn hàng:
+        - Kịch bản 1: Có 1 kho duy nhất đủ 100% hàng -> 1 kiện duy nhất từ kho đó.
+        - Kịch bản 2: Không kho nào đơn lẻ đủ hàng -> Tách đơn (Split Order) giữa các kho.
+        - Kịch bản 3: Toàn hệ thống không đủ hàng -> Trả về lỗi 400 kèm số lượng thiếu chi tiết.
+        """
+        ordered_warehouses = cls.get_preferred_warehouse_order(db, shipping_city, shipping_address)
+        today = date.today()
+
+        # 1. Map mỗi order item sang SKU
+        item_sku_map: dict[int, ProductSku] = {}
+        for it in items:
+            item_sku_map[it.id] = cls.get_or_create_default_sku(db, it.product_id)
+
+        # 2. Kiểm tra tồn khả dụng của từng sản phẩm tại từng kho (chỉ xét lô ACTIVE và còn hạn dùng)
+        # warehouse_id -> sku_id -> available_qty
+        wh_sku_avail: dict[int, dict[int, int]] = {w.id: {} for w in ordered_warehouses}
+
+        for w in ordered_warehouses:
+            for it in items:
+                sku = item_sku_map[it.id]
+                avail = db.query(func.sum(WarehouseBatchStock.quantity_available)).join(
+                    InventoryBatch, InventoryBatch.id == WarehouseBatchStock.batch_id
+                ).filter(
+                    WarehouseBatchStock.warehouse_id == w.id,
+                    InventoryBatch.sku_id == sku.id,
+                    InventoryBatch.status == "ACTIVE",
+                    InventoryBatch.expiry_date >= today,
+                ).scalar() or 0
+                wh_sku_avail[w.id][sku.id] = int(avail)
+
+        # 3. KỊCH BẢN 1: Kiểm tra xem có 1 kho đơn lẻ nào đáp ứng đủ 100% tất cả items không
+        single_fulfill_wh: Optional[Warehouse] = None
+        for w in ordered_warehouses:
+            can_fulfill_all = True
+            for it in items:
+                sku = item_sku_map[it.id]
+                if wh_sku_avail[w.id].get(sku.id, 0) < it.quantity:
+                    can_fulfill_all = False
+                    break
+            if can_fulfill_all:
+                single_fulfill_wh = w
+                break
+
+        fulfillments_to_return: list[OrderFulfillment] = []
+
+        if single_fulfill_wh:
+            # Phân bổ toàn bộ đơn hàng cho single_fulfill_wh
+            logger.info(f"[ROUTING] Đơn {order.order_code}: Đáp ứng 100% tại kho {single_fulfill_wh.code}")
+            ff = cls._create_fulfillment(
+                db=db,
+                order=order,
+                warehouse=single_fulfill_wh,
+                items=items,
+                item_sku_map=item_sku_map,
+                qty_breakdown={it.id: it.quantity for it in items},
+                today=today,
+                carrier_name="Giao Hàng Tiết Kiệm (GHTK)",
+                shipping_fee=order.shipping_fee,
+            )
+            fulfillments_to_return.append(ff)
+
+        else:
+            # 4. KỊCH BẢN 2 hoặc 3: Kiểm tra tổng tồn toàn hệ thống
+            system_shortages = []
+            for it in items:
+                sku = item_sku_map[it.id]
+                total_system_avail = sum(wh_sku_avail[w.id].get(sku.id, 0) for w in ordered_warehouses)
+                if total_system_avail < it.quantity:
+                    system_shortages.append(
+                        f"'{it.product_name}': yêu cầu {it.quantity}, toàn hệ thống chỉ còn khả dụng {total_system_avail}"
+                    )
+
+            if system_shortages:
+                # Kịch bản 3: Không đủ hàng trong toàn hệ thống
+                err_detail = "Số lượng tồn kho không đủ để đáp ứng đơn hàng: " + "; ".join(system_shortages)
+                raise HTTPException(status_code=400, detail=err_detail)
+
+            # Kịch bản 2: Tách đơn đa kho (Split Order)
+            logger.info(f"[ROUTING] Đơn {order.order_code}: Tách đơn đa kho do không có kho đơn lẻ nào đủ 100% hàng.")
+            wh_item_alloc: dict[int, dict[int, int]] = {w.id: {} for w in ordered_warehouses}
+
+            for it in items:
+                sku = item_sku_map[it.id]
+                remaining_needed = it.quantity
+
+                for w in ordered_warehouses:
+                    avail_here = wh_sku_avail[w.id].get(sku.id, 0)
+                    if avail_here > 0 and remaining_needed > 0:
+                        take = min(remaining_needed, avail_here)
+                        wh_item_alloc[w.id][it.id] = take
+                        remaining_needed -= take
+                        wh_sku_avail[w.id][sku.id] -= take
+
+            # Tạo OrderFulfillment cho từng kho có nhận phần hàng
+            for w in ordered_warehouses:
+                allocs = wh_item_alloc[w.id]
+                if any(qty > 0 for qty in allocs.values()):
+                    # Tạo kiện hàng cho kho này
+                    carrier = "GHTK Fast" if "HCM" in w.code else "ViettelPost Express"
+                    ff = cls._create_fulfillment(
+                        db=db,
+                        order=order,
+                        warehouse=w,
+                        items=items,
+                        item_sku_map=item_sku_map,
+                        qty_breakdown=allocs,
+                        today=today,
+                        carrier_name=carrier,
+                        shipping_fee=Decimal("0.0"),  # Miễn phí vận chuyển cho kiện phụ trợ
+                    )
+                    fulfillments_to_return.append(ff)
+
+        db.commit()
+        return fulfillments_to_return
+
+    @classmethod
+    def _create_fulfillment(
+        cls,
+        db: Session,
+        order: Order,
+        warehouse: Warehouse,
+        items: list[OrderItem],
+        item_sku_map: dict[int, ProductSku],
+        qty_breakdown: dict[int, int],
+        today: date,
+        carrier_name: str,
+        shipping_fee: Decimal,
+    ) -> OrderFulfillment:
+        """
+        Tạo OrderFulfillment và phân bổ các lô thuốc theo nguyên tắc FEFO.
+        """
+        ff_code = f"FF-{order.order_code}-{warehouse.code}"
+        fulfillment = OrderFulfillment(
+            fulfillment_code=ff_code,
+            order_id=order.id,
+            warehouse_id=warehouse.id,
+            status="PENDING",
+            carrier_name=carrier_name,
+            tracking_code=f"TRK{warehouse.id}{order.id}{int(datetime.now().timestamp()) % 10000}",
+            shipping_fee=shipping_fee,
+        )
+        db.add(fulfillment)
+        db.flush()
+
+        for it in items:
+            allocated_qty_for_this_wh = qty_breakdown.get(it.id, 0)
+            if allocated_qty_for_this_wh <= 0:
+                continue
+
+            ff_item = FulfillmentItem(
+                fulfillment_id=fulfillment.id,
+                order_item_id=it.id,
+                quantity=allocated_qty_for_this_wh,
+            )
+            db.add(ff_item)
+            db.flush()
+
+            # Phân bổ lô FEFO cho dòng sản phẩm này tại kho này
+            sku = item_sku_map[it.id]
+            cls._allocate_fefo_batches(
+                db=db,
+                order=order,
+                fulfillment=fulfillment,
+                fulfillment_item=ff_item,
+                order_item=it,
+                sku=sku,
+                warehouse=warehouse,
+                required_qty=allocated_qty_for_this_wh,
+                today=today,
+            )
+
+        return fulfillment
+
+    @classmethod
+    def _allocate_fefo_batches(
+        cls,
+        db: Session,
+        order: Order,
+        fulfillment: OrderFulfillment,
+        fulfillment_item: FulfillmentItem,
+        order_item: OrderItem,
+        sku: ProductSku,
+        warehouse: Warehouse,
+        required_qty: int,
+        today: date,
+    ):
+        """
+        Thuật toán phân bổ lô FEFO:
+        Lấy các lô còn hạn dùng, ACTIVE, sắp xếp tăng dần theo expiry_date ASC (hạn gần nhất xuất trước).
+        Khấu trừ available, tăng reserved, tạo StockReservation và OrderItemBatchAllocation.
+        """
+        batch_stocks = (
+            db.query(WarehouseBatchStock, InventoryBatch)
+            .join(InventoryBatch, InventoryBatch.id == WarehouseBatchStock.batch_id)
+            .filter(
+                WarehouseBatchStock.warehouse_id == warehouse.id,
+                InventoryBatch.sku_id == sku.id,
+                InventoryBatch.status == "ACTIVE",
+                InventoryBatch.expiry_date >= today,
+                WarehouseBatchStock.quantity_available > 0,
+            )
+            .order_by(InventoryBatch.expiry_date.asc(), InventoryBatch.id.asc())
+            .all()
+        )
+
+        remaining = required_qty
+        for stock_row, batch in batch_stocks:
+            if remaining <= 0:
+                break
+
+            take = min(remaining, stock_row.quantity_available)
+            stock_row.quantity_available -= take
+            stock_row.quantity_reserved += take
+
+            # Tạo bản ghi phân bổ lô
+            db.add(
+                OrderItemBatchAllocation(
+                    fulfillment_item_id=fulfillment_item.id,
+                    order_item_id=order_item.id,
+                    batch_id=batch.id,
+                    warehouse_id=warehouse.id,
+                    allocated_quantity=take,
+                )
+            )
+
+            # Tạo bản ghi giữ chỗ (Reservation)
+            db.add(
+                StockReservation(
+                    order_id=order.id,
+                    batch_id=batch.id,
+                    warehouse_id=warehouse.id,
+                    quantity=take,
+                    status="RESERVED",
+                    expires_at=datetime.now(UTC) + timedelta(hours=24),
+                )
+            )
+
+            remaining -= take
+            logger.info(
+                f"[FEFO] Đơn {order.order_code}: Cấp {take} {sku.uom} từ lô {batch.batch_number} "
+                f"(HSD: {batch.expiry_date}) tại kho {warehouse.code}"
+            )
+
+        if remaining > 0:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Không đủ tồn kho hợp lệ theo FEFO tại {warehouse.name} cho sản phẩm '{order_item.product_name}'. Thiếu {remaining} đơn vị.",
+            )
+
+    @classmethod
+    def transition_fulfillment_status(
+        cls,
+        db: Session,
+        fulfillment_id: int,
+        new_status: str,
+        user_id: Optional[int] = None,
+    ) -> OrderFulfillment:
+        """
+        Chuyển trạng thái kiện hàng (PICKED -> PACKED -> SHIPPED -> DELIVERED).
+        Đặc biệt khi chuyển sang SHIPPED:
+        - Giảm quantity_on_hand và quantity_reserved tại kho.
+        - Hoàn thành StockReservation -> FULFILLED.
+        - Sinh bản ghi Thẻ kho (StockMovement - DISPATCH).
+        - Đồng bộ trạng thái đơn hàng cha (Order).
+        """
+        ff = db.scalar(
+            select(OrderFulfillment)
+            .options(
+                selectinload(OrderFulfillment.warehouse),
+                selectinload(OrderFulfillment.items).selectinload(FulfillmentItem.order_item),
+            )
+            .where(OrderFulfillment.id == fulfillment_id)
+        )
+        if not ff:
+            raise HTTPException(status_code=404, detail="Không tìm thấy kiện hàng")
+
+        old_status = ff.status
+        valid_transitions = {"PENDING", "PICKED", "PACKED", "SHIPPED", "DELIVERED", "CANCELLED"}
+        if new_status not in valid_transitions:
+            raise HTTPException(status_code=400, detail=f"Trạng thái kiện hàng '{new_status}' không hợp lệ.")
+
+        ff.status = new_status
+        now = utcnow()
+
+        # Khi kiện hàng được XUẤT KHO VẬN CHUYỂN (SHIPPED)
+        if new_status == "SHIPPED" and old_status != "SHIPPED":
+            ff.shipped_at = now
+
+            # Lấy tất cả phân bổ lô của kiện hàng này
+            allocations = db.scalars(
+                select(OrderItemBatchAllocation).where(
+                    OrderItemBatchAllocation.fulfillment_item_id.in_([it.id for it in ff.items])
+                )
+            ).all()
+
+            for alloc in allocations:
+                stock = db.scalar(
+                    select(WarehouseBatchStock).where(
+                        WarehouseBatchStock.warehouse_id == alloc.warehouse_id,
+                        WarehouseBatchStock.batch_id == alloc.batch_id,
+                    )
+                )
+                if stock:
+                    stock.quantity_reserved = max(0, stock.quantity_reserved - alloc.allocated_quantity)
+                    stock.quantity_on_hand = max(0, stock.quantity_on_hand - alloc.allocated_quantity)
+
+                # Cập nhật reservation
+                res = db.scalar(
+                    select(StockReservation).where(
+                        StockReservation.order_id == ff.order_id,
+                        StockReservation.batch_id == alloc.batch_id,
+                        StockReservation.warehouse_id == alloc.warehouse_id,
+                        StockReservation.status == "RESERVED",
+                    )
+                )
+                if res:
+                    res.status = "FULFILLED"
+
+                # Ghi nhận Thẻ kho (StockMovement - DISPATCH)
+                db.add(
+                    StockMovement(
+                        movement_code=f"MOV-DISP-{ff.id}-{alloc.batch_id}-{int(now.timestamp())}",
+                        movement_type="DISPATCH",
+                        warehouse_id=alloc.warehouse_id,
+                        batch_id=alloc.batch_id,
+                        quantity=-alloc.allocated_quantity,
+                        balance_after=stock.quantity_on_hand if stock else 0,
+                        reference_type="ORDER_FULFILLMENT",
+                        reference_id=ff.fulfillment_code,
+                        created_by=user_id,
+                        note=f"Xuất kho kiện {ff.fulfillment_code} giao cho khách",
+                    )
+                )
+
+        elif new_status == "DELIVERED":
+            ff.delivered_at = now
+
+        elif new_status == "CANCELLED" and old_status != "CANCELLED":
+            # Hoàn trả lại tồn kho khả dụng nếu kiện bị hủy trước khi SHIPPED
+            if old_status not in ["SHIPPED", "DELIVERED"]:
+                allocations = db.scalars(
+                    select(OrderItemBatchAllocation).where(
+                        OrderItemBatchAllocation.fulfillment_item_id.in_([it.id for it in ff.items])
+                    )
+                ).all()
+                for alloc in allocations:
+                    stock = db.scalar(
+                        select(WarehouseBatchStock).where(
+                            WarehouseBatchStock.warehouse_id == alloc.warehouse_id,
+                            WarehouseBatchStock.batch_id == alloc.batch_id,
+                        )
+                    )
+                    if stock:
+                        stock.quantity_reserved = max(0, stock.quantity_reserved - alloc.allocated_quantity)
+                        stock.quantity_available += alloc.allocated_quantity
+
+                    res = db.scalar(
+                        select(StockReservation).where(
+                            StockReservation.order_id == ff.order_id,
+                            StockReservation.batch_id == alloc.batch_id,
+                            StockReservation.warehouse_id == alloc.warehouse_id,
+                            StockReservation.status == "RESERVED",
+                        )
+                    )
+                    if res:
+                        res.status = "RELEASED"
+
+        # Đồng bộ trạng thái đơn hàng cha (Order)
+        order = db.get(Order, ff.order_id)
+        if order:
+            all_ffs = db.scalars(select(OrderFulfillment).where(OrderFulfillment.order_id == order.id)).all()
+            all_statuses = [f.status for f in all_ffs]
+
+            if all(s == "DELIVERED" for s in all_statuses):
+                order.order_status = "COMPLETED"
+            elif any(s in ["SHIPPED", "DELIVERED"] for s in all_statuses):
+                order.order_status = "SHIPPING"
+            elif any(s in ["PICKED", "PACKED"] for s in all_statuses):
+                order.order_status = "PROCESSING"
+            elif all(s == "CANCELLED" for s in all_statuses):
+                order.order_status = "CANCELLED"
+
+        db.commit()
+        return ff

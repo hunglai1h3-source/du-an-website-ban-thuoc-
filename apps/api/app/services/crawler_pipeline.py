@@ -6,11 +6,14 @@ import time
 from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
+from urllib.parse import urljoin, urlparse
 
 import httpx
+from bs4 import BeautifulSoup
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.db.session import SessionLocal
 from app.models import (
     AdminAlert,
@@ -19,21 +22,30 @@ from app.models import (
     CrawlRun,
     DataSource,
     FailedCrawlItem,
+    Ingredient,
     PriceObservation,
+    ProductCandidate,
+    ProductIngredient,
     ProductSourceField,
     RawDocument,
+    RegulatoryRecord,
 )
 from app.models.enums import (
+    ProcessingStatus,
     PublishStatus,
     RegulatoryStatus,
     RunStatus,
     RxOtcStatus,
+    SourceType,
 )
 from app.services.browser_fallback import fetch_with_browser_fallback, is_cloudflare_or_captcha
 from app.services.category_classifier import classifier as category_classifier
 from app.services.crawler import (
     FetchResult,
+    LongChauAdapter,
+    PharmacityAdapter,
     USER_AGENT,
+    extract_product_leaflet,
     get_adapter,
 )
 from app.services.matching import match_products

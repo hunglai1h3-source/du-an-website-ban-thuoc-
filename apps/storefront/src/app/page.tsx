@@ -11,6 +11,7 @@ import { Product } from "@/types";
 import { ProductCard } from "@/components/product/ProductCard";
 import { ProductQuickViewModal } from "@/components/product/ProductQuickViewModal";
 import { RxConsultModal } from "@/components/product/RxConsultModal";
+import { SeasonalCampaignsSection } from "@/components/home/SeasonalCampaignsSection";
 import {
   ArrowRight,
   Flame,
@@ -19,6 +20,7 @@ import {
 import { Button } from "@/components/ui/Button";
 
 export default function HomePage() {
+  const [products, setProducts] = useState<Product[]>(PRODUCTS_DATA);
   const [showIntro, setShowIntro] = useState(false);
   const [introKey, setIntroKey] = useState(0);
 
@@ -26,16 +28,33 @@ export default function HomePage() {
   const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
   const [rxConsultProduct, setRxConsultProduct] = useState<Product | null>(null);
 
+  React.useEffect(() => {
+    fetch("/api/v1/store/products?limit=300")
+      .then((res) => {
+        if (!res.ok) throw new Error("API error");
+        return res.json();
+      })
+      .then((data) => {
+        if (data?.items && Array.isArray(data.items) && data.items.length > 0) {
+          setProducts(data.items);
+        }
+      })
+      .catch((err) => {
+        console.warn("Using offline catalog on Home:", err);
+      });
+  }, []);
+
   const handleReplayIntro = () => {
     setIntroKey((prev) => prev + 1);
     setShowIntro(true);
   };
 
   // Best seller products (4 items)
-  const bestSellers = PRODUCTS_DATA.filter((p) => p.isBestSeller).slice(0, 4);
+  const bestSellers = products.filter((p) => p.isBestSeller).slice(0, 4);
 
   // Featured prescription & OTC items (4 items)
-  const featuredProducts = PRODUCTS_DATA.filter((p) => p.isFeatured).slice(0, 4);
+  const featuredProducts = products.filter((p) => p.isFeatured).slice(0, 4);
+
 
   return (
     <main className="min-h-screen flex flex-col bg-white">
@@ -76,7 +95,7 @@ export default function HomePage() {
                 className="group border-slate-200 hover:border-brand-blue-300 text-xs sm:text-sm"
                 rightIcon={<ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />}
               >
-                Xem tất cả {PRODUCTS_DATA.length} sản phẩm
+                Xem tất cả {products.length} sản phẩm
               </Button>
             </Link>
           </div>
@@ -94,6 +113,9 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* 4.5. CHUYÊN ĐỀ DỊCH BỆNH THEO MÙA & PHÁC ĐỒ PHÒNG NGỪA GPP */}
+      <SeasonalCampaignsSection />
 
       {/* 5. NỔI BẬT & THUỐC KÊ ĐƠN TƯ VẤN (Rx Showcase) */}
       <section className="py-12 sm:py-16 bg-[#f8fafc] border-t border-slate-200/80">

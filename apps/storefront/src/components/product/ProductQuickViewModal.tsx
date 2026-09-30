@@ -14,7 +14,6 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { formatVND } from "@/lib/utils";
-import { useCart } from "@/lib/cart/cart-context";
 import { Button } from "../ui/Button";
 import Link from "next/link";
 
@@ -33,7 +32,6 @@ export const ProductQuickViewModal: React.FC<ProductQuickViewModalProps> = ({
   onOpenRxConsult,
   onAddToCart,
 }) => {
-  const { addToCart } = useCart();
   const [selectedImageIdx, setSelectedImageIdx] = useState(0);
 
   if (!isOpen || !product) return null;
@@ -54,7 +52,7 @@ export const ProductQuickViewModal: React.FC<ProductQuickViewModalProps> = ({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={onClose}
-          className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+          className="absolute inset-0 bg-black/50 backdrop-blur-xs"
         />
 
         {/* Modal Window */}
@@ -63,12 +61,12 @@ export const ProductQuickViewModal: React.FC<ProductQuickViewModalProps> = ({
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 15 }}
           transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-          className="relative w-full max-w-3xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden z-10 max-h-[90vh] flex flex-col"
+          className="relative w-full max-w-3xl bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden z-10 max-h-[90vh] flex flex-col"
         >
           {/* Close button */}
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 z-20 p-2 rounded-full bg-slate-100/80 hover:bg-slate-200 text-slate-500 hover:text-slate-800 transition-colors"
+            className="absolute top-4 right-4 z-20 p-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -77,14 +75,14 @@ export const ProductQuickViewModal: React.FC<ProductQuickViewModalProps> = ({
             <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
               {/* Left Column: Image Gallery */}
               <div className="md:col-span-5 flex flex-col items-center">
-                <div className="relative w-full aspect-square rounded-2xl bg-slate-50 border border-slate-200/80 overflow-hidden flex items-center justify-center p-4 group">
+                <div className="relative w-full aspect-square rounded-xl bg-slate-50 border border-slate-200 overflow-hidden flex items-center justify-center p-4 group">
                   <img
                     src={product.images[selectedImageIdx] || product.images[0]}
                     alt={product.name}
                     className="w-full h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-300"
                   />
                   {discountPercent > 0 && (
-                    <span className="absolute top-3 left-3 bg-rose-500 text-white text-xs font-black px-2 py-0.5 rounded-full shadow-sm">
+                    <span className="absolute top-3 left-3 bg-rose-500 text-white text-xs font-black px-2 py-0.5 rounded-full shadow-xs">
                       -{discountPercent}%
                     </span>
                   )}
@@ -104,7 +102,7 @@ export const ProductQuickViewModal: React.FC<ProductQuickViewModalProps> = ({
                         onClick={() => setSelectedImageIdx(i)}
                         className={`w-14 h-14 rounded-xl border-2 p-1 bg-slate-50 shrink-0 overflow-hidden transition-all ${
                           selectedImageIdx === i
-                            ? "border-brand-blue-600 shadow-sm"
+                            ? "border-brand-blue-600 shadow-xs"
                             : "border-slate-200 opacity-70 hover:opacity-100"
                         }`}
                       >
@@ -154,7 +152,7 @@ export const ProductQuickViewModal: React.FC<ProductQuickViewModalProps> = ({
                   </div>
 
                   {/* Pricing */}
-                  <div className="p-3.5 rounded-2xl bg-slate-50/80 border border-slate-100 mb-4 flex items-baseline gap-3">
+                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 mb-4 flex items-baseline gap-3">
                     <span className="text-2xl font-black text-brand-blue-700">
                       {formatVND(currentPrice)}
                     </span>
@@ -200,7 +198,7 @@ export const ProductQuickViewModal: React.FC<ProductQuickViewModalProps> = ({
                       <Button
                         variant="primary"
                         size="md"
-                        className="w-full bg-gradient-to-r from-brand-blue-700 to-cyan-600 shadow-medical"
+                        className="w-full bg-brand-blue-600 hover:bg-brand-blue-700 active:bg-brand-blue-800 shadow-xs"
                         leftIcon={<Stethoscope className="w-4 h-4" />}
                         onClick={() => {
                           onClose();
@@ -215,14 +213,10 @@ export const ProductQuickViewModal: React.FC<ProductQuickViewModalProps> = ({
                       <Button
                         variant="primary"
                         size="md"
-                        className="flex-1 shadow-medical"
+                        className="flex-1 shadow-xs"
                         leftIcon={<ShoppingBag className="w-4 h-4" />}
                         onClick={() => {
-                          if (onAddToCart) {
-                            onAddToCart(product);
-                          } else {
-                            addToCart(product, 1);
-                          }
+                          if (onAddToCart) onAddToCart(product);
                           onClose();
                         }}
                       >

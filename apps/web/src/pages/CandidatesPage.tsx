@@ -1,4 +1,4 @@
-import { FileSearch } from 'lucide-react'
+import { FileSearch, Search } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { EmptyState } from '../components/EmptyState'
 import { StatusBadge } from '../components/StatusBadge'

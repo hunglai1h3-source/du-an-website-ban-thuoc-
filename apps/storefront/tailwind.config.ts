@@ -75,7 +75,9 @@ const config: Config = {
         "depth-4": "0 32px 72px -16px rgba(0, 40, 120, 0.22), 0 12px 24px -6px rgba(15, 23, 42, 0.08)",
         "medical": "0 10px 30px -5px rgba(0, 82, 204, 0.08), 0 4px 6px -2px rgba(0, 82, 204, 0.04)",
         "medical-lg": "0 20px 40px -10px rgba(0, 82, 204, 0.12), 0 8px 12px -3px rgba(0, 82, 204, 0.06)",
-        "card-hover": "0 20px 40px -10px rgba(0, 50, 150, 0.12)",
+        "medical-glow": "0 0 20px -2px rgba(0, 82, 204, 0.25)",
+        "card-hover": "0 16px 36px -10px rgba(0, 60, 160, 0.10)",
+        "glass": "0 8px 30px 0 rgba(15, 23, 42, 0.06)",
       },
       transitionTimingFunction: {
         medical: "cubic-bezier(0.16, 1, 0.3, 1)",

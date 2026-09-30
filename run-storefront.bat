@@ -3,14 +3,19 @@ setlocal
 cd /d "%~dp0apps\storefront"
 
 echo ========================================================
-echo   H4CARE Pharmacy - Website Khach Hang (Next.js :3000)
+echo   PharmaTrust / H4CARE - Storefront (Next.js 14)
 echo ========================================================
 echo.
+
+if not exist node_modules (
+  echo [THONG BAO] Dang cai dat thu vien npm cho Storefront...
+  call npm.cmd install
+)
+
 echo [OK] Dang khoi dong Storefront tai http://localhost:3000 ...
 echo Nhan Ctrl+C de dung Storefront.
 echo.
-
-call npm run dev -- -p 3000
+call npm.cmd run dev -- -p 3000
 
 if errorlevel 1 (
   echo.

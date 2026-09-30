@@ -1,6 +1,8 @@
+import asyncio
 import logging
 import os
 import threading
+import time
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -9,8 +11,8 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.db.session import SessionLocal
-from app.models import AdminAlert, CrawlLock, CrawlRun, DataSource
-from app.models.enums import RunStatus
+from app.models import AdminAlert, CrawlLock, CrawlRun, DataSource, FailedCrawlItem
+from app.models.enums import RunStatus, SourceType
 
 logger = logging.getLogger("pharmatrust.scheduler")
 
@@ -219,12 +221,12 @@ class AutoCrawlScheduler:
 
     def get_status(self, db: Session) -> dict[str, Any]:
         locks = db.scalars(select(CrawlLock)).all()
-        lock_map = {lk.source_code: {
-            "is_locked": lk.is_locked,
-            "locked_at": lk.locked_at.isoformat() if lk.locked_at else None,
-            "overlap_count": lk.overlap_count,
-            "last_skipped_at": lk.last_skipped_at.isoformat() if lk.last_skipped_at else None,
-        } for lk in locks}
+        lock_map = {l.source_code: {
+            "is_locked": l.is_locked,
+            "locked_at": l.locked_at.isoformat() if l.locked_at else None,
+            "overlap_count": l.overlap_count,
+            "last_skipped_at": l.last_skipped_at.isoformat() if l.last_skipped_at else None,
+        } for l in locks}
 
         alerts = db.scalars(
             select(AdminAlert).order_by(AdminAlert.id.desc()).limit(10)

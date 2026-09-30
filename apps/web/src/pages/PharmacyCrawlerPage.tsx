@@ -1,15 +1,20 @@
 import {
   AlertCircle,
+  AlertTriangle,
   ArrowRight,
   BookOpen,
   CheckCircle2,
   Clock,
+  Download,
+  ExternalLink,
+  FileSpreadsheet,
   FileText,
   Globe,
   ImageIcon,
   Layers,
   Loader2,
   Pill,
+  Play,
   Plus,
   RefreshCw,
   Search,
@@ -22,6 +27,13 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../services/api'
 import { SchedulerControlPanel } from '../components/SchedulerControlPanel'
+
+interface SampleLink {
+  title: string
+  source: string
+  url: string
+  category: string
+}
 
 interface CatalogCard {
   id: string

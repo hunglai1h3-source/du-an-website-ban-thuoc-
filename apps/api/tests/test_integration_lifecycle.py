@@ -15,14 +15,6 @@ from app.models.enums import PublishStatus, RxOtcStatus, RegulatoryStatus
 class TestPharmaTrustIntegration(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        from app.db.base import Base
-        from app.db.session import engine
-        from app.seed import seed_users, seed_sources
-        Base.metadata.create_all(engine)
-        with SessionLocal() as db:
-            seed_users(db)
-            seed_sources(db)
-            db.commit()
         cls.client = TestClient(app)
         # Login as Admin
         res = cls.client.post("/api/v1/auth/login", json={

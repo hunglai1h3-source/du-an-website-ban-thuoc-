@@ -8,6 +8,9 @@ import {
   RefreshCw,
   Phone,
   Mail,
+  Calendar,
+  Lock,
+  Sparkles,
 } from 'lucide-react'
 import { api } from '../services/api'
 import type { User } from '../types'

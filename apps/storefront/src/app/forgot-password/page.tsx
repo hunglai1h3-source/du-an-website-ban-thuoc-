@@ -3,24 +3,24 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/lib/auth/auth-context";
-import { LiquidMetalButton } from "@/components/auth/LiquidMetalButton";
-import { SpatialLoginBackground } from "@/components/auth/SpatialLoginBackground";
+import { H4CareLogo } from "@/components/branding/H4CareLogo";
+import { AuthBrandPanel } from "@/components/auth/AuthBrandPanel";
 import {
   ArrowLeft,
-  KeyRound,
   Smartphone,
   Mail,
   ShieldCheck,
   AlertCircle,
-  RotateCcw,
   CheckCircle2,
+  Loader2,
+  ArrowRight,
+  KeyRound,
 } from "lucide-react";
 
 export default function ForgotPasswordPage() {
   const router = useRouter();
-  const shouldReduceMotion = useReducedMotion();
   const { sendPhoneOtp } = useAuth();
 
   const [identifier, setIdentifier] = useState<string>("0901234567");
@@ -31,27 +31,6 @@ export default function ForgotPasswordPage() {
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [isSuccess, setIsSuccess] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [focusedField, setFocusedField] = useState<string | null>(null);
-
-  // Desktop Mouse Parallax
-  const [mouseParallax, setMouseParallax] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
-  const [isTouchDevice, setIsTouchDevice] = useState<boolean>(false);
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      setIsTouchDevice("ontouchstart" in window || navigator.maxTouchPoints > 0);
-    }
-  }, []);
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (isTouchDevice || shouldReduceMotion) return;
-    const { clientX, clientY } = e;
-    const centerX = window.innerWidth / 2;
-    const centerY = window.innerHeight / 2;
-    const px = ((clientX - centerX) / centerX) * 4;
-    const py = ((clientY - centerY) / centerY) * 4;
-    setMouseParallax({ x: px, y: py });
-  };
 
   // Timer countdown
   useEffect(() => {
@@ -99,246 +78,206 @@ export default function ForgotPasswordPage() {
     }, 450);
   };
 
-  const isPhone = /^[0-9+ \-]+$/.test(identifier.trim());
-
-  // Motion Variants
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: { staggerChildren: 0.1, delayChildren: 0.1 },
-    },
-  };
-
-  const itemVariants = {
-    hidden: { opacity: 0, y: 16, filter: "blur(6px)" },
-    visible: {
-      opacity: 1,
-      y: 0,
-      filter: "blur(0px)",
-      transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] },
-    },
-  };
-
   return (
-    <div
-      onMouseMove={handleMouseMove}
-      className="relative min-h-screen w-full flex flex-col justify-between overflow-x-hidden text-slate-100 selection:bg-cyan-500/30 selection:text-cyan-200"
-    >
-      <SpatialLoginBackground mouseParallax={mouseParallax} />
-
+    <div className="min-h-screen bg-slate-50 flex flex-col justify-between selection:bg-brand-cyan-100 selection:text-brand-blue-900">
       {/* Top Header */}
-      <header className="relative z-20 w-full max-w-6xl mx-auto px-4 sm:px-6 py-5 sm:py-7 flex items-center justify-between">
-        <Link href="/" className="group flex items-center gap-3 focus:outline-none" title="Trở về trang chủ H4CARE">
-          <div className="relative w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-gradient-to-br from-cyan-400 via-blue-600 to-blue-800 p-0.5 shadow-[0_0_20px_rgba(34,211,238,0.35)] transition-transform duration-300 group-hover:scale-105">
-            <div className="w-full h-full rounded-[14px] bg-[#071329] flex items-center justify-center font-black text-lg sm:text-xl tracking-tighter text-white">
-              <span className="bg-gradient-to-r from-white via-cyan-200 to-cyan-400 bg-clip-text text-transparent">
-                H4
-              </span>
-            </div>
-          </div>
-          <div className="flex flex-col">
-            <div className="flex items-center gap-1.5">
-              <span className="text-xl sm:text-2xl font-black tracking-tight text-white">H4CARE</span>
-              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
-            </div>
-            <span className="text-[10px] tracking-widest text-cyan-300/70 font-semibold uppercase hidden sm:block">
-              KHÔI PHỤC TÀI KHOẢN
-            </span>
-          </div>
-        </Link>
-
+      <header className="w-full max-w-6xl mx-auto px-4 sm:px-6 py-4 sm:py-6 flex items-center justify-between">
+        <H4CareLogo size="md" withTagline={true} />
         <Link
           href="/login"
-          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full text-xs font-semibold text-slate-300 hover:text-white bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 hover:border-cyan-400/40 backdrop-blur-md transition-all duration-200 active:scale-95 shadow-xs"
+          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:text-brand-blue-600 hover:border-brand-blue-300 hover:bg-slate-50 shadow-xs transition-all"
         >
-          <ArrowLeft className="w-3.5 h-3.5 text-cyan-400" />
-          <span>Về Đăng nhập</span>
+          <ArrowLeft className="w-3.5 h-3.5 text-brand-blue-600" />
+          <span>Về trang đăng nhập</span>
         </Link>
       </header>
 
-      {/* Main Card */}
-      <main className="relative z-20 flex-1 w-full max-w-md mx-auto px-4 sm:px-6 flex flex-col justify-center py-6 sm:py-10">
-        <motion.div
-          initial="hidden"
-          animate="visible"
-          variants={containerVariants}
-          style={{
-            transform: shouldReduceMotion
-              ? undefined
-              : `translate3d(${mouseParallax.x * -3}px, ${mouseParallax.y * -3}px, 0)`,
-          }}
-          className="relative w-full"
-        >
-          <div className="absolute -inset-0.5 rounded-[32px] bg-gradient-to-b from-cyan-400/30 via-blue-600/10 to-transparent blur-md opacity-70 pointer-events-none" />
+      {/* Main Container */}
+      <main className="w-full max-w-6xl mx-auto px-4 sm:px-6 py-4 sm:py-8 flex items-center justify-center flex-1">
+        <div className="w-full grid grid-cols-1 lg:grid-cols-12 bg-white rounded-2xl border border-slate-200 shadow-depth-2 overflow-hidden">
+          
+          {/* Left Side: Medical Trust Brand Panel */}
+          <div className="hidden lg:block lg:col-span-5 relative">
+            <AuthBrandPanel />
+          </div>
 
-          <div className="relative rounded-[28px] sm:rounded-[32px] bg-[#081224]/85 border border-white/[0.12] backdrop-blur-2xl p-6 sm:p-9 shadow-[0_20px_60px_-15px_rgba(0,18,50,0.8)] overflow-hidden">
-            <div className="absolute top-0 inset-x-8 h-px bg-gradient-to-r from-transparent via-cyan-400/60 to-transparent" />
-
-            {/* Typography */}
-            <motion.div variants={itemVariants} className="text-center mb-6 sm:mb-8">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-950/60 border border-cyan-400/30 text-[11px] font-bold text-cyan-300 mb-3 shadow-[0_0_12px_rgba(6,182,212,0.15)]">
-                <KeyRound className="w-3.5 h-3.5 text-cyan-400" />
-                <span>Bảo vệ quyền truy cập hồ sơ y tế</span>
+          {/* Right Side: Form */}
+          <div className="lg:col-span-7 p-6 sm:p-10 md:p-12 flex flex-col justify-center bg-white">
+            <div className="w-full max-w-md mx-auto">
+              
+              <div className="mb-6">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-50 text-brand-blue-700 border border-sky-200/80 text-[11px] font-bold mb-3">
+                  <KeyRound className="w-3.5 h-3.5 text-brand-blue-600" />
+                  <span>Khôi phục tài khoản an toàn</span>
+                </div>
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+                  Quên mật khẩu?
+                </h1>
+                <p className="text-xs sm:text-sm text-slate-600 mt-1 leading-relaxed">
+                  Nhập số điện thoại hoặc email đã đăng ký. Hệ thống sẽ gửi mã xác thực OTP bảo mật để đặt lại mật khẩu.
+                </p>
               </div>
 
-              <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
-                Khôi phục mật khẩu.
-              </h1>
-              <p className="text-xs sm:text-sm text-slate-400 mt-1.5 leading-relaxed">
-                {step === "input"
-                  ? "Nhập số điện thoại hoặc email liên kết để nhận mã xác thực OTP."
-                  : `Nhập mã 6 chữ số đã gửi tới ${identifier}`}
-              </p>
-            </motion.div>
-
-            {/* Error Message */}
-            <AnimatePresence>
-              {errorMessage && (
-                <motion.div
-                  initial={{ opacity: 0, y: -8, height: 0 }}
-                  animate={{ opacity: 1, y: 0, height: "auto" }}
-                  exit={{ opacity: 0, y: -8, height: 0 }}
-                  className="mb-5 overflow-hidden"
-                >
-                  <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-medium flex items-start gap-2.5">
-                    <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
-                    <span>{errorMessage}</span>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {step === "input" ? (
-              <form onSubmit={handleSendOtp} className="space-y-5">
-                <motion.div variants={itemVariants} className="space-y-1.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <label className="font-semibold text-slate-300">Số điện thoại hoặc Email</label>
-                    <span className="text-[10px] font-bold text-cyan-400 uppercase">
-                      {isPhone ? "Điện thoại" : "Email"}
-                    </span>
-                  </div>
-
-                  <div
-                    className={`relative rounded-2xl bg-white/[0.03] border transition-all duration-200 flex items-center ${
-                      focusedField === "identifier"
-                        ? "border-cyan-400/80 bg-cyan-950/20 shadow-[0_0_16px_rgba(34,211,238,0.18)]"
-                        : "border-white/10 hover:border-white/20"
-                    }`}
+              {/* Alerts */}
+              <AnimatePresence>
+                {errorMessage && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -6 }}
+                    className="mb-5 p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-start gap-2.5 font-medium leading-relaxed"
                   >
-                    <div className="pl-4 pr-2 text-slate-400">
-                      {isPhone ? (
-                        <Smartphone className={`w-4 h-4 ${focusedField === "identifier" ? "text-cyan-400" : ""}`} />
-                      ) : (
-                        <Mail className={`w-4 h-4 ${focusedField === "identifier" ? "text-cyan-400" : ""}`} />
-                      )}
+                    <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                    <div className="flex-1">{errorMessage}</div>
+                  </motion.div>
+                )}
+
+                {isSuccess && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="mb-5 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-start gap-2.5 font-medium leading-relaxed"
+                  >
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                    <div className="flex-1">Mã xác thực chính xác! Đang chuyển hướng sang trang đặt lại mật khẩu...</div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {step === "input" ? (
+                <form onSubmit={handleSendOtp} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                      Số điện thoại hoặc Email
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={identifier}
+                        onChange={(e) => setIdentifier(e.target.value)}
+                        placeholder="Ví dụ: 0901 234 567 hoặc email..."
+                        required
+                        className="w-full px-3.5 py-2.5 pl-10 rounded-xl bg-white border border-slate-200 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-brand-blue-600 focus:ring-4 focus:ring-brand-blue-100 transition-all font-medium"
+                      />
+                      <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                        {identifier.includes("@") ? (
+                          <Mail className="w-4 h-4 text-brand-blue-600" />
+                        ) : (
+                          <Smartphone className="w-4 h-4 text-brand-blue-600" />
+                        )}
+                      </div>
                     </div>
-                    <input
-                      type="text"
-                      value={identifier}
-                      onChange={(e) => setIdentifier(e.target.value)}
-                      onFocus={() => setFocusedField("identifier")}
-                      onBlur={() => setFocusedField(null)}
-                      placeholder="0901 234 567 hoặc ten@email.com"
-                      className="w-full h-12 pr-4 bg-transparent text-sm font-semibold text-white placeholder-slate-500 focus:outline-none"
-                      required
-                    />
                   </div>
-                </motion.div>
 
-                <motion.div variants={itemVariants} className="pt-2">
-                  <LiquidMetalButton type="submit" isLoading={isSubmitting}>
-                    Gửi mã xác thực OTP
-                  </LiquidMetalButton>
-                </motion.div>
-              </form>
-            ) : (
-              <form onSubmit={handleVerifyOtp} className="space-y-5">
-                <motion.div variants={itemVariants} className="flex items-center justify-between">
                   <button
-                    type="button"
-                    onClick={() => setStep("input")}
-                    className="text-xs font-semibold text-cyan-400 hover:text-cyan-300 flex items-center gap-1"
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="w-full py-3 px-4 rounded-xl bg-brand-blue-600 hover:bg-brand-blue-700 text-white font-bold text-sm shadow-depth-1 hover:shadow-depth-2 transition-all flex items-center justify-center gap-2 active:scale-[0.99] disabled:opacity-60 cursor-pointer"
                   >
-                    <ArrowLeft className="w-3.5 h-3.5" />
-                    <span>Nhập lại thông tin</span>
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Đang gửi mã OTP...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Tiếp tục nhận mã OTP</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </>
+                    )}
                   </button>
-                  <span className="text-[11px] font-bold text-slate-400">Bước 2/2</span>
-                </motion.div>
-
-                <motion.div variants={itemVariants} className="space-y-2">
-                  <div className="flex items-center justify-between text-xs">
-                    <label className="font-semibold text-slate-300">Nhập 6 số OTP</label>
-                    <button
-                      type="button"
-                      onClick={() => setOtpValues(["8", "4", "2", "6", "9", "1"])}
-                      className="text-[11px] font-bold text-cyan-400 hover:underline"
-                    >
-                      Dán mã mẫu (842691)
-                    </button>
+                </form>
+              ) : (
+                <form onSubmit={handleVerifyOtp} className="space-y-4">
+                  <div className="text-center mb-4">
+                    <span className="text-xs text-slate-500">Mã OTP 6 số đã gửi tới</span>
+                    <p className="text-sm font-bold text-slate-900">{identifier}</p>
                   </div>
 
-                  <div className="grid grid-cols-6 gap-2">
+                  <div className="flex justify-center gap-2">
                     {otpValues.map((val, idx) => (
                       <input
                         key={idx}
+                        id={`otp-input-${idx}`}
                         type="text"
-                        inputMode="numeric"
                         maxLength={1}
                         value={val}
                         onChange={(e) => {
-                          const next = [...otpValues];
-                          next[idx] = e.target.value.slice(-1);
-                          setOtpValues(next);
+                          const newVals = [...otpValues];
+                          newVals[idx] = e.target.value.slice(-1);
+                          setOtpValues(newVals);
+                          if (e.target.value && idx < 5) {
+                            document.getElementById(`otp-input-${idx + 1}`)?.focus();
+                          }
                         }}
-                        className="w-full h-12 rounded-xl bg-white/[0.04] border border-white/15 focus:border-cyan-400 text-center text-lg font-black text-white focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                        className="w-10 h-12 text-center text-lg font-bold rounded-xl border border-slate-200 text-slate-900 bg-white focus:outline-none focus:border-brand-blue-600 focus:ring-4 focus:ring-brand-blue-100 transition-all"
                       />
                     ))}
                   </div>
-                </motion.div>
 
-                <motion.div variants={itemVariants} className="flex items-center justify-between text-xs pt-1 text-slate-400">
-                  <span>Chưa nhận được mã?</span>
-                  {countdown > 0 ? (
-                    <span className="text-cyan-400 font-semibold">Gửi lại sau {countdown}s</span>
-                  ) : (
+                  <div className="flex items-center justify-between text-xs text-slate-500 pt-2">
                     <button
                       type="button"
-                      onClick={() => {
-                        setCountdown(60);
-                        sendPhoneOtp(identifier);
-                      }}
-                      className="text-cyan-400 hover:text-cyan-300 font-bold hover:underline"
+                      onClick={() => setStep("input")}
+                      className="text-slate-600 hover:text-brand-blue-600 font-medium"
                     >
-                      Gửi lại mã OTP
+                      Đổi số / email
                     </button>
-                  )}
-                </motion.div>
+                    <span>
+                      {countdown > 0 ? (
+                        `Gửi lại sau ${countdown}s`
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCountdown(60);
+                            sendPhoneOtp(identifier);
+                          }}
+                          className="text-brand-blue-600 font-bold hover:underline"
+                        >
+                          Gửi lại mã
+                        </button>
+                      )}
+                    </span>
+                  </div>
 
-                <motion.div variants={itemVariants} className="pt-2">
-                  <LiquidMetalButton type="submit" isLoading={isSubmitting} isSuccess={isSuccess}>
-                    Xác thực & Đặt mật khẩu mới
-                  </LiquidMetalButton>
-                </motion.div>
-              </form>
-            )}
+                  <button
+                    type="submit"
+                    disabled={isSubmitting || isSuccess}
+                    className="w-full py-3 px-4 rounded-xl bg-brand-blue-600 hover:bg-brand-blue-700 text-white font-bold text-sm shadow-depth-1 hover:shadow-depth-2 transition-all flex items-center justify-center gap-2 active:scale-[0.99] disabled:opacity-60 cursor-pointer"
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Đang xác thực mã...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Xác nhận & Đặt lại mật khẩu</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </>
+                    )}
+                  </button>
+                </form>
+              )}
 
-            {/* Bottom Back Link */}
-            <motion.div
-              variants={itemVariants}
-              className="mt-6 pt-5 border-t border-white/[0.08] text-center text-xs text-slate-400"
-            >
-              Nhớ mật khẩu?{" "}
-              <Link href="/login" className="font-extrabold text-cyan-300 hover:text-cyan-200 hover:underline">
-                Đăng nhập ngay
-              </Link>
-            </motion.div>
+              <div className="mt-6 text-center text-xs text-slate-600">
+                Nhớ mật khẩu tài khoản?{" "}
+                <Link
+                  href="/login"
+                  className="font-bold text-brand-blue-600 hover:text-brand-blue-800 hover:underline"
+                >
+                  Quay lại đăng nhập
+                </Link>
+              </div>
+
+            </div>
           </div>
-        </motion.div>
+        </div>
       </main>
 
-      <footer className="relative z-20 w-full py-4 text-center text-[11px] text-slate-500">
-        <p>H4CARE • “Chăm sóc sức khỏe, bắt đầu từ sự thấu hiểu.” • Bản quyền thuộc H4CARE</p>
+      <footer className="w-full text-center py-4 text-[11px] text-slate-400 select-none">
+        <span>Hệ thống Quản lý Dữ liệu Thuốc & Bán lẻ Dược phẩm PharmaTrust • Định hướng chuẩn GPP & GSP</span>
       </footer>
     </div>
   );

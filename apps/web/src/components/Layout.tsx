@@ -1,20 +1,27 @@
 import {
   Activity,
   AlertTriangle,
+  ArrowDownToLine,
+  ArrowLeftRight,
   Boxes,
+  Building2,
   Database,
+  ExternalLink,
   FileInput,
   FlaskConical,
   Globe,
   History,
+  Layers,
   LayoutDashboard,
   LogOut,
+  Mail,
   Menu,
+  MessageSquare,
   ShieldCheck,
   ShoppingBag,
+  ThermometerSnowflake,
   Users,
   X,
-  ExternalLink,
 } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { NavLink } from 'react-router-dom'
@@ -46,8 +53,19 @@ const navGroups: NavGroup[] = [
       { to: '/', label: 'Tổng quan hệ thống', icon: LayoutDashboard },
       { to: '/products', label: 'Hồ sơ thuốc & Duyệt bán', icon: Boxes },
       { to: '/orders', label: 'Quản lý đơn hàng', icon: ShoppingBag },
+      { to: '/reviews', label: 'Đánh giá & Nhận xét', icon: MessageSquare },
+      { to: '/campaigns', label: 'Chiến dịch mùa bệnh', icon: ThermometerSnowflake },
       { to: '/candidates', label: 'Thuốc mới chờ duyệt', icon: FlaskConical },
       { to: '/conflicts', label: 'Mâu thuẫn dữ liệu', icon: AlertTriangle },
+    ],
+  },
+  {
+    groupLabel: 'KHO VẬN & LÔ HẠN DÙNG',
+    items: [
+      { to: '/warehouses', label: 'Kho & Chi nhánh', icon: Building2 },
+      { to: '/inventory/batches', label: 'Lô thuốc & Hạn dùng', icon: Layers },
+      { to: '/inventory/receipts', label: 'Nhập kho (GSP)', icon: ArrowDownToLine },
+      { to: '/inventory/transfers', label: 'Điều chuyển kho', icon: ArrowLeftRight },
     ],
   },
   {
@@ -62,6 +80,7 @@ const navGroups: NavGroup[] = [
   {
     groupLabel: 'QUẢN TRỊ HỆ THỐNG',
     items: [
+      { to: '/emails', label: 'Hộp thư & Outbox', icon: Mail, adminOnly: true },
       { to: '/users', label: 'Quản lý người dùng', icon: Users, adminOnly: true },
       { to: '/audit', label: 'Nhật ký thao tác', icon: History, adminOnly: true },
     ],

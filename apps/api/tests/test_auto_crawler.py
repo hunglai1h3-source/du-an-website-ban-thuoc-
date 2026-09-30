@@ -1,12 +1,14 @@
+import os
 import unittest
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from unittest.mock import MagicMock, patch
 
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, select
+from sqlalchemy import create_engine, select, text
 from sqlalchemy.orm import sessionmaker
 
+from app.core.config import settings
 from app.db.base import Base
 from app.main import app
 from app.models import (
@@ -16,11 +18,13 @@ from app.models import (
     CrawlRun,
     DataConflict,
     DataSource,
+    FailedCrawlItem,
     PriceObservation,
     ProductSourceField,
     RegulatoryRecord,
+    User,
 )
-from app.models.enums import ConflictSeverity, ConflictStatus, PublishStatus, RegulatoryStatus, RunStatus, SourceType
+from app.models.enums import ConflictSeverity, ConflictStatus, PublishStatus, RegulatoryStatus, RunStatus, RxOtcStatus, SourceType, UserRole
 from app.services.browser_fallback import is_cloudflare_or_captcha
 from app.services.category_classifier import AICategoryClassifier
 from app.services.crawler_pipeline import execute_crawl_pipeline
@@ -64,6 +68,7 @@ class TestAutoCrawlerSuite(unittest.TestCase):
     # 1. Test: Scheduler tự tạo job sau mỗi 6 giờ mà không cần bấm nút
     def test_01_scheduler_triggers_after_6_hours(self):
         scheduler = AutoCrawlScheduler()
+        scheduler.pharmacity_enabled = True
         scheduler.interval_hours = 6
         now = datetime.now(UTC)
         scheduler.next_run_at["PHARMACITY"] = now - timedelta(minutes=1)
@@ -115,6 +120,7 @@ class TestAutoCrawlerSuite(unittest.TestCase):
         self.db.commit()
 
         scheduler = AutoCrawlScheduler()
+        scheduler.pharmacity_enabled = True
         scheduler.interval_hours = 6
         catchup_calls = []
         scheduler.trigger_source_crawl = lambda code, is_manual=False, is_catchup=False: catchup_calls.append((code, is_catchup))
@@ -192,7 +198,7 @@ class TestAutoCrawlerSuite(unittest.TestCase):
 
         with patch("app.services.crawler_pipeline.SessionLocal", return_value=self.db), \
              patch("app.services.crawler_pipeline.httpx.get", side_effect=fake_get), \
-             patch("app.services.crawler_pipeline.time.sleep"):
+             patch("app.services.crawler_pipeline.time.sleep") as mock_sleep:
 
             # max_retries = 2 -> gọi tối đa 3 lần cho 1 URL
             try:
@@ -264,7 +270,7 @@ class TestAutoCrawlerSuite(unittest.TestCase):
         prod_id = prod.id
 
         # Giả lập phát hiện trùng chắc chắn qua SĐK
-        _item = {
+        item = {
             "name": "Panadol Extra đỏ",
             "registration_number": "VD-25556-16",
             "price": 185000,

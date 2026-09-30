@@ -206,13 +206,13 @@ export default function CategoryPage() {
             </div>
 
             {/* Quick Consultation Badge */}
-            <div className="p-3.5 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 text-xs shrink-0 flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-brand-cyan-500 text-slate-900 flex items-center justify-center font-bold">
+            <div className="p-3.5 rounded-xl bg-slate-900/90 border border-slate-700/80 text-xs shrink-0 flex items-center gap-3 shadow-xs">
+              <div className="w-9 h-9 rounded-lg bg-cyan-500/20 text-cyan-300 flex items-center justify-center font-bold border border-cyan-400/30">
                 <Sparkles className="w-5 h-5" />
               </div>
               <div>
                 <p className="font-bold text-white">Tư Vấn Đúng Bệnh, Đúng Thuốc</p>
-                <p className="text-[11px] text-cyan-200">Dược sĩ Đại học phản hồi trong 5 phút</p>
+                <p className="text-[11px] text-cyan-300">Dược sĩ Đại học phản hồi trong 5 phút</p>
               </div>
             </div>
           </div>
@@ -294,8 +294,8 @@ export default function CategoryPage() {
                 ))}
               </div>
             ) : (
-              <div className="bg-white rounded-3xl p-12 text-center border border-slate-200 shadow-sm space-y-4">
-                <div className="w-16 h-16 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
+              <div className="bg-white rounded-2xl p-10 sm:p-12 text-center border border-slate-200 shadow-xs space-y-4">
+                <div className="w-16 h-16 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto border border-slate-200">
                   <PackageOpen className="w-8 h-8" />
                 </div>
                 <div>

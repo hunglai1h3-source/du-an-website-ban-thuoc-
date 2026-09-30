@@ -1,3 +1,4 @@
+from datetime import date, timedelta
 import math
 from pydantic import BaseModel
 
@@ -11,11 +12,15 @@ from app.db.session import get_db
 from app.models import (
     CanonicalProduct,
     DataConflict,
+    InventoryBatch,
+    PriceObservation,
     ProductCandidate,
     ProductIngredient,
+    ProductSku,
     ReviewDecision,
     ScoreHistory,
     User,
+    WarehouseBatchStock,
 )
 from app.models.enums import (
     ConfidenceLabel,
@@ -132,13 +137,73 @@ def list_products(
     total = db.scalar(select(func.count()).select_from(CanonicalProduct).where(*conditions)) or 0
     products = db.scalars(
         select(CanonicalProduct)
+        .options(selectinload(CanonicalProduct.ingredients).selectinload(ProductIngredient.ingredient))
         .where(*conditions)
         .order_by(CanonicalProduct.updated_at.desc())
         .offset((page - 1) * page_size)
         .limit(page_size)
     ).all()
+
+    p_ids = [p.id for p in products]
+    prices_map: dict[int, float] = {}
+    stocks_map: dict[int, int] = {}
+    near_expiry_map: dict[int, int] = {}
+
+    if p_ids:
+        # 1. Prices
+        price_rows = db.query(PriceObservation.product_id, PriceObservation.observed_price).filter(
+            PriceObservation.product_id.in_(p_ids)
+        ).all()
+        for pid, pval in price_rows:
+            if pid not in prices_map and pval is not None:
+                prices_map[pid] = float(pval)
+
+        # 2. Stocks
+        stock_rows = db.query(
+            ProductSku.canonical_product_id,
+            func.sum(WarehouseBatchStock.quantity_available),
+        ).join(
+            InventoryBatch, InventoryBatch.sku_id == ProductSku.id
+        ).join(
+            WarehouseBatchStock, WarehouseBatchStock.batch_id == InventoryBatch.id
+        ).filter(
+            ProductSku.canonical_product_id.in_(p_ids)
+        ).group_by(ProductSku.canonical_product_id).all()
+        for pid, total_stk in stock_rows:
+            stocks_map[pid] = int(total_stk or 0)
+
+        # 3. Near expiry count (< 90 days)
+        today = date.today()
+        near_rows = db.query(
+            ProductSku.canonical_product_id,
+            func.count(InventoryBatch.id),
+        ).join(
+            InventoryBatch, InventoryBatch.sku_id == ProductSku.id
+        ).filter(
+            ProductSku.canonical_product_id.in_(p_ids),
+            InventoryBatch.expiry_date >= today,
+            InventoryBatch.expiry_date <= today + timedelta(days=90),
+            InventoryBatch.status == "ACTIVE",
+        ).group_by(ProductSku.canonical_product_id).all()
+        for pid, n_cnt in near_rows:
+            near_expiry_map[pid] = int(n_cnt or 0)
+
+    items = []
+    for p in products:
+        item_dict = ProductSummary.model_validate(p).model_dump()
+        item_dict["dosage_form"] = p.dosage_form or "Viên nén"
+        item_dict["package_description"] = p.package_description or "Hộp tiêu chuẩn"
+        item_dict["price"] = prices_map.get(p.id)
+        item_dict["total_stock"] = stocks_map.get(p.id, 0)
+        item_dict["near_expiry_count"] = near_expiry_map.get(p.id, 0)
+        
+        # Active ingredient
+        ing_names = [pi.ingredient.normalized_name for pi in p.ingredients if pi.ingredient]
+        item_dict["active_ingredient"] = ", ".join(ing_names) if ing_names else (p.indications or "—")
+        items.append(item_dict)
+
     return {
-        "items": [ProductSummary.model_validate(item) for item in products],
+        "items": items,
         "total": total,
         "page": page,
         "page_size": page_size,

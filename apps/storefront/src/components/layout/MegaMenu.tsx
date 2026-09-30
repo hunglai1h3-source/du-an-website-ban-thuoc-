@@ -79,12 +79,12 @@ export const MegaMenu: React.FC<MegaMenuProps> = ({ isOpen, onClose }) => {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -8, scale: 0.99 }}
             transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-            className="bg-white/98 backdrop-blur-2xl rounded-3xl border border-slate-200/90 shadow-depth-3 overflow-hidden"
+            className="bg-white rounded-3xl border border-slate-200 shadow-2xl overflow-hidden"
           >
             <div className="grid grid-cols-12 min-h-[440px]">
               {/* CỘT 1: Danh sách Danh mục chính (Width: 4/12) */}
-              <div className="col-span-12 md:col-span-4 bg-slate-50/70 border-r border-slate-100 p-3 space-y-1">
-                <div className="px-3 py-2 text-[11px] font-bold tracking-wider uppercase text-slate-400">
+              <div className="col-span-12 md:col-span-4 bg-slate-50/90 border-r border-slate-200/80 p-3.5 space-y-1">
+                <div className="px-3 py-2 text-[11px] font-bold tracking-wider uppercase text-slate-500">
                   Danh mục dược phẩm chuẩn GPP
                 </div>
                 {CATEGORIES_DATA.map((cat) => {
@@ -96,16 +96,16 @@ export const MegaMenu: React.FC<MegaMenuProps> = ({ isOpen, onClose }) => {
                       onClick={() => setActiveCategoryId(cat.id)}
                       className={`group flex items-center justify-between p-3 rounded-2xl cursor-pointer transition-all duration-150 ${
                         isActive
-                          ? "bg-white text-brand-blue-700 shadow-depth-1 border border-slate-100 font-semibold"
-                          : "text-slate-600 hover:bg-white/80 hover:text-slate-900"
+                          ? "bg-white text-brand-blue-700 shadow-depth-1 border border-brand-blue-200 font-bold"
+                          : "text-slate-700 hover:bg-white hover:text-brand-blue-600"
                       }`}
                     >
                       <div className="flex items-center gap-3">
                         <div
                           className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${
                             isActive
-                              ? "bg-brand-blue-600 text-white shadow-sm"
-                              : "bg-slate-200/70 text-slate-600 group-hover:bg-brand-blue-50 group-hover:text-brand-blue-600"
+                              ? "bg-brand-blue-600 text-white shadow-xs"
+                              : "bg-slate-200/80 text-slate-600 group-hover:bg-brand-blue-50 group-hover:text-brand-blue-600"
                           }`}
                         >
                           <CategoryIcon iconName={cat.iconName} className="w-4 h-4" />
@@ -163,16 +163,16 @@ export const MegaMenu: React.FC<MegaMenuProps> = ({ isOpen, onClose }) => {
                         key={sub.id}
                         href={`/category/${activeCategory.slug}`}
                         onClick={onClose}
-                        className="group flex items-center justify-between p-3 rounded-xl border border-slate-100 hover:border-brand-cyan-200 hover:bg-cyan-50/30 transition-all duration-150"
+                        className="group flex items-center justify-between p-3 rounded-xl border border-slate-200/80 hover:border-brand-blue-300 hover:bg-brand-blue-50/40 transition-all duration-150"
                       >
                         <div className="flex items-center gap-2">
                           <span className="w-1.5 h-1.5 rounded-full bg-brand-cyan-500 group-hover:scale-125 transition-transform" />
-                          <span className="text-xs font-medium text-slate-700 group-hover:text-brand-blue-600">
+                          <span className="text-xs font-medium text-slate-800 group-hover:text-brand-blue-600">
                             {sub.name}
                           </span>
                         </div>
                         {sub.isPopular && (
-                          <span className="text-[9px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.2 rounded">
+                          <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
                             Hot
                           </span>
                         )}
@@ -182,8 +182,8 @@ export const MegaMenu: React.FC<MegaMenuProps> = ({ isOpen, onClose }) => {
                 </div>
 
                 {/* Hộp cam kết y tế chuẩn GPP */}
-                <div className="mt-6 p-3.5 rounded-2xl bg-gradient-to-r from-blue-50/70 to-indigo-50/50 border border-blue-100/60 flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-xl bg-brand-blue-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+                <div className="mt-6 p-3.5 rounded-2xl bg-brand-blue-50/70 border border-brand-blue-100 flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-xl bg-brand-blue-600 text-white flex items-center justify-center shrink-0 shadow-xs">
                     <ShieldCheck className="w-4 h-4" />
                   </div>
                   <div className="text-xs">
@@ -194,7 +194,7 @@ export const MegaMenu: React.FC<MegaMenuProps> = ({ isOpen, onClose }) => {
               </div>
 
               {/* CỘT 3: Banner Chuyên Môn & Tư Vấn Dược Sĩ (Width: 3/12) */}
-              <div className="col-span-12 md:col-span-3 bg-gradient-to-b from-slate-50 to-blue-50/40 p-6 border-l border-slate-100 flex flex-col justify-between">
+              <div className="col-span-12 md:col-span-3 bg-slate-50/80 p-6 border-l border-slate-200/80 flex flex-col justify-between">
                 <div>
                   <div className="relative rounded-2xl overflow-hidden border border-slate-200 shadow-sm aspect-video mb-4 group">
                     <img
@@ -211,25 +211,25 @@ export const MegaMenu: React.FC<MegaMenuProps> = ({ isOpen, onClose }) => {
 
                   <div className="space-y-2 text-xs text-slate-600 mb-4">
                     <div className="flex items-center gap-2">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-brand-emerald-500" />
+                      <CheckCircle2 className="w-3.5 h-3.5 text-brand-emerald-500 shrink-0" />
                       <span>Kiểm duyệt bởi Hội đồng Dược sĩ</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-brand-emerald-500" />
+                      <CheckCircle2 className="w-3.5 h-3.5 text-brand-emerald-500 shrink-0" />
                       <span>Hỗ trợ đọc đơn thuốc viết tay</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-brand-emerald-500" />
+                      <CheckCircle2 className="w-3.5 h-3.5 text-brand-emerald-500 shrink-0" />
                       <span>Giao hàng kín đáo & an toàn</span>
                     </div>
                   </div>
                 </div>
 
                 {/* Live Pharmacist Consultation Card */}
-                <div className="p-3.5 rounded-2xl bg-white border border-brand-blue-100 shadow-sm">
-                  <div className="flex items-center gap-2.5 mb-2">
+                <div className="p-3.5 rounded-2xl bg-white border border-slate-200 shadow-xs">
+                  <div className="flex items-center gap-2.5 mb-2.5">
                     <div className="relative">
-                      <div className="w-8 h-8 rounded-full bg-brand-cyan-100 text-brand-cyan-800 flex items-center justify-center font-bold text-xs">
+                      <div className="w-8 h-8 rounded-full bg-brand-cyan-50 text-brand-cyan-700 flex items-center justify-center font-bold text-xs border border-brand-cyan-100">
                         <Stethoscope className="w-4 h-4 text-brand-blue-600" />
                       </div>
                       <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white" />
@@ -242,9 +242,9 @@ export const MegaMenu: React.FC<MegaMenuProps> = ({ isOpen, onClose }) => {
                   <button
                     onClick={() => {
                       onClose();
-                      router.push("/prescription");
+                      router.push("/category/thuoc-ke-don");
                     }}
-                    className="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-brand-blue-600 to-brand-cyan-600 text-white font-semibold text-xs shadow-sm hover:brightness-105 transition-all duration-150 active:scale-95"
+                    className="w-full py-2.5 px-3 rounded-xl bg-brand-blue-600 hover:bg-brand-blue-700 active:scale-95 text-white font-bold text-xs shadow-xs transition-all duration-150"
                   >
                     Gửi đơn thuốc hoặc Hỏi ngay
                   </button>

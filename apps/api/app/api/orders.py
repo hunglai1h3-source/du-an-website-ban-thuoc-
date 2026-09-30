@@ -1,29 +1,98 @@
 import datetime
 import random
 from decimal import Decimal
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
-from sqlalchemy import desc, func, or_, select
+from sqlalchemy import desc, or_, select
 from sqlalchemy.orm import Session, selectinload
 
-from app.api.deps import require_roles
+from app.api.deps import get_current_user, require_roles
 from app.db.session import get_db
-from app.models import CanonicalProduct, Order, OrderItem, PriceObservation, User
-from app.models.enums import UserRole
+from app.models import (
+    CanonicalProduct,
+    FulfillmentItem,
+    Order,
+    OrderFulfillment,
+    OrderItem,
+    OrderItemBatchAllocation,
+    PriceObservation,
+    User,
+)
+from app.models.enums import PublishStatus, RxOtcStatus, UserRole
 from app.services.alert_notifier import dispatch_alert
+from app.services.fulfillment_service import FulfillmentRoutingService
 
 router = APIRouter(tags=["Đơn Hàng & Mua Sắm"])
 store_order_router = APIRouter(prefix="/store/orders", tags=["Storefront Khách Hàng - Đơn Hàng"])
 admin_order_router = APIRouter(prefix="/admin/orders", tags=["Quản Trị Đơn Hàng"])
 
 
+def _serialize_fulfillments(db: Session, order_id: int) -> list[dict[str, Any]]:
+    ffs = db.scalars(
+        select(OrderFulfillment)
+        .options(
+            selectinload(OrderFulfillment.warehouse),
+            selectinload(OrderFulfillment.items).selectinload(FulfillmentItem.order_item),
+        )
+        .where(OrderFulfillment.order_id == order_id)
+        .order_by(OrderFulfillment.id.asc())
+    ).all()
+
+    result = []
+    for f in ffs:
+        ff_item_ids = [it.id for it in f.items]
+        alloc_map: dict[int, list[dict[str, Any]]] = {}
+
+        if ff_item_ids:
+            allocations = db.scalars(
+                select(OrderItemBatchAllocation)
+                .options(selectinload(OrderItemBatchAllocation.batch))
+                .where(OrderItemBatchAllocation.fulfillment_item_id.in_(ff_item_ids))
+            ).all()
+
+            for a in allocations:
+                if a.fulfillment_item_id not in alloc_map:
+                    alloc_map[a.fulfillment_item_id] = []
+                alloc_map[a.fulfillment_item_id].append({
+                    "batch_id": a.batch_id,
+                    "batch_number": a.batch.batch_number if a.batch else "",
+                    "expiry_date": a.batch.expiry_date.isoformat() if (a.batch and a.batch.expiry_date) else "",
+                    "allocated_quantity": a.allocated_quantity,
+                })
+
+        items_list = []
+        for it in f.items:
+            items_list.append({
+                "fulfillment_item_id": it.id,
+                "order_item_id": it.order_item_id,
+                "product_name": it.order_item.product_name if it.order_item else "",
+                "quantity": it.quantity,
+                "batches": alloc_map.get(it.id, []),
+            })
+
+        result.append({
+            "id": f.id,
+            "fulfillment_code": f.fulfillment_code,
+            "warehouse_id": f.warehouse_id,
+            "warehouse_code": f.warehouse.code if f.warehouse else "",
+            "warehouse_name": f.warehouse.name if f.warehouse else "",
+            "status": f.status,
+            "carrier_name": f.carrier_name,
+            "tracking_code": f.tracking_code,
+            "shipping_fee": float(f.shipping_fee),
+            "shipped_at": f.shipped_at.isoformat() if f.shipped_at else None,
+            "delivered_at": f.delivered_at.isoformat() if f.delivered_at else None,
+            "items": items_list,
+        })
+    return result
+
+
 # --- Schemas ---
 class CheckoutItem(BaseModel):
     product_id: int
     quantity: int = Field(default=1, ge=1, le=100)
-    price: Optional[float] = None
 
 
 class CheckoutRequest(BaseModel):
@@ -55,7 +124,7 @@ def generate_order_code() -> str:
 def checkout_order(payload: CheckoutRequest, db: Session = Depends(get_db)):
     """
     Tạo đơn hàng mới từ Storefront Web Khách Hàng.
-    Tự động tính tổng tiền, liên kết kho thuốc và gửi thông báo tới Admin.
+    Tính giá 100% tại máy chủ (Server-side Pricing), loại bỏ hoàn toàn thuốc kê đơn Rx và chặn can thiệp giá.
     """
     name = payload.customer_name.strip()
     phone = payload.customer_phone.strip()
@@ -64,14 +133,33 @@ def checkout_order(payload: CheckoutRequest, db: Session = Depends(get_db)):
     if not name or not phone or not address:
         raise HTTPException(status_code=400, detail="Vui lòng điền đầy đủ họ tên, số điện thoại và địa chỉ giao hàng.")
 
-    # Tìm thông tin sản phẩm và tính tổng tiền
+    # Tìm thông tin sản phẩm
     product_ids = [it.product_id for it in payload.items]
     products = db.scalars(
         select(CanonicalProduct).where(CanonicalProduct.id.in_(product_ids))
     ).all()
     products_map = {p.id: p for p in products}
 
-    # Giá bán thực tế
+    # Kiểm tra tính hợp lệ: Sản phẩm phải tồn tại, đang được đăng bán và KHÔNG PHẢI là thuốc kê đơn Rx
+    for item in payload.items:
+        prod = products_map.get(item.product_id)
+        if not prod:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Sản phẩm #{item.product_id} không tồn tại hoặc đã ngừng kinh doanh."
+            )
+        if prod.publish_status != PublishStatus.PUBLISHED:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Sản phẩm '{prod.canonical_name}' chưa sẵn sàng để đặt hàng."
+            )
+        if prod.rx_otc_status == RxOtcStatus.PRESCRIPTION:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Sản phẩm '{prod.canonical_name}' là thuốc kê đơn (Rx). Theo quy định Bộ Y Tế, thuốc kê đơn không được phép bán trực tuyến."
+            )
+
+    # Tra cứu giá bán chính thức từ hệ thống (Server-side Pricing, tuyệt đối không tin client)
     prices_map: dict[int, Decimal] = {}
     price_rows = db.query(PriceObservation.product_id, PriceObservation.observed_price).filter(
         PriceObservation.product_id.in_(product_ids)
@@ -84,17 +172,18 @@ def checkout_order(payload: CheckoutRequest, db: Session = Depends(get_db)):
     total_amount = Decimal("0.0")
 
     for item in payload.items:
-        prod = products_map.get(item.product_id)
-        prod_name = prod.canonical_name if prod else f"Thuốc ID #{item.product_id}"
-        prod_sku = prod.registration_number if prod else None
+        prod = products_map[item.product_id]
+        prod_name = prod.canonical_name
+        prod_sku = prod.registration_number
 
-        # Xác định đơn giá
-        if item.price and item.price > 0:
-            unit_price = Decimal(str(item.price))
-        elif item.product_id in prices_map:
+        # Kiểm tra giá niêm yết
+        if item.product_id in prices_map and prices_map[item.product_id] > 0:
             unit_price = prices_map[item.product_id]
         else:
-            unit_price = Decimal("50000.0")  # Fallback
+            raise HTTPException(
+                status_code=400,
+                detail=f"Sản phẩm '{prod_name}' chưa có giá bán niêm yết hợp lệ từ hệ thống."
+            )
 
         subtotal = unit_price * item.quantity
         total_amount += subtotal
@@ -127,8 +216,28 @@ def checkout_order(payload: CheckoutRequest, db: Session = Depends(get_db)):
         items=order_items_to_add,
     )
     db.add(order)
+    db.flush()
+
+    # Điều phối kho và phân bổ lô theo FEFO
+    FulfillmentRoutingService.route_and_allocate_order(
+        db=db,
+        order=order,
+        items=order_items_to_add,
+        shipping_city=payload.shipping_city,
+        shipping_address=payload.shipping_address,
+    )
     db.commit()
     db.refresh(order)
+
+    # Gửi email xác nhận đơn hàng thật (Gmail SMTP & lưu vết EmailOutbox)
+    if order.customer_email:
+        try:
+            from app.services.email_service import EmailService
+            EmailService.queue_and_send_order_confirmation(db=db, order=order, send_immediately=True)
+        except Exception as e:
+            # Ghi nhận log cảnh báo, không làm crash luồng tạo đơn
+            import logging
+            logging.getLogger(__name__).warning(f"[ORDER] Không thể gửi email xác nhận cho đơn '{order.order_code}': {e}")
 
     # Gửi cảnh báo tức thì tới Telegram Quản trị viên
     items_summary = ", ".join([f"{it.product_name} (x{it.quantity})" for it in order_items_to_add[:3]])
@@ -160,6 +269,7 @@ def checkout_order(payload: CheckoutRequest, db: Session = Depends(get_db)):
         "total_amount": float(order.total_amount),
         "order_status": order.order_status,
         "created_at": order.created_at.isoformat() if order.created_at else None,
+        "fulfillments": _serialize_fulfillments(db, order.id),
     }
 
 
@@ -196,6 +306,7 @@ def get_order_by_code(order_code: str, db: Session = Depends(get_db)):
             }
             for it in order.items
         ],
+        "fulfillments": _serialize_fulfillments(db, order.id),
     }
 
 
@@ -275,7 +386,7 @@ def list_orders(
             )
         )
 
-    total = db.scalar(select(func.count()).select_from(query.subquery()))
+    total = db.scalar(select(Order).with_only_columns(Order.id).order_by(None))
     orders = db.scalars(
         query.order_by(desc(Order.id)).offset((page - 1) * page_size).limit(page_size)
     ).all()
@@ -297,7 +408,6 @@ def list_orders(
             }
             for o in orders
         ],
-        "total": total or 0,
         "page": page,
         "page_size": page_size,
     }
@@ -344,6 +454,43 @@ def get_admin_order_detail(
             }
             for it in order.items
         ],
+        "fulfillments": _serialize_fulfillments(db, order.id),
+    }
+
+
+class UpdateFulfillmentStatusRequest(BaseModel):
+    status: str  # PENDING | PICKED | PACKED | SHIPPED | DELIVERED | CANCELLED
+
+
+@admin_order_router.patch("/fulfillments/{fulfillment_id}/status")
+def update_fulfillment_status(
+    fulfillment_id: int,
+    payload: UpdateFulfillmentStatusRequest,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_roles(UserRole.ADMIN, UserRole.DATA_REVIEWER)),
+):
+    """
+    Cập nhật trạng thái kiện hàng theo quy trình kho (PICKED -> PACKED -> SHIPPED -> DELIVERED -> CANCELLED).
+    Khi SHIPPED: Tự động trừ tồn thực tế on_hand, giảm reserved, sinh Thẻ kho (StockMovement DISPATCH).
+    Khi CANCELLED: Tự động hoàn lại tồn khả dụng available, giải phóng reservation.
+    Đồng thời tự động đồng bộ trạng thái đơn hàng cha.
+    """
+    ff = FulfillmentRoutingService.transition_fulfillment_status(
+        db=db,
+        fulfillment_id=fulfillment_id,
+        new_status=payload.status.upper(),
+        user_id=admin.id,
+    )
+    return {
+        "status": "SUCCESS",
+        "message": f"Kiện hàng {ff.fulfillment_code} đã cập nhật trạng thái: {ff.status}.",
+        "fulfillment": {
+            "id": ff.id,
+            "fulfillment_code": ff.fulfillment_code,
+            "status": ff.status,
+            "shipped_at": ff.shipped_at.isoformat() if ff.shipped_at else None,
+            "delivered_at": ff.delivered_at.isoformat() if ff.delivered_at else None,
+        },
     }
 
 

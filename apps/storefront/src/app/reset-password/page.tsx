@@ -3,9 +3,9 @@
 import React, { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { LiquidMetalButton } from "@/components/auth/LiquidMetalButton";
-import { SpatialLoginBackground } from "@/components/auth/SpatialLoginBackground";
+import { motion, AnimatePresence } from "framer-motion";
+import { H4CareLogo } from "@/components/branding/H4CareLogo";
+import { AuthBrandPanel } from "@/components/auth/AuthBrandPanel";
 import {
   ArrowLeft,
   Lock,
@@ -14,14 +14,15 @@ import {
   ShieldCheck,
   AlertCircle,
   CheckCircle2,
-  Check,
+  Loader2,
+  ArrowRight,
+  KeyRound,
 } from "lucide-react";
 
 function ResetPasswordContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const target = searchParams.get("target") || "";
-  const shouldReduceMotion = useReducedMotion();
 
   const [password, setPassword] = useState<string>("H4careNew@2026");
   const [confirmPassword, setConfirmPassword] = useState<string>("H4careNew@2026");
@@ -31,27 +32,6 @@ function ResetPasswordContent() {
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [isSuccess, setIsSuccess] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [focusedField, setFocusedField] = useState<string | null>(null);
-
-  // Desktop Mouse Parallax
-  const [mouseParallax, setMouseParallax] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
-  const [isTouchDevice, setIsTouchDevice] = useState<boolean>(false);
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      setIsTouchDevice("ontouchstart" in window || navigator.maxTouchPoints > 0);
-    }
-  }, []);
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (isTouchDevice || shouldReduceMotion) return;
-    const { clientX, clientY } = e;
-    const centerX = window.innerWidth / 2;
-    const centerY = window.innerHeight / 2;
-    const px = ((clientX - centerX) / centerX) * 4;
-    const py = ((clientY - centerY) / centerY) * 4;
-    setMouseParallax({ x: px, y: py });
-  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -76,7 +56,6 @@ function ResetPasswordContent() {
     }, 450);
   };
 
-  // Password strength calculator
   const getStrength = (pass: string) => {
     if (!pass) return 0;
     let score = 0;
@@ -91,239 +70,193 @@ function ResetPasswordContent() {
   const strength = getStrength(password);
   const strengthLabels = ["Rất yếu", "Yếu", "Trung bình", "Khá mạnh", "Rất an toàn"];
   const strengthColors = [
-    "bg-slate-700",
+    "bg-slate-300",
     "bg-rose-500",
     "bg-amber-500",
-    "bg-cyan-500",
+    "bg-sky-500",
     "bg-emerald-500",
   ];
-
-  // Motion Variants
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: { staggerChildren: 0.1, delayChildren: 0.1 },
-    },
-  };
-
-  const itemVariants = {
-    hidden: { opacity: 0, y: 16, filter: "blur(6px)" },
-    visible: {
-      opacity: 1,
-      y: 0,
-      filter: "blur(0px)",
-      transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] },
-    },
-  };
+  const strengthTextColors = [
+    "text-slate-500",
+    "text-rose-600",
+    "text-amber-600",
+    "text-sky-600",
+    "text-emerald-600",
+  ];
 
   return (
-    <div
-      onMouseMove={handleMouseMove}
-      className="relative min-h-screen w-full flex flex-col justify-between overflow-x-hidden text-slate-100 selection:bg-cyan-500/30 selection:text-cyan-200"
-    >
-      <SpatialLoginBackground mouseParallax={mouseParallax} />
-
+    <div className="min-h-screen bg-slate-50 flex flex-col justify-between selection:bg-brand-cyan-100 selection:text-brand-blue-900">
       {/* Top Header */}
-      <header className="relative z-20 w-full max-w-6xl mx-auto px-4 sm:px-6 py-5 sm:py-7 flex items-center justify-between">
-        <Link href="/" className="group flex items-center gap-3 focus:outline-none" title="Trở về trang chủ H4CARE">
-          <div className="relative w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-gradient-to-br from-cyan-400 via-blue-600 to-blue-800 p-0.5 shadow-[0_0_20px_rgba(34,211,238,0.35)] transition-transform duration-300 group-hover:scale-105">
-            <div className="w-full h-full rounded-[14px] bg-[#071329] flex items-center justify-center font-black text-lg sm:text-xl tracking-tighter text-white">
-              <span className="bg-gradient-to-r from-white via-cyan-200 to-cyan-400 bg-clip-text text-transparent">
-                H4
-              </span>
-            </div>
-          </div>
-          <div className="flex flex-col">
-            <div className="flex items-center gap-1.5">
-              <span className="text-xl sm:text-2xl font-black tracking-tight text-white">H4CARE</span>
-              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
-            </div>
-            <span className="text-[10px] tracking-widest text-cyan-300/70 font-semibold uppercase hidden sm:block">
-              THIẾT LẬP MẬT KHẨU
-            </span>
-          </div>
-        </Link>
-
+      <header className="w-full max-w-6xl mx-auto px-4 sm:px-6 py-4 sm:py-6 flex items-center justify-between">
+        <H4CareLogo size="md" withTagline={true} />
         <Link
           href="/login"
-          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full text-xs font-semibold text-slate-300 hover:text-white bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 hover:border-cyan-400/40 backdrop-blur-md transition-all duration-200 active:scale-95 shadow-xs"
+          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:text-brand-blue-600 hover:border-brand-blue-300 hover:bg-slate-50 shadow-xs transition-all"
         >
-          <ArrowLeft className="w-3.5 h-3.5 text-cyan-400" />
-          <span>Về Đăng nhập</span>
+          <ArrowLeft className="w-3.5 h-3.5 text-brand-blue-600" />
+          <span>Về trang đăng nhập</span>
         </Link>
       </header>
 
-      {/* Main Card */}
-      <main className="relative z-20 flex-1 w-full max-w-md mx-auto px-4 sm:px-6 flex flex-col justify-center py-6 sm:py-10">
-        <motion.div
-          initial="hidden"
-          animate="visible"
-          variants={containerVariants}
-          style={{
-            transform: shouldReduceMotion
-              ? undefined
-              : `translate3d(${mouseParallax.x * -3}px, ${mouseParallax.y * -3}px, 0)`,
-          }}
-          className="relative w-full"
-        >
-          <div className="absolute -inset-0.5 rounded-[32px] bg-gradient-to-b from-cyan-400/30 via-blue-600/10 to-transparent blur-md opacity-70 pointer-events-none" />
+      {/* Main Container */}
+      <main className="w-full max-w-6xl mx-auto px-4 sm:px-6 py-4 sm:py-8 flex items-center justify-center flex-1">
+        <div className="w-full grid grid-cols-1 lg:grid-cols-12 bg-white rounded-2xl border border-slate-200 shadow-depth-2 overflow-hidden">
+          
+          {/* Left Side: Medical Trust Brand Panel */}
+          <div className="hidden lg:block lg:col-span-5 relative">
+            <AuthBrandPanel />
+          </div>
 
-          <div className="relative rounded-[28px] sm:rounded-[32px] bg-[#081224]/85 border border-white/[0.12] backdrop-blur-2xl p-6 sm:p-9 shadow-[0_20px_60px_-15px_rgba(0,18,50,0.8)] overflow-hidden">
-            <div className="absolute top-0 inset-x-8 h-px bg-gradient-to-r from-transparent via-cyan-400/60 to-transparent" />
-
-            {/* Typography */}
-            <motion.div variants={itemVariants} className="text-center mb-6 sm:mb-8">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-950/60 border border-cyan-400/30 text-[11px] font-bold text-cyan-300 mb-3 shadow-[0_0_12px_rgba(6,182,212,0.15)]">
-                <ShieldCheck className="w-3.5 h-3.5 text-cyan-400" />
-                <span>Tiêu chuẩn bảo mật y tế số</span>
+          {/* Right Side: Form */}
+          <div className="lg:col-span-7 p-6 sm:p-10 md:p-12 flex flex-col justify-center bg-white">
+            <div className="w-full max-w-md mx-auto">
+              
+              <div className="mb-6">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-brand-emerald-700 border border-emerald-200/80 text-[11px] font-bold mb-3">
+                  <ShieldCheck className="w-3.5 h-3.5 text-brand-emerald-600" />
+                  <span>Bảo mật tài khoản PharmaTrust</span>
+                </div>
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+                  Tạo mật khẩu mới
+                </h1>
+                <p className="text-xs sm:text-sm text-slate-600 mt-1 leading-relaxed">
+                  {target ? `Thiết lập mật khẩu bảo mật mới cho tài khoản: ${target}` : "Vui lòng nhập mật khẩu mới để hoàn tất khôi phục tài khoản."}
+                </p>
               </div>
 
-              <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
-                Tạo mật khẩu mới.
-              </h1>
-              <p className="text-xs sm:text-sm text-slate-400 mt-1.5 leading-relaxed">
-                {target ? (
-                  <>
-                    Thiết lập mật khẩu bảo vệ tài khoản{" "}
-                    <span className="text-cyan-300 font-semibold">{target}</span>.
-                  </>
-                ) : (
-                  "Thiết lập mật khẩu mới bảo vệ hồ sơ đơn thuốc của bạn."
+              {/* Alerts */}
+              <AnimatePresence>
+                {errorMessage && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -6 }}
+                    className="mb-5 p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-start gap-2.5 font-medium leading-relaxed"
+                  >
+                    <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                    <div className="flex-1">{errorMessage}</div>
+                  </motion.div>
                 )}
-              </p>
-            </motion.div>
 
-            {/* Error Notification */}
-            <AnimatePresence>
-              {errorMessage && (
-                <motion.div
-                  initial={{ opacity: 0, y: -8, height: 0 }}
-                  animate={{ opacity: 1, y: 0, height: "auto" }}
-                  exit={{ opacity: 0, y: -8, height: 0 }}
-                  className="mb-5 overflow-hidden"
-                >
-                  <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-medium flex items-start gap-2.5">
-                    <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
-                    <span>{errorMessage}</span>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* Form */}
-            <form onSubmit={handleSubmit} className="space-y-5">
-              {/* New Password */}
-              <motion.div variants={itemVariants} className="space-y-1.5">
-                <label className="block text-xs font-semibold text-slate-300">
-                  Mật khẩu mới <span className="text-cyan-400">*</span>
-                </label>
-                <div
-                  className={`relative rounded-2xl bg-white/[0.03] border transition-all duration-200 flex items-center ${
-                    focusedField === "password"
-                      ? "border-cyan-400/80 bg-cyan-950/20 shadow-[0_0_16px_rgba(34,211,238,0.18)]"
-                      : "border-white/10 hover:border-white/20"
-                  }`}
-                >
-                  <div className="pl-4 pr-2 text-slate-400">
-                    <Lock className={`w-4 h-4 ${focusedField === "password" ? "text-cyan-400" : ""}`} />
-                  </div>
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    onFocus={() => setFocusedField("password")}
-                    onBlur={() => setFocusedField(null)}
-                    placeholder="Tối thiểu 6 ký tự..."
-                    className="w-full h-12 pr-11 bg-transparent text-sm font-semibold text-white placeholder-slate-500 focus:outline-none"
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3.5 text-slate-400 hover:text-white p-1"
+                {isSuccess && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="mb-5 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-start gap-2.5 font-medium leading-relaxed"
                   >
-                    {showPassword ? <EyeOff className="w-4 h-4 text-cyan-400" /> : <Eye className="w-4 h-4" />}
-                  </button>
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                    <div className="flex-1">Mật khẩu đã được cập nhật thành công! Đang chuyển hướng về trang đăng nhập...</div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    Mật khẩu mới
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Nhập mật khẩu mới..."
+                      required
+                      className="w-full px-3.5 py-2.5 pl-10 pr-10 rounded-xl bg-white border border-slate-200 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-brand-blue-600 focus:ring-4 focus:ring-brand-blue-100 transition-all font-medium"
+                    />
+                    <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                      <Lock className="w-4 h-4 text-brand-blue-600" />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors p-1"
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+
+                  {/* Strength Bar */}
+                  {password && (
+                    <div className="mt-2 flex items-center gap-2">
+                      <div className="flex-1 grid grid-cols-4 gap-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                        {[1, 2, 3, 4].map((lvl) => (
+                          <div
+                            key={lvl}
+                            className={`h-full transition-colors ${
+                              strength >= lvl ? strengthColors[strength] : "bg-transparent"
+                            }`}
+                          />
+                        ))}
+                      </div>
+                      <span className={`text-[11px] font-bold ${strengthTextColors[strength]}`}>
+                        {strengthLabels[strength]}
+                      </span>
+                    </div>
+                  )}
                 </div>
 
-                {/* Password Strength Indicator */}
-                <div className="pt-1.5">
-                  <div className="flex items-center justify-between text-[11px] mb-1">
-                    <span className="text-slate-400">Độ mạnh mật khẩu:</span>
-                    <span className="font-semibold text-cyan-300">{strengthLabels[strength]}</span>
-                  </div>
-                  <div className="grid grid-cols-4 gap-1.5 h-1">
-                    {[1, 2, 3, 4].map((level) => (
-                      <div
-                        key={level}
-                        className={`rounded-full transition-all duration-300 ${
-                          strength >= level ? strengthColors[strength] : "bg-white/10"
-                        }`}
-                      />
-                    ))}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    Xác nhận mật khẩu mới
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showConfirmPassword ? "text" : "password"}
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="Nhập lại mật khẩu mới..."
+                      required
+                      className="w-full px-3.5 py-2.5 pl-10 pr-10 rounded-xl bg-white border border-slate-200 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-brand-blue-600 focus:ring-4 focus:ring-brand-blue-100 transition-all font-medium"
+                    />
+                    <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                      <Lock className="w-4 h-4 text-brand-blue-600" />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors p-1"
+                    >
+                      {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
                   </div>
                 </div>
-              </motion.div>
 
-              {/* Confirm Password */}
-              <motion.div variants={itemVariants} className="space-y-1.5">
-                <label className="block text-xs font-semibold text-slate-300">
-                  Xác nhận lại mật khẩu <span className="text-cyan-400">*</span>
-                </label>
-                <div
-                  className={`relative rounded-2xl bg-white/[0.03] border transition-all duration-200 flex items-center ${
-                    focusedField === "confirmPassword"
-                      ? "border-cyan-400/80 bg-cyan-950/20 shadow-[0_0_16px_rgba(34,211,238,0.18)]"
-                      : "border-white/10 hover:border-white/20"
-                  }`}
+                <button
+                  type="submit"
+                  disabled={isSubmitting || isSuccess}
+                  className="w-full py-3 px-4 rounded-xl bg-brand-blue-600 hover:bg-brand-blue-700 text-white font-bold text-sm shadow-depth-1 hover:shadow-depth-2 transition-all flex items-center justify-center gap-2 active:scale-[0.99] disabled:opacity-60 cursor-pointer"
                 >
-                  <div className="pl-4 pr-2 text-slate-400">
-                    <Lock className={`w-4 h-4 ${focusedField === "confirmPassword" ? "text-cyan-400" : ""}`} />
-                  </div>
-                  <input
-                    type={showConfirmPassword ? "text" : "password"}
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    onFocus={() => setFocusedField("confirmPassword")}
-                    onBlur={() => setFocusedField(null)}
-                    placeholder="Nhập lại mật khẩu mới..."
-                    className="w-full h-12 pr-11 bg-transparent text-sm font-semibold text-white placeholder-slate-500 focus:outline-none"
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-3.5 text-slate-400 hover:text-white p-1"
-                  >
-                    {showConfirmPassword ? <EyeOff className="w-4 h-4 text-cyan-400" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-              </motion.div>
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Đang lưu mật khẩu...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Cập nhật mật khẩu & Đăng nhập</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </>
+                  )}
+                </button>
+              </form>
 
-              {/* Signature Liquid Metal Button */}
-              <motion.div variants={itemVariants} className="pt-2">
-                <LiquidMetalButton type="submit" isLoading={isSubmitting} isSuccess={isSuccess}>
-                  Lưu mật khẩu & Đăng nhập
-                </LiquidMetalButton>
-              </motion.div>
-            </form>
+              <div className="mt-6 text-center text-xs text-slate-600">
+                <Link
+                  href="/login"
+                  className="font-bold text-brand-blue-600 hover:text-brand-blue-800 hover:underline"
+                >
+                  Quay lại đăng nhập
+                </Link>
+              </div>
 
-            <motion.div
-              variants={itemVariants}
-              className="mt-6 pt-5 border-t border-white/[0.08] text-center text-xs text-slate-400"
-            >
-              Quay lại trang{" "}
-              <Link href="/login" className="font-extrabold text-cyan-300 hover:text-cyan-200 hover:underline">
-                Đăng nhập
-              </Link>
-            </motion.div>
+            </div>
           </div>
-        </motion.div>
+        </div>
       </main>
 
-      <footer className="relative z-20 w-full py-4 text-center text-[11px] text-slate-500">
-        <p>H4CARE • “Chăm sóc sức khỏe, bắt đầu từ sự thấu hiểu.” • Bản quyền thuộc H4CARE</p>
+      <footer className="w-full text-center py-4 text-[11px] text-slate-400 select-none">
+        <span>Hệ thống Quản lý Dữ liệu Thuốc & Bán lẻ Dược phẩm PharmaTrust • Định hướng chuẩn GPP & GSP</span>
       </footer>
     </div>
   );
@@ -331,13 +264,7 @@ function ResetPasswordContent() {
 
 export default function ResetPasswordPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen bg-[#050b18] flex items-center justify-center text-cyan-400">
-          <div className="w-8 h-8 rounded-full border-2 border-cyan-400 border-t-transparent animate-spin" />
-        </div>
-      }
-    >
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-xs text-slate-400">Đang tải...</div>}>
       <ResetPasswordContent />
     </Suspense>
   );

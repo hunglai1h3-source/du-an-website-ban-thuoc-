@@ -3,8 +3,6 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { SmoothScroll } from "@/components/providers/SmoothScroll";
 import { AuthProvider } from "@/lib/auth/auth-context";
-import { CartProvider } from "@/lib/cart/cart-context";
-import { CartToast } from "@/components/cart/CartToast";
 
 const inter = Inter({
   subsets: ["latin", "vietnamese"],
@@ -50,10 +48,7 @@ export default function RootLayout({
     <html lang="vi" className={inter.variable}>
       <body className="font-sans min-h-screen flex flex-col bg-white text-slate-900 antialiased selection:bg-brand-cyan-100 selection:text-brand-blue-900">
         <AuthProvider>
-          <CartProvider>
-            <SmoothScroll>{children}</SmoothScroll>
-            <CartToast />
-          </CartProvider>
+          <SmoothScroll>{children}</SmoothScroll>
         </AuthProvider>
       </body>
     </html>

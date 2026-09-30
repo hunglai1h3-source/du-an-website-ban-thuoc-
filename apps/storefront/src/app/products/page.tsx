@@ -34,6 +34,7 @@ const INITIAL_FILTERS: ProductFilterState = {
 const ITEMS_PER_PAGE = 8;
 
 export default function ProductsPage() {
+  const [products, setProducts] = useState<Product[]>(PRODUCTS_DATA);
   const [filters, setFilters] = useState<ProductFilterState>(INITIAL_FILTERS);
   const [sortOption, setSortOption] = useState<ProductSortOption>("popular");
   const [gridCols, setGridCols] = useState<3 | 4>(3);
@@ -44,9 +45,26 @@ export default function ProductsPage() {
   const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
   const [rxConsultProduct, setRxConsultProduct] = useState<Product | null>(null);
 
+  // Dynamically sync products from backend API when available
+  React.useEffect(() => {
+    fetch("/api/v1/store/products?limit=300")
+      .then((res) => {
+        if (!res.ok) throw new Error("API error");
+        return res.json();
+      })
+      .then((data) => {
+        if (data?.items && Array.isArray(data.items) && data.items.length > 0) {
+          setProducts(data.items);
+        }
+      })
+      .catch((err) => {
+        console.warn("FastAPI Storefront offline, using built-in catalog:", err);
+      });
+  }, []);
+
   // Filter products
   const filteredProducts = useMemo(() => {
-    return PRODUCTS_DATA.filter((product) => {
+    return products.filter((product) => {
       // Category filter
       if (filters.category && product.category !== filters.category) {
         return false;
@@ -206,8 +224,8 @@ export default function ProductsPage() {
               filters.origin.length > 0 ||
               filters.dosageForm.length > 0 ||
               filters.prescriptionType !== "all") && (
-              <div className="flex flex-wrap items-center gap-2 p-3 bg-white rounded-2xl border border-slate-200/80">
-                <span className="text-xs font-bold text-slate-400">Đang lọc theo:</span>
+              <div className="flex flex-wrap items-center gap-2 p-3 bg-white rounded-xl border border-slate-200 shadow-xs">
+                <span className="text-xs font-bold text-slate-500">Đang lọc theo:</span>
                 {filters.prescriptionType !== "all" && (
                   <span className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-brand-blue-50 text-brand-blue-700 font-semibold border border-brand-blue-200">
                     {filters.prescriptionType === "rx" ? "Thuốc kê đơn (Rx)" : "Không kê đơn"}
@@ -272,8 +290,8 @@ export default function ProductsPage() {
               </div>
             ) : (
               /* Empty State when no products match filters */
-              <div className="bg-white rounded-3xl p-12 text-center border border-slate-200 shadow-sm space-y-4">
-                <div className="w-16 h-16 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
+              <div className="bg-white rounded-2xl p-10 sm:p-12 text-center border border-slate-200 shadow-xs space-y-4">
+                <div className="w-16 h-16 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto border border-slate-200">
                   <PackageOpen className="w-8 h-8" />
                 </div>
                 <div>

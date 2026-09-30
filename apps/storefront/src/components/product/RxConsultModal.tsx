@@ -56,7 +56,7 @@ export const RxConsultModal: React.FC<RxConsultModalProps> = ({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={handleReset}
-          className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+          className="absolute inset-0 bg-black/50 backdrop-blur-xs"
         />
 
         {/* Modal Window */}
@@ -65,16 +65,16 @@ export const RxConsultModal: React.FC<RxConsultModalProps> = ({
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 12 }}
           transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-          className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden z-10"
+          className="relative w-full max-w-lg bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden z-10"
         >
           {/* Header */}
-          <div className="bg-gradient-to-r from-brand-blue-700 via-brand-blue-600 to-brand-cyan-600 text-white p-5 flex items-start justify-between">
+          <div className="bg-brand-blue-600 text-white p-5 flex items-start justify-between border-b border-brand-blue-700">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-white/15 backdrop-blur-md flex items-center justify-center text-white shrink-0 border border-white/20">
+              <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center text-white shrink-0 border border-white/20">
                 <Stethoscope className="w-5 h-5" />
               </div>
               <div>
-                <span className="text-[10px] font-bold tracking-wider uppercase text-cyan-200 bg-white/10 px-2 py-0.5 rounded-full inline-block mb-1">
+                <span className="text-[10px] font-bold tracking-wider uppercase text-brand-blue-100 bg-white/10 px-2.5 py-0.5 rounded-full inline-block mb-1">
                   Chuẩn Y Khoa • Tư Vấn Theo Toa
                 </span>
                 <h3 className="text-base font-bold leading-snug">
@@ -84,7 +84,7 @@ export const RxConsultModal: React.FC<RxConsultModalProps> = ({
             </div>
             <button
               onClick={handleReset}
-              className="p-1 rounded-xl text-white/80 hover:text-white hover:bg-white/10 transition-colors"
+              className="p-1.5 rounded-xl text-white/80 hover:text-white hover:bg-white/10 transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
@@ -94,7 +94,7 @@ export const RxConsultModal: React.FC<RxConsultModalProps> = ({
             {!isSubmitted ? (
               <form onSubmit={handleSubmit} className="space-y-4">
                 {/* Warning notice */}
-                <div className="p-3.5 rounded-2xl bg-amber-50/80 border border-amber-200/80 flex items-start gap-2.5">
+                <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 flex items-start gap-2.5">
                   <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                   <div className="text-xs text-amber-900 leading-relaxed">
                     <span className="font-bold">Quy định của Bộ Y Tế: </span>
@@ -113,7 +113,7 @@ export const RxConsultModal: React.FC<RxConsultModalProps> = ({
                     value={patientName}
                     onChange={(e) => setPatientName(e.target.value)}
                     placeholder="Ví dụ: Nguyễn Văn A"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-blue-500/80 focus:border-brand-blue-500"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-brand-blue-500 focus:border-brand-blue-500"
                   />
                 </div>
 
@@ -127,7 +127,7 @@ export const RxConsultModal: React.FC<RxConsultModalProps> = ({
                     value={phoneNumber}
                     onChange={(e) => setPhoneNumber(e.target.value)}
                     placeholder="Ví dụ: 0912 345 678"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-blue-500/80 focus:border-brand-blue-500"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-brand-blue-500 focus:border-brand-blue-500"
                   />
                 </div>
 
@@ -138,7 +138,7 @@ export const RxConsultModal: React.FC<RxConsultModalProps> = ({
                   </label>
                   <div
                     onClick={() => setPrescriptionFile("don-thuoc-benh-vien-cho-ray.jpg")}
-                    className="border-2 border-dashed border-slate-200 hover:border-brand-blue-400 rounded-2xl p-4 text-center cursor-pointer transition-colors bg-slate-50/50 hover:bg-brand-blue-50/30"
+                    className="border-2 border-dashed border-slate-200 hover:border-brand-blue-400 rounded-xl p-4 text-center cursor-pointer transition-colors bg-slate-50 hover:bg-brand-blue-50/40"
                   >
                     <UploadCloud className="w-7 h-7 text-slate-400 mx-auto mb-1.5" />
                     {prescriptionFile ? (
@@ -177,7 +177,7 @@ export const RxConsultModal: React.FC<RxConsultModalProps> = ({
                     type="submit"
                     variant="primary"
                     size="lg"
-                    className="w-full shadow-medical"
+                    className="w-full shadow-xs"
                   >
                     Gửi Yêu Cầu Cho Dược Sĩ Ngay
                   </Button>
@@ -185,7 +185,7 @@ export const RxConsultModal: React.FC<RxConsultModalProps> = ({
               </form>
             ) : (
               <div className="py-6 text-center space-y-4">
-                <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto shadow-sm">
+                <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto shadow-xs">
                   <CheckCircle2 className="w-9 h-9" />
                 </div>
                 <div>
@@ -197,7 +197,7 @@ export const RxConsultModal: React.FC<RxConsultModalProps> = ({
                   </p>
                 </div>
 
-                <div className="p-3.5 rounded-2xl bg-blue-50 border border-blue-100 text-left text-xs space-y-1">
+                <div className="p-3.5 rounded-xl bg-brand-blue-50 border border-brand-blue-100 text-left text-xs space-y-1">
                   <p className="font-bold text-brand-blue-900">Thông tin yêu cầu:</p>
                   <p className="text-slate-600">• Người bệnh: <span className="font-semibold">{patientName || "Khách hàng"}</span></p>
                   <p className="text-slate-600">• Thuốc quan tâm: <span className="font-semibold">{product.name}</span></p>

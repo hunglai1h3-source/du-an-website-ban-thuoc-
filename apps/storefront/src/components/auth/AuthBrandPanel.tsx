@@ -37,7 +37,7 @@ export const AuthBrandPanel: React.FC = () => {
           <h2 className="text-2xl xl:text-3xl font-extrabold tracking-tight text-slate-900 leading-tight">
             Chăm sóc sức khỏe,
             <br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-blue-700 via-brand-blue-600 to-brand-cyan-600">
+            <span className="text-brand-blue-600">
               bắt đầu từ sự thấu hiểu.
             </span>
           </h2>
@@ -50,12 +50,12 @@ export const AuthBrandPanel: React.FC = () => {
       {/* Centerpiece: Pharmaceutical Geometry & 4-Node Signature */}
       <div className="relative z-10 my-8 py-4">
         {/* Abstract Healthcare Geometric Composition */}
-        <div className="relative mx-auto max-w-sm p-6 rounded-2xl bg-white/90 backdrop-blur-md border border-slate-200/90 shadow-depth-2">
+        <div className="relative mx-auto max-w-sm p-6 rounded-2xl bg-white border border-slate-200 shadow-xs">
           {/* Decorative Corner Glow */}
-          <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-brand-cyan-100/50 to-transparent rounded-tr-2xl pointer-events-none" />
+          <div className="absolute top-0 right-0 w-24 h-24 bg-brand-blue-50/50 rounded-tr-2xl pointer-events-none" />
 
           <div className="flex items-start gap-4">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-brand-blue-600 to-brand-cyan-500 text-white flex items-center justify-center shrink-0 shadow-medical">
+            <div className="w-12 h-12 rounded-xl bg-brand-blue-600 text-white flex items-center justify-center shrink-0 shadow-xs">
               <AbstractSymbol size={28} withGlow={false} />
             </div>
             <div>

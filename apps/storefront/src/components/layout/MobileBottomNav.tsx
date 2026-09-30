@@ -61,10 +61,10 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           }}
           className="flex flex-col items-center justify-center w-14 py-1 relative text-slate-500 hover:text-brand-blue-600 transition-colors"
         >
-          <div className="w-10 h-10 -mt-4 rounded-full bg-gradient-to-tr from-brand-blue-600 to-brand-cyan-500 text-white flex items-center justify-center shadow-medical active:scale-95 transition-transform">
+          <div className="w-10 h-10 -mt-4 rounded-full bg-brand-blue-600 text-white flex items-center justify-center shadow-medical active:scale-95 transition-transform">
             <Search className="w-4 h-4" />
           </div>
-          <span className="text-[10px] mt-0.5 font-semibold text-brand-blue-700">
+          <span className="text-[10px] mt-0.5 font-bold text-brand-blue-700">
             Tìm thuốc
           </span>
         </button>

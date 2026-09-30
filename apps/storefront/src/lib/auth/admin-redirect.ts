@@ -1,0 +1,50 @@
+/**
+ * Utility for seamless cross-origin authentication and redirection
+ * from Storefront (port 3000) to Admin Portal (port 5173 or port 8000).
+ */
+
+export function getAdminAuthQuery(): string {
+  if (typeof window === "undefined") return "";
+  try {
+    const token = localStorage.getItem("pharmatrust_access_token");
+    const refresh = localStorage.getItem("pharmatrust_refresh_token");
+    if (!token) return "";
+    const params = new URLSearchParams();
+    params.set("token", token);
+    if (refresh) params.set("refresh", refresh);
+    return `?${params.toString()}`;
+  } catch {
+    return "";
+  }
+}
+
+export function getAdminPortalUrl(preferredPort: 5173 | 8000 = 5173, path = ""): string {
+  const query = getAdminAuthQuery();
+  const cleanPath = path ? (path.startsWith("/") ? path : `/${path}`) : "/";
+  return `http://localhost:${preferredPort}${cleanPath}${query}`;
+}
+
+/**
+ * Actively checks which admin port is alive (5173 Vite dev server or 8000 FastAPI SPA)
+ * and navigates to it with the credentials query attached.
+ */
+export async function redirectToAdminPortal(path = ""): Promise<void> {
+  if (typeof window === "undefined") return;
+
+  const query = getAdminAuthQuery();
+  const cleanPath = path ? (path.startsWith("/") ? path : `/${path}`) : "/";
+
+  // Check port 5173 first with 400ms timeout
+  let targetUrl = `http://localhost:5173${cleanPath}${query}`;
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 400);
+    await fetch("http://localhost:5173/", { mode: "no-cors", signal: controller.signal });
+    clearTimeout(timeoutId);
+  } catch {
+    // Port 5173 is offline or blocked, fallback to Port 8000
+    targetUrl = `http://localhost:8000${cleanPath}${query}`;
+  }
+
+  window.location.href = targetUrl;
+}

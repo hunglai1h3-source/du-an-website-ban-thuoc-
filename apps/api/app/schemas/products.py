@@ -34,6 +34,12 @@ class ProductSummary(ORMModel):
     contraindications: str | None = None
     side_effects: str | None = None
     storage_conditions: str | None = None
+    dosage_form: str | None = None
+    package_description: str | None = None
+    price: float | None = None
+    total_stock: int | None = None
+    near_expiry_count: int | None = None
+    active_ingredient: str | None = None
     rx_otc_status: RxOtcStatus
     regulatory_status: RegulatoryStatus
     overall_score: int

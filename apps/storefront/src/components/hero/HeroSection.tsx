@@ -97,14 +97,14 @@ export const HeroSection: React.FC = () => {
               className="flex flex-wrap sm:flex-nowrap items-center gap-3.5 w-full sm:w-auto mb-9"
             >
               <Link href="/products" className="w-full sm:w-auto">
-                <button className="w-full sm:w-auto h-12 sm:h-[52px] inline-flex items-center justify-center gap-2.5 px-7 rounded-2xl bg-gradient-to-r from-brand-blue-600 via-brand-blue-600 to-brand-cyan-600 hover:from-brand-blue-700 hover:to-brand-cyan-500 text-white font-bold text-sm sm:text-base shadow-lg shadow-brand-blue-600/25 hover:shadow-xl hover:shadow-brand-blue-600/35 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 group">
+                <button className="w-full sm:w-auto h-12 sm:h-[50px] inline-flex items-center justify-center gap-2 px-7 rounded-xl bg-brand-blue-600 hover:bg-brand-blue-700 active:bg-brand-blue-800 text-white font-bold text-sm sm:text-base shadow-xs hover:shadow-depth-1 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-150 group cursor-pointer">
                   <span>Khám phá sản phẩm</span>
                   <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
                 </button>
               </Link>
 
               <Link href="/category/thuoc-ke-don" className="w-full sm:w-auto">
-                <button className="w-full sm:w-auto h-12 sm:h-[52px] inline-flex items-center justify-center gap-2.5 px-6 rounded-2xl bg-white/90 hover:bg-white text-slate-700 hover:text-brand-blue-700 font-semibold text-sm sm:text-base border border-slate-200/90 hover:border-slate-300 shadow-sm transition-all duration-200 group">
+                <button className="w-full sm:w-auto h-12 sm:h-[50px] inline-flex items-center justify-center gap-2 px-6 rounded-xl bg-white hover:bg-slate-50 text-slate-800 hover:text-brand-blue-600 font-semibold text-sm sm:text-base border border-slate-200 hover:border-slate-300 shadow-xs transition-all duration-150 group cursor-pointer">
                   <Stethoscope className="w-4 h-4 text-brand-blue-600 transition-transform group-hover:scale-110" />
                   <span>Tư vấn Dược sĩ</span>
                 </button>
@@ -154,10 +154,10 @@ export const HeroSection: React.FC = () => {
           {TRUST_STATS.map((stat, idx) => (
             <div
               key={idx}
-              className="p-4 sm:p-5 rounded-2xl bg-white/95 backdrop-blur-md border border-slate-200/80 shadow-depth-1 hover:shadow-depth-2 hover:border-brand-blue-200 transition-all duration-150 group"
+              className="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200 shadow-xs hover:shadow-depth-2 hover:border-brand-blue-200 transition-all duration-150 group"
             >
               <div className="flex items-center gap-3.5">
-                <div className="w-11 h-11 rounded-2xl bg-slate-100 group-hover:bg-brand-blue-50 text-brand-blue-600 flex items-center justify-center shrink-0 transition-colors duration-150">
+                <div className="w-11 h-11 rounded-xl bg-slate-50 group-hover:bg-brand-blue-50 text-brand-blue-600 flex items-center justify-center shrink-0 border border-slate-100 group-hover:border-brand-blue-100 transition-colors duration-150">
                   {renderTrustIcon(stat.icon)}
                 </div>
                 <div>
@@ -165,7 +165,7 @@ export const HeroSection: React.FC = () => {
                     {stat.value}
                   </span>
                   <p className="text-xs font-bold text-slate-800">{stat.label}</p>
-                  <p className="text-[11px] text-slate-400 line-clamp-1">{stat.sublabel}</p>
+                  <p className="text-[11px] text-slate-500 line-clamp-1">{stat.sublabel}</p>
                 </div>
               </div>
             </div>

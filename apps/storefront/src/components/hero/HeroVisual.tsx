@@ -86,16 +86,16 @@ export const HeroVisual: React.FC = () => {
           rotateY: isTouchOrReduced ? 0 : rotateY,
           transformStyle: "preserve-3d",
         }}
-        className="relative w-full h-full rounded-[32px] p-5 sm:p-7 bg-gradient-to-b from-white/95 via-white/85 to-[#eef6ff]/80 backdrop-blur-2xl border border-white/90 shadow-depth-3 transition-shadow duration-300 hover:shadow-depth-4 flex flex-col justify-between overflow-hidden"
+        className="relative w-full h-full rounded-[28px] p-5 sm:p-7 bg-white border border-slate-200 shadow-depth-3 transition-shadow duration-300 hover:shadow-depth-4 flex flex-col justify-between overflow-hidden"
       >
         {/* Subtle Decorative Ambient Lighting Sheen inside Card */}
-        <div className="absolute -top-32 -left-32 w-64 h-64 bg-white/60 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 right-0 w-48 h-48 bg-blue-100/40 rounded-full blur-2xl pointer-events-none" />
+        <div className="absolute -top-32 -left-32 w-64 h-64 bg-slate-50 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 right-0 w-48 h-48 bg-blue-50/50 rounded-full blur-2xl pointer-events-none" />
 
         {/* Top Product Header Row */}
-        <div className="relative z-10 flex items-center justify-between pb-3 border-b border-slate-100/80">
+        <div className="relative z-10 flex items-center justify-between pb-3 border-b border-slate-100">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-brand-blue-600 to-brand-cyan-500 flex items-center justify-center shadow-sm">
+            <div className="w-8 h-8 rounded-xl bg-brand-blue-600 text-white flex items-center justify-center shadow-xs">
               <AbstractSymbol size={18} />
             </div>
             <div>
@@ -257,10 +257,10 @@ export const HeroVisual: React.FC = () => {
           animate={isTouchOrReduced ? {} : { y: [0, -4, 0] }}
           transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
           style={{ transform: "translateZ(55px)" }}
-          className="absolute top-2 -right-1 sm:-right-3 bg-white/95 backdrop-blur-md rounded-2xl p-2 sm:p-2.5 shadow-depth-2 border border-slate-200/90 flex items-center gap-2 sm:gap-2.5 z-20"
+          className="absolute top-2 -right-1 sm:-right-3 bg-white rounded-xl p-2 sm:p-2.5 shadow-depth-2 border border-slate-200 flex items-center gap-2 sm:gap-2.5 z-20"
         >
           <div className="relative">
-            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-brand-blue-50 text-brand-blue-600 flex items-center justify-center shrink-0 border border-brand-blue-100">
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-brand-blue-50 text-brand-blue-600 flex items-center justify-center shrink-0 border border-brand-blue-100">
               <Stethoscope className="w-3.5 h-3.5" />
             </div>
             <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-white animate-pulse" />
@@ -269,7 +269,7 @@ export const HeroVisual: React.FC = () => {
             <p className="text-[10px] sm:text-[10.5px] font-bold text-slate-800 leading-tight">
               Tư vấn Dược sĩ
             </p>
-            <p className="text-[9px] sm:text-[9.5px] text-brand-blue-600 font-medium">
+            <p className="text-[9px] sm:text-[9.5px] text-brand-blue-600 font-semibold">
               Hướng dẫn dùng thuốc 1-1
             </p>
           </div>
@@ -285,9 +285,9 @@ export const HeroVisual: React.FC = () => {
             delay: 0.8,
           }}
           style={{ transform: "translateZ(65px)" }}
-          className="absolute bottom-9 -left-1 sm:-left-3 bg-white/95 backdrop-blur-md rounded-2xl p-2 sm:p-2.5 shadow-depth-2 border border-slate-200/90 flex items-center gap-2 sm:gap-2.5 z-20"
+          className="absolute bottom-9 -left-1 sm:-left-3 bg-white rounded-xl p-2 sm:p-2.5 shadow-depth-2 border border-slate-200 flex items-center gap-2 sm:gap-2.5 z-20"
         >
-          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-cyan-50 text-cyan-600 flex items-center justify-center shrink-0 border border-cyan-100">
+          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-cyan-50 text-cyan-700 flex items-center justify-center shrink-0 border border-cyan-100">
             <ThermometerSnowflake className="w-3.5 h-3.5" />
           </div>
           <div>

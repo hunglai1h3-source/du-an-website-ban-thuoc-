@@ -27,11 +27,11 @@ class Settings(BaseSettings):
     ollama_model: str = "qwen2.5:3b"
     ai_provider: str = "rule_based"
 
-    # Cấu hình tự động cào 24/7 và kiểm duyệt
-    auto_crawl_enabled: bool = True
+    # Cấu hình tự động cào 24/7 và kiểm duyệt (Mặc định TẮT khỏi luồng chính)
+    auto_crawl_enabled: bool = False
     auto_crawl_interval_hours: int = 6
-    pharmacity_crawl_enabled: bool = True
-    long_chau_crawl_enabled: bool = True
+    pharmacity_crawl_enabled: bool = False
+    long_chau_crawl_enabled: bool = False
     default_publish_mode: str = "MANUAL_REVIEW"
     public_browser_fallback_enabled: bool = True
     category_ai_threshold: float = 0.85
@@ -42,6 +42,25 @@ class Settings(BaseSettings):
     telegram_bot_token: str = ""
     telegram_chat_id: str = ""
     alert_webhook_url: str = ""
+
+    # Cấu hình Cổng thanh toán MoMo Sandbox
+    momo_partner_code: str = "MOMO"
+    momo_access_key: str = "F8BBA842ECF85"
+    momo_secret_key: str = "K951B6PE1waDMi640xX0huAHevg3hkVo"
+    momo_endpoint: str = "https://test-payment.momo.vn/v2/gateway/api/create"
+    momo_return_url: str = "http://localhost:3000/checkout/result"
+    momo_ipn_url: str = "http://localhost:8000/api/v1/payments/momo/webhook"
+
+    # Cấu hình Dịch vụ Gửi Email thật qua Gmail SMTP
+    smtp_host: str = "smtp.gmail.com"
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_from_name: str = "PharmaTrust System"
+    smtp_from_email: str = "support@pharmatrust.vn"
+    smtp_tls: bool = True
+    smtp_ssl: bool = False
+    smtp_enabled: bool = True
 
     @field_validator("cors_origins", mode="before")
     @classmethod

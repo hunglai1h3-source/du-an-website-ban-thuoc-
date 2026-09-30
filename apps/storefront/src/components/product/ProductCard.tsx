@@ -4,7 +4,6 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { Product } from "@/types";
 import { formatVND } from "@/lib/utils";
-import { useCart } from "@/lib/cart/cart-context";
 import { ProductImageStage } from "./ProductImageStage";
 import {
   Star,
@@ -29,7 +28,6 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   onAddToCart,
   className = "",
 }) => {
-  const { addToCart } = useCart();
   const [isWishlisted, setIsWishlisted] = useState(false);
 
   const discountPercent =
@@ -51,11 +49,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
     if (product.isPrescription) {
       if (onOpenRxConsult) onOpenRxConsult(product);
     } else {
-      if (onAddToCart) {
-        onAddToCart(product);
-      } else {
-        addToCart(product, 1);
-      }
+      if (onAddToCart) onAddToCart(product);
     }
   };
 
@@ -67,7 +61,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
   return (
     <div
-      className={`group relative flex flex-col justify-between h-full rounded-2xl sm:rounded-3xl bg-white border border-slate-200/80 p-3 sm:p-3.5 transition-all duration-200 hover:-translate-y-1 hover:shadow-depth-2 hover:border-brand-blue-200/90 select-none ${className}`}
+      className={`group relative flex flex-col justify-between h-full rounded-2xl bg-white border border-slate-200 p-3 sm:p-3.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-depth-2 hover:border-brand-blue-300 select-none ${className}`}
     >
       {/* 1. TOP IMAGE STAGE CONTAINER */}
       <div className="relative w-full mb-3">
@@ -102,10 +96,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         <div className="absolute top-2 right-2 z-10 flex flex-col gap-1.5">
           <button
             onClick={handleWishlistToggle}
-            className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center transition-all duration-200 shadow-xs cursor-pointer ${
+            className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center transition-all duration-150 shadow-xs cursor-pointer ${
               isWishlisted
                 ? "bg-rose-50 text-rose-500 border border-rose-200"
-                : "bg-white/90 hover:bg-white text-slate-400 hover:text-rose-500 border border-slate-200/80"
+                : "bg-white hover:bg-slate-50 text-slate-400 hover:text-rose-500 border border-slate-200"
             }`}
             title="Lưu vào danh sách quan tâm"
             aria-label="Lưu yêu thích"
@@ -120,7 +114,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           {onQuickView && (
             <button
               onClick={handleQuickViewClick}
-              className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white/90 hover:bg-white text-slate-500 hover:text-brand-blue-600 border border-slate-200/80 flex items-center justify-center transition-all duration-200 shadow-xs opacity-0 group-hover:opacity-100 translate-x-1 group-hover:translate-x-0 cursor-pointer hidden sm:flex"
+              className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white hover:bg-slate-50 text-slate-500 hover:text-brand-blue-600 border border-slate-200 flex items-center justify-center transition-all duration-150 shadow-xs opacity-0 group-hover:opacity-100 translate-x-1 group-hover:translate-x-0 cursor-pointer hidden sm:flex"
               title="Xem nhanh thông tin"
               aria-label="Xem nhanh"
             >
@@ -201,7 +195,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           ) : (
             <button
               onClick={handleActionClick}
-              className="px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-[11px] sm:text-xs font-bold text-white bg-gradient-to-r from-brand-blue-600 to-brand-cyan-600 hover:brightness-105 shadow-xs hover:shadow-sm transition-all duration-150 flex items-center gap-1 shrink-0 active:scale-95 cursor-pointer"
+              className="px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-[11px] sm:text-xs font-bold text-white bg-brand-blue-600 hover:bg-brand-blue-700 active:bg-brand-blue-800 shadow-xs transition-all duration-150 flex items-center gap-1 shrink-0 active:scale-95 cursor-pointer"
               title="Thêm vào giỏ hàng"
             >
               <ShoppingBag className="w-3.5 h-3.5 shrink-0" />

@@ -1,20 +1,37 @@
-import { ChevronLeft, ChevronRight, Download, Eye, Search } from 'lucide-react'
+import {
+  AlertTriangle,
+  Boxes,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  Eye,
+  FileSpreadsheet,
+  Filter,
+  Package,
+  Pill,
+  Search,
+  Sparkles,
+} from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { EmptyState } from '../components/EmptyState'
-import { ScoreRing } from '../components/ScoreRing'
 import { StatusBadge } from '../components/StatusBadge'
 import { API_URL, api, tokenStore } from '../services/api'
-import type { ProductPage } from '../types'
+import type { Product, ProductPage } from '../types'
 
 export function ProductsPage() {
   const [data, setData] = useState<ProductPage | null>(null)
+  const [loading, setLoading] = useState(false)
   const [searchInput, setSearchInput] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
-  const [label, setLabel] = useState('')
+  const [rxOtcStatus, setRxOtcStatus] = useState('')
   const [publishStatus, setPublishStatus] = useState('')
+  const [stockFilter, setStockFilter] = useState<'ALL' | 'IN_STOCK' | 'OUT_OF_STOCK' | 'NEAR_EXPIRY'>('ALL')
+  const [pageSize, setPageSize] = useState(25)
   const [page, setPage] = useState(1)
   const [error, setError] = useState('')
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -25,15 +42,33 @@ export function ProductsPage() {
   }, [searchInput])
 
   useEffect(() => {
-    const query = new URLSearchParams({ page: String(page), page_size: '12' })
+    setLoading(true)
+    const query = new URLSearchParams({ page: String(page), page_size: String(pageSize) })
     if (debouncedSearch) query.set('search', debouncedSearch)
-    if (label) query.set('label', label)
+    if (rxOtcStatus) query.set('rx_otc_status', rxOtcStatus)
     if (publishStatus) query.set('publish_status', publishStatus)
-    api<ProductPage>(`/products?${query}`).then(setData).catch(err => setError(err.message))
-  }, [page, debouncedSearch, label, publishStatus])
+
+    api<ProductPage>(`/products?${query}`)
+      .then(res => {
+        setData(res)
+        setError('')
+      })
+      .catch(err => setError(err.message))
+      .finally(() => setLoading(false))
+  }, [page, pageSize, debouncedSearch, rxOtcStatus, publishStatus])
+
+  // Filter items in memory for stock filter
+  const displayedItems = (data?.items || []).filter(item => {
+    if (stockFilter === 'IN_STOCK') return (item.total_stock || 0) > 0
+    if (stockFilter === 'OUT_OF_STOCK') return (item.total_stock || 0) <= 0
+    if (stockFilter === 'NEAR_EXPIRY') return (item.near_expiry_count || 0) > 0
+    return true
+  })
 
   async function downloadCsv() {
-    const response = await fetch(`${API_URL}/exports/products?format=csv&include_demo=false`, { headers: { Authorization: `Bearer ${tokenStore.get()}` } })
+    const response = await fetch(`${API_URL}/exports/products?format=csv&include_demo=false`, {
+      headers: { Authorization: `Bearer ${tokenStore.get()}` },
+    })
     if (!response.ok) return setError('Không thể xuất dữ liệu CSV')
     const url = URL.createObjectURL(await response.blob())
     const anchor = document.createElement('a')
@@ -44,7 +79,9 @@ export function ProductsPage() {
   }
 
   async function downloadXlsx() {
-    const response = await fetch(`${API_URL}/exports/products?format=xlsx&include_demo=false`, { headers: { Authorization: `Bearer ${tokenStore.get()}` } })
+    const response = await fetch(`${API_URL}/exports/products?format=xlsx&include_demo=false`, {
+      headers: { Authorization: `Bearer ${tokenStore.get()}` },
+    })
     if (!response.ok) return setError('Không thể xuất dữ liệu Excel')
     const url = URL.createObjectURL(await response.blob())
     const anchor = document.createElement('a')
@@ -55,93 +92,503 @@ export function ProductsPage() {
   }
 
   return (
-    <div className="page">
+    <div className="page" style={{ position: 'relative' }}>
+      {/* 1. Page Heading */}
       <div className="page-heading">
         <div>
-          <span className="overline">QUẢN LÝ DƯỢC PHẨM</span>
-          <h1>Danh Mục Thuốc & Đăng Bán</h1>
-          <p>Quản lý toàn bộ thông tin thuốc, kiểm duyệt độ tin cậy và quyết định hiển thị bán trên website.</p>
+          <span className="overline">QUẢN TRỊ DƯỢC PHẨM & KHO VẬN</span>
+          <h1>Quản Lý Danh Mục Thuốc</h1>
+          <p>
+            Bảng kê danh mục sản phẩm y tế, quản lý phân loại kê đơn (Rx/OTC), giá bán niêm yết và tồn kho thực tế đa chi nhánh.
+          </p>
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
-          <button className="secondary-button" onClick={downloadCsv}><Download size={16} /> Xuất CSV</button>
-          <button className="primary-button" onClick={downloadXlsx}><Download size={16} /> Xuất Excel (.xlsx)</button>
+          <button className="secondary-button" onClick={downloadCsv} title="Xuất toàn bộ danh mục dạng CSV">
+            <Download size={15} /> Xuất CSV
+          </button>
+          <button className="primary-button" onClick={downloadXlsx} title="Xuất báo cáo dược chuẩn Excel">
+            <FileSpreadsheet size={15} /> Xuất Excel (.xlsx)
+          </button>
         </div>
       </div>
-      <div className="toolbar">
-        <div className="search-box">
-          <Search size={17} />
+
+      {/* 2. Sticky Filter Toolbar */}
+      <div
+        className="toolbar"
+        style={{
+          position: 'sticky',
+          top: '0px',
+          zIndex: 20,
+          background: 'var(--color-surface, #ffffff)',
+          padding: '12px 16px',
+          borderRadius: '12px',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+          border: '1px solid var(--color-border, #e2e8f0)',
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: '12px',
+          alignItems: 'center',
+          marginBottom: '16px',
+        }}
+      >
+        <div className="search-box" style={{ flex: '1 1 260px' }}>
+          <Search size={16} />
           <input
-            placeholder="Tìm theo tên thuốc hoặc số đăng ký (nhập mượt mà, tự tìm sau 0.3s)…"
+            placeholder="Tìm theo tên thuốc, số đăng ký, hoạt chất…"
             value={searchInput}
             onChange={e => setSearchInput(e.target.value)}
           />
+          {searchInput && (
+            <button
+              onClick={() => setSearchInput('')}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '13px', color: '#94a3b8' }}
+            >
+              ✕
+            </button>
+          )}
         </div>
-        <select value={label} onChange={e => { setLabel(e.target.value); setPage(1) }}>
-          <option value="">Tất cả mức tin cậy</option>
-          <option value="HIGH_OFFICIAL_MATCH">Khớp chuẩn</option>
-          <option value="REVIEW_REQUIRED">Cần kiểm tra</option>
-          <option value="INSUFFICIENT_EVIDENCE">Chưa đủ chứng cứ</option>
-          <option value="BLOCKED">Đã tạm khóa</option>
+
+        {/* Phân loại Rx / OTC */}
+        <select
+          value={rxOtcStatus}
+          onChange={e => {
+            setRxOtcStatus(e.target.value)
+            setPage(1)
+          }}
+          style={{ minWidth: '150px' }}
+        >
+          <option value="">Tất cả phân loại (Rx/OTC)</option>
+          <option value="OTC">Thuốc không kê đơn (OTC)</option>
+          <option value="PRESCRIPTION">Thuốc kê đơn (Rx)</option>
         </select>
-        <select value={publishStatus} onChange={e => { setPublishStatus(e.target.value); setPage(1) }}>
+
+        {/* Trạng thái duyệt bán */}
+        <select
+          value={publishStatus}
+          onChange={e => {
+            setPublishStatus(e.target.value)
+            setPage(1)
+          }}
+          style={{ minWidth: '160px' }}
+        >
           <option value="">Tất cả trạng thái bán</option>
-          <option value="PUBLISHED">Đang bán trên Web (Storefront)</option>
-          <option value="DRAFT">Bản nháp (Chưa bán)</option>
-          <option value="REVIEW_REQUIRED">Cần kiểm duyệt</option>
+          <option value="PUBLISHED">Đang mở bán (Published)</option>
+          <option value="DRAFT">Bản nháp (Draft)</option>
+          <option value="REVIEW_REQUIRED">Chờ duyệt (Review)</option>
+          <option value="BLOCKED">Tạm khóa (Blocked)</option>
         </select>
+
+        {/* Lọc Tồn kho */}
+        <select
+          value={stockFilter}
+          onChange={e => setStockFilter(e.target.value as any)}
+          style={{ minWidth: '150px' }}
+        >
+          <option value="ALL">Tất cả trạng thái kho</option>
+          <option value="IN_STOCK">Còn hàng tồn kho</option>
+          <option value="OUT_OF_STOCK">Hết hàng (Stock = 0)</option>
+          <option value="NEAR_EXPIRY">Có lô cận hạn (&lt;90 ngày)</option>
+        </select>
+
+        {/* Kích thước trang */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#64748b' }}>
+          <span>Hiển thị:</span>
+          <select
+            value={pageSize}
+            onChange={e => {
+              setPageSize(Number(e.target.value))
+              setPage(1)
+            }}
+            style={{ width: '80px', padding: '6px 8px' }}
+          >
+            <option value="10">10 dòng</option>
+            <option value="25">25 dòng</option>
+            <option value="50">50 dòng</option>
+          </select>
+        </div>
       </div>
-      {error && <div className="alert alert-error">{error}</div>}
-      {data && data.items.length === 0 && <EmptyState title="Không tìm thấy hồ sơ" description="Thử thay đổi từ khóa hoặc bộ lọc." />}
-      <div className="product-grid">
-        {data?.items.map(product => (
-          <article className="product-card" key={product.id}>
-            <div className="product-card-top">
-              <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                <StatusBadge value={product.confidence_label} />
-                <span style={{
-                  fontSize: '11px',
-                  fontWeight: 700,
-                  padding: '2px 8px',
-                  borderRadius: '999px',
-                  background: product.publish_status === 'PUBLISHED' ? '#dcfce7' : '#fef3c7',
-                  color: product.publish_status === 'PUBLISHED' ? '#15803d' : '#b45309'
-                }}>
-                  {product.publish_status === 'PUBLISHED' ? '● Đang bán' : '○ Bản nháp'}
-                </span>
+
+      {error && <div className="alert alert-error" style={{ marginBottom: '16px' }}>{error}</div>}
+
+      {/* 3. Professional Tabular View */}
+      <div
+        className="table-container"
+        style={{
+          background: 'var(--color-surface, #ffffff)',
+          borderRadius: '14px',
+          border: '1px solid var(--color-border, #e2e8f0)',
+          overflowX: 'auto',
+          boxShadow: '0 1px 4px rgba(0,0,0,0.03)',
+        }}
+      >
+        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
+          <thead>
+            <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0', color: '#475569', fontWeight: 600 }}>
+              <th style={{ padding: '12px 16px', width: '60px' }}>ID</th>
+              <th style={{ padding: '12px 16px', minWidth: '240px' }}>Tên Sản Phẩm</th>
+              <th style={{ padding: '12px 14px', width: '130px' }}>Số Đăng Ký</th>
+              <th style={{ padding: '12px 14px', minWidth: '160px' }}>Hoạt Chất Chính</th>
+              <th style={{ padding: '12px 14px', width: '130px' }}>Dạng Bào Chế</th>
+              <th style={{ padding: '12px 14px', width: '130px' }}>Phân Loại</th>
+              <th style={{ padding: '12px 14px', width: '130px', textAlign: 'right' }}>Giá Niêm Yết</th>
+              <th style={{ padding: '12px 14px', width: '140px', textAlign: 'center' }}>Tồn Kho Khả Dụng</th>
+              <th style={{ padding: '12px 14px', width: '130px' }}>Trạng Thái</th>
+              <th style={{ padding: '12px 16px', width: '90px', textAlign: 'center' }}>Thao Tác</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr>
+                <td colSpan={10} style={{ padding: '36px', textAlign: 'center', color: '#64748b' }}>
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                    <span className="spinner" /> Đang tải dữ liệu hồ sơ thuốc…
+                  </div>
+                </td>
+              </tr>
+            ) : displayedItems.length === 0 ? (
+              <tr>
+                <td colSpan={10} style={{ padding: '40px 16px', textAlign: 'center' }}>
+                  <EmptyState title="Không tìm thấy sản phẩm phù hợp" description="Thử thay đổi từ khóa tìm kiếm hoặc điều chỉnh các bộ lọc phân loại/tồn kho." />
+                </td>
+              </tr>
+            ) : (
+              displayedItems.map((prod) => {
+                const isRx = prod.rx_otc_status === 'PRESCRIPTION'
+                const stock = prod.total_stock ?? 0
+                const price = prod.price
+
+                return (
+                  <tr
+                    key={prod.id}
+                    style={{
+                      borderBottom: '1px solid #edf2f7',
+                      transition: 'background-color 0.15s',
+                    }}
+                    className="hover-row"
+                  >
+                    {/* ID */}
+                    <td style={{ padding: '12px 16px', color: '#94a3b8', fontFamily: 'monospace' }}>
+                      #{prod.id}
+                    </td>
+
+                    {/* Tên sản phẩm */}
+                    <td style={{ padding: '12px 16px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        {prod.image_url ? (
+                          <img
+                            src={prod.image_url}
+                            alt={prod.canonical_name}
+                            style={{ width: '38px', height: '38px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #e2e8f0', flexShrink: 0 }}
+                          />
+                        ) : (
+                          <div
+                            style={{
+                              width: '38px',
+                              height: '38px',
+                              borderRadius: '8px',
+                              background: '#f1f5f9',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              color: '#64748b',
+                              flexShrink: 0,
+                            }}
+                          >
+                            <Pill size={18} />
+                          </div>
+                        )}
+                        <div>
+                          <Link
+                            to={`/products/${prod.id}`}
+                            style={{ fontWeight: 600, color: '#0f172a', textDecoration: 'none' }}
+                            className="hover-link"
+                          >
+                            {prod.canonical_name}
+                          </Link>
+                          <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
+                            {prod.manufacturer || 'Chưa rõ NSX'}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+
+                    {/* Số đăng ký */}
+                    <td style={{ padding: '12px 14px', fontFamily: 'monospace', fontWeight: 500, color: '#334155' }}>
+                      {prod.registration_number || <span style={{ color: '#cbd5e1' }}>—</span>}
+                    </td>
+
+                    {/* Hoạt chất */}
+                    <td style={{ padding: '12px 14px', color: '#475569' }}>
+                      <span title={prod.active_ingredient || ''} style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                        {prod.active_ingredient || <span style={{ color: '#cbd5e1' }}>—</span>}
+                      </span>
+                    </td>
+
+                    {/* Dạng bào chế & Quy cách */}
+                    <td style={{ padding: '12px 14px', color: '#475569' }}>
+                      <div>{prod.dosage_form || 'Viên nén'}</div>
+                      <div style={{ fontSize: '11px', color: '#94a3b8' }}>{prod.package_description || 'Hộp'}</div>
+                    </td>
+
+                    {/* Phân loại Rx / OTC */}
+                    <td style={{ padding: '12px 14px' }}>
+                      {isRx ? (
+                        <span
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            background: '#fee2e2',
+                            color: '#991b1b',
+                            padding: '3px 8px',
+                            borderRadius: '6px',
+                            fontSize: '11px',
+                            fontWeight: 700,
+                          }}
+                        >
+                          <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ef4444' }} />
+                          Thuốc kê đơn (Rx)
+                        </span>
+                      ) : (
+                        <span
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            background: '#dcfce7',
+                            color: '#166534',
+                            padding: '3px 8px',
+                            borderRadius: '6px',
+                            fontSize: '11px',
+                            fontWeight: 600,
+                          }}
+                        >
+                          <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#22c55e' }} />
+                          Không kê đơn (OTC)
+                        </span>
+                      )}
+                    </td>
+
+                    {/* Giá bán */}
+                    <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: 600, color: '#0f172a' }}>
+                      {price != null && price > 0 ? (
+                        <span>{price.toLocaleString('vi-VN')} đ</span>
+                      ) : (
+                        <span style={{ color: '#94a3b8', fontWeight: 400 }}>Chưa định giá</span>
+                      )}
+                    </td>
+
+                    {/* Tồn kho */}
+                    <td style={{ padding: '12px 14px', textAlign: 'center' }}>
+                      {stock > 0 ? (
+                        <div>
+                          <span
+                            style={{
+                              display: 'inline-block',
+                              padding: '2px 8px',
+                              borderRadius: '12px',
+                              background: '#eff6ff',
+                              color: '#1d4ed8',
+                              fontWeight: 700,
+                              fontSize: '12px',
+                            }}
+                          >
+                            {stock.toLocaleString()}
+                          </span>
+                          {(prod.near_expiry_count || 0) > 0 && (
+                            <div style={{ fontSize: '10px', color: '#d97706', marginTop: '2px' }} title="Có lô cận hạn cần lưu ý xuất trước theo FEFO">
+                              ⚠️ {prod.near_expiry_count} lô cận hạn
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <span
+                          style={{
+                            display: 'inline-block',
+                            padding: '2px 8px',
+                            borderRadius: '12px',
+                            background: '#f1f5f9',
+                            color: '#64748b',
+                            fontSize: '11px',
+                          }}
+                        >
+                          Hết hàng (0)
+                        </span>
+                      )}
+                    </td>
+
+                    {/* Trạng thái */}
+                    <td style={{ padding: '12px 14px' }}>
+                      <StatusBadge value={prod.publish_status} />
+                    </td>
+
+                    {/* Thao tác */}
+                    <td style={{ padding: '12px 16px', textAlign: 'center' }}>
+                      <div style={{ display: 'inline-flex', gap: '6px' }}>
+                        <button
+                          className="icon-button"
+                          title="Xem nhanh thông tin"
+                          onClick={() => setSelectedProduct(prod)}
+                          style={{ padding: '5px' }}
+                        >
+                          <Eye size={15} />
+                        </button>
+                        <Link
+                          to={`/products/${prod.id}`}
+                          className="icon-button"
+                          title="Đến trang quản lý chi tiết"
+                          style={{ padding: '5px' }}
+                        >
+                          <Boxes size={15} />
+                        </Link>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* 4. Pagination */}
+      {data && data.pages > 1 && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginTop: '16px',
+            padding: '12px 16px',
+            background: 'var(--color-surface, #ffffff)',
+            borderRadius: '12px',
+            border: '1px solid var(--color-border, #e2e8f0)',
+          }}
+        >
+          <div style={{ fontSize: '13px', color: '#64748b' }}>
+            Hiển thị <strong>{displayedItems.length}</strong> / <strong>{data.total}</strong> sản phẩm (Trang {data.page}/{data.pages})
+          </div>
+          <div style={{ display: 'flex', gap: '6px' }}>
+            <button
+              className="secondary-button"
+              disabled={page <= 1}
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              style={{ padding: '6px 12px' }}
+            >
+              <ChevronLeft size={16} /> Trang trước
+            </button>
+            <button
+              className="secondary-button"
+              disabled={page >= data.pages}
+              onClick={() => setPage(p => Math.min(data.pages, p + 1))}
+              style={{ padding: '6px 12px' }}
+            >
+              Trang sau <ChevronRight size={16} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 5. Quick View Drawer / Modal */}
+      {selectedProduct && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(15, 23, 42, 0.45)',
+            backdropFilter: 'blur(3px)',
+            zIndex: 100,
+            display: 'flex',
+            justifyContent: 'flex-end',
+          }}
+          onClick={() => setSelectedProduct(null)}
+        >
+          <div
+            style={{
+              width: '100%',
+              maxWidth: '520px',
+              height: '100%',
+              background: '#ffffff',
+              boxShadow: '-4px 0 24px rgba(0,0,0,0.15)',
+              padding: '24px',
+              overflowY: 'auto',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '16px',
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div>
+                <span className="overline">THÔNG TIN NHANH SẢN PHẨM</span>
+                <h2 style={{ fontSize: '18px', fontWeight: 800, marginTop: '4px', color: '#0f172a' }}>
+                  {selectedProduct.canonical_name}
+                </h2>
               </div>
-              {product.is_demo && <span className="demo-pill">DEMO</span>}
+              <button
+                className="icon-button"
+                onClick={() => setSelectedProduct(null)}
+                style={{ fontSize: '16px', padding: '6px 10px' }}
+              >
+                ✕
+              </button>
             </div>
-            <div className="product-card-body">
-              {product.image_url ? (
-                <div className="product-card-thumb-wrap">
-                  <img
-                    src={product.image_url}
-                    alt={product.canonical_name}
-                    className="product-card-thumb"
-                    onError={(e) => { (e.target as HTMLElement).style.display = 'none' }}
-                  />
+
+            {selectedProduct.image_url && (
+              <img
+                src={selectedProduct.image_url}
+                alt={selectedProduct.canonical_name}
+                style={{ width: '100%', height: '200px', objectFit: 'cover', borderRadius: '12px', border: '1px solid #e2e8f0' }}
+              />
+            )}
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', background: '#f8fafc', padding: '14px', borderRadius: '10px' }}>
+              <div>
+                <div style={{ fontSize: '11px', color: '#64748b' }}>Số Đăng Ký</div>
+                <div style={{ fontWeight: 600, fontFamily: 'monospace' }}>{selectedProduct.registration_number || 'Chưa có'}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: '11px', color: '#64748b' }}>Phân Loại</div>
+                <div style={{ fontWeight: 600, color: selectedProduct.rx_otc_status === 'PRESCRIPTION' ? '#ef4444' : '#16a34a' }}>
+                  {selectedProduct.rx_otc_status === 'PRESCRIPTION' ? 'Kê đơn (Rx)' : 'Không kê đơn (OTC)'}
                 </div>
-              ) : (
-                <ScoreRing score={product.overall_score} />
-              )}
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <h3 style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={product.canonical_name}>
-                  {product.canonical_name}
-                </h3>
-                <p>{product.registration_number || 'Chưa có số đăng ký'}</p>
-                {product.image_url && (
-                  <span style={{ fontSize: '10px', color: '#169873', fontWeight: 750, marginTop: '2px', display: 'inline-block' }}>
-                    Độ tin cậy: {product.overall_score}/100
-                  </span>
-                )}
+              </div>
+              <div>
+                <div style={{ fontSize: '11px', color: '#64748b' }}>Giá Bán Niêm Yết</div>
+                <div style={{ fontWeight: 700, color: '#0f172a' }}>
+                  {selectedProduct.price ? `${selectedProduct.price.toLocaleString('vi-VN')} đ` : 'Chưa định giá'}
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: '11px', color: '#64748b' }}>Tổng Tồn Kho Khả Dụng</div>
+                <div style={{ fontWeight: 700, color: '#2563eb' }}>
+                  {(selectedProduct.total_stock || 0).toLocaleString()} đơn vị
+                </div>
               </div>
             </div>
-            <dl><div><dt>Nhà sản xuất</dt><dd>{product.manufacturer || 'Chưa xác định'}</dd></div><div><dt>Phân loại</dt><dd><StatusBadge value={product.rx_otc_status} /></dd></div></dl>
-            <Link className="card-link" to={`/products/${product.id}`}><Eye size={16} /> Xem bằng chứng và chi tiết</Link>
-          </article>
-        ))}
-      </div>
-      {data && data.pages > 1 && <div className="pagination"><button disabled={page <= 1} onClick={() => setPage(p => p - 1)}><ChevronLeft /></button><span>Trang {page}/{data.pages}</span><button disabled={page >= data.pages} onClick={() => setPage(p => p + 1)}><ChevronRight /></button></div>}
+
+            <div>
+              <h4 style={{ fontSize: '13px', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>Hoạt Chất & Nồng Độ</h4>
+              <p style={{ fontSize: '13px', color: '#475569', lineHeight: 1.5 }}>{selectedProduct.active_ingredient || 'Xem tờ hướng dẫn sử dụng'}</p>
+            </div>
+
+            <div>
+              <h4 style={{ fontSize: '13px', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>Chỉ Định Điều Trị</h4>
+              <p style={{ fontSize: '13px', color: '#475569', lineHeight: 1.5 }}>{selectedProduct.indications || 'Theo công bố nhà sản xuất'}</p>
+            </div>
+
+            <div style={{ marginTop: 'auto', paddingTop: '16px', borderTop: '1px solid #e2e8f0', display: 'flex', gap: '10px' }}>
+              <Link
+                to={`/products/${selectedProduct.id}`}
+                className="primary-button"
+                style={{ flex: 1, textAlign: 'center', justifyContent: 'center' }}
+              >
+                Mở Trang Quản Lý Chi Tiết
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -1,12 +1,13 @@
 import logging
 import re
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 from sqlalchemy import or_, select, text
 from sqlalchemy.orm import Session
 
-from app.models import CanonicalProduct
-from app.services.normalization import strip_accents
+from app.models import CanonicalProduct, ProductIngredient
+from app.models.enums import PublishStatus
+from app.services.normalization import normalize_for_match, strip_accents
 
 logger = logging.getLogger("pharmatrust.search")
 
@@ -162,24 +163,16 @@ def _fallback_weighted_search(
     pattern_orig = f"%{query}%"
     pattern_unaccent = f"%{unaccent_q}%"
 
-    conditions = [
-        CanonicalProduct.canonical_name.ilike(pattern_orig),
-        CanonicalProduct.registration_number.ilike(pattern_orig),
-        CanonicalProduct.indications.ilike(pattern_orig),
-        CanonicalProduct.description.ilike(pattern_orig),
-        CanonicalProduct.manufacturer.ilike(pattern_orig),
-    ]
-    if unaccent_q != query:
-        conditions.extend([
-            CanonicalProduct.canonical_name.ilike(pattern_unaccent),
-            CanonicalProduct.registration_number.ilike(pattern_unaccent),
-            CanonicalProduct.indications.ilike(pattern_unaccent),
-            CanonicalProduct.description.ilike(pattern_unaccent),
-            CanonicalProduct.manufacturer.ilike(pattern_unaccent),
-        ])
-
     products = db.scalars(
-        select(CanonicalProduct).where(or_(*conditions))
+        select(CanonicalProduct).where(
+            or_(
+                CanonicalProduct.canonical_name.ilike(pattern_orig),
+                CanonicalProduct.registration_number.ilike(pattern_orig),
+                CanonicalProduct.indications.ilike(pattern_orig),
+                CanonicalProduct.description.ilike(pattern_orig),
+                CanonicalProduct.manufacturer.ilike(pattern_orig),
+            )
+        )
     ).all()
 
     # Tính điểm liên quan cho từng sản phẩm

@@ -10,7 +10,7 @@ def test_health_and_login(client):
 def test_dashboard_and_product_detail(client, admin_headers):
     summary = client.get("/api/v1/dashboard/summary", headers=admin_headers)
     assert summary.status_code == 200
-    assert summary.json()["products"] >= 20
+    assert summary.json()["products"] == 20
     detail = client.get("/api/v1/products/1", headers=admin_headers)
     assert detail.status_code == 200
     assert detail.json()["is_demo"] is True

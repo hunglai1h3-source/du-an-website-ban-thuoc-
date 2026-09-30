@@ -27,6 +27,79 @@ class TestOrdersSystem(unittest.TestCase):
         )
         self.db.merge(self.prod)
 
+        # Tạo giá bán niêm yết mẫu từ hệ thống (PriceObservation)
+        from app.models.entities import PriceObservation
+        price_obs = self.db.query(PriceObservation).filter_by(product_id=501).first()
+        if not price_obs:
+            price_obs = PriceObservation(
+                product_id=501,
+                source_id=1,
+                source_url="https://example.com/products/hapacol-250",
+                observed_price=Decimal("45000.0"),
+            )
+            self.db.add(price_obs)
+        else:
+            price_obs.observed_price = Decimal("45000.0")
+        self.db.commit()
+
+        # Tạo kho, SKU và lô tồn kho kiểm thử cho sản phẩm 501
+        from datetime import date, timedelta
+        from app.models import InventoryBatch, ProductSku, Warehouse, WarehouseBatchStock
+
+        wh = self.db.query(Warehouse).filter_by(code="KHO-HCM-01").first()
+        if not wh:
+            wh = Warehouse(
+                code="KHO-HCM-01",
+                name="Kho HCM Test",
+                address="123 Lê Lợi, Q1, HCM",
+                is_active=True,
+                is_central=True,
+            )
+            self.db.add(wh)
+            self.db.commit()
+            self.db.refresh(wh)
+
+        sku = self.db.query(ProductSku).filter_by(canonical_product_id=501).first()
+        if not sku:
+            sku = ProductSku(
+                canonical_product_id=501,
+                sku_code="SKU-501-TEST",
+                base_price=Decimal("45000.0"),
+                is_default=True,
+                is_active=True,
+            )
+            self.db.add(sku)
+            self.db.commit()
+            self.db.refresh(sku)
+
+        batch = self.db.query(InventoryBatch).filter_by(sku_id=sku.id).first()
+        if not batch:
+            batch = InventoryBatch(
+                sku_id=sku.id,
+                batch_number="LOT-501-TEST",
+                expiry_date=date.today() + timedelta(days=365),
+                initial_quantity=1000,
+                status="ACTIVE",
+            )
+            self.db.add(batch)
+            self.db.commit()
+            self.db.refresh(batch)
+
+        stock = self.db.query(WarehouseBatchStock).filter_by(warehouse_id=wh.id, batch_id=batch.id).first()
+        if not stock:
+            stock = WarehouseBatchStock(
+                warehouse_id=wh.id,
+                batch_id=batch.id,
+                quantity_on_hand=1000,
+                quantity_reserved=0,
+                quantity_available=1000,
+            )
+            self.db.add(stock)
+        else:
+            stock.quantity_available = 1000
+            stock.quantity_on_hand = 1000
+        self.db.commit()
+
         # Tạo admin user
         self.admin = self.db.query(User).filter_by(email="admin_orders@pharmatrust.vn").first()
         if not self.admin:
@@ -66,7 +139,6 @@ class TestOrdersSystem(unittest.TestCase):
                 {
                     "product_id": 501,
                     "quantity": 2,
-                    "price": 45000.0,
                 }
             ],
         }

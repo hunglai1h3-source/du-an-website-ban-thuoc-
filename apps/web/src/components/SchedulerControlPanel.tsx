@@ -1,18 +1,24 @@
 import {
   AlertCircle,
+  AlertTriangle,
+  ArrowRight,
   CheckCircle2,
   Clock,
   Filter,
   ImageIcon,
+  Layers,
   Loader2,
   Play,
+  Power,
   RefreshCw,
   Send,
   Settings,
   ShieldAlert,
   Tag,
+  Zap,
 } from 'lucide-react'
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { api } from '../services/api'
 
 interface SchedulerStatusData {
@@ -89,7 +95,14 @@ export function SchedulerControlPanel() {
   const [telegramChatId, setTelegramChatId] = useState('')
   const [savingTelegram, setSavingTelegram] = useState(false)
   const [testingTelegram, setTestingTelegram] = useState(false)
-  const loadAll = useCallback(async (isBackground = false) => {
+
+  useEffect(() => {
+    loadAll(false)
+    const timer = setInterval(() => { loadAll(true) }, 30000) // Tự động làm mới âm thầm mỗi 30s không làm giật lag giao diện
+    return () => clearInterval(timer)
+  }, [])
+
+  async function loadAll(isBackground = false) {
     if (!isBackground) setLoading(true)
     try {
       const [statusRes, queueRes, tgRes] = await Promise.all([
@@ -102,20 +115,16 @@ export function SchedulerControlPanel() {
       if (tgRes) {
         setTelegramEnabled(tgRes.enabled)
         setTelegramChatId(tgRes.chat_id)
-        setTelegramToken((prev) => (!prev && tgRes.masked_token ? tgRes.masked_token : prev))
+        if (!telegramToken && tgRes.masked_token) {
+          setTelegramToken(tgRes.masked_token)
+        }
       }
     } catch (err: any) {
       console.error('Không tải được trạng thái Scheduler:', err)
     } finally {
       if (!isBackground) setLoading(false)
     }
-  }, [])
-
-  useEffect(() => {
-    loadAll(false)
-    const timer = setInterval(() => { loadAll(true) }, 30000) // Tự động làm mới âm thầm mỗi 30s không làm giật lag giao diện
-    return () => clearInterval(timer)
-  }, [loadAll])
+  }
 
   async function updateConfig(newConfig: Partial<SchedulerStatusData>) {
     setUpdating(true)

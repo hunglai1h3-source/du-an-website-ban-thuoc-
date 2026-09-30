@@ -1,6 +1,7 @@
 from sqlalchemy import text
 from app.db.session import engine, SessionLocal
 from app.db.base import Base
+import app.models
 
 def migrate():
     # 1. Tạo các bảng mới nếu chưa tồn tại (crawl_locks, failed_crawl_items, admin_alerts)

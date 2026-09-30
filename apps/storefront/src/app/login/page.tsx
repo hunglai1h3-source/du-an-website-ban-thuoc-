@@ -3,13 +3,13 @@
 import React, { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/lib/auth/auth-context";
-import { SettigationNavTabs, SettigationNavTabItem } from "@/components/auth/SettigationNavTabs";
-import { SpatialLoginBackground } from "@/components/auth/SpatialLoginBackground";
+import { redirectToAdminPortal } from "@/lib/auth/admin-redirect";
+import { H4CareLogo } from "@/components/branding/H4CareLogo";
+import { AuthBrandPanel } from "@/components/auth/AuthBrandPanel";
 import {
   ArrowLeft,
-  ArrowRight,
   Mail,
   Lock,
   Eye,
@@ -18,55 +18,39 @@ import {
   AlertCircle,
   Smartphone,
   ShieldCheck,
-  Sparkles,
-  Loader2,
-  Check,
   KeyRound,
   RotateCcw,
+  Loader2,
+  ArrowRight,
+  UserCheck,
 } from "lucide-react";
-
-const AUTH_TABS: SettigationNavTabItem[] = [
-  {
-    id: "password",
-    label: "Mật khẩu",
-    icon: <Lock className="w-3.5 h-3.5" />,
-  },
-  {
-    id: "otp",
-    label: "Mã OTP (SĐT)",
-    icon: <Smartphone className="w-3.5 h-3.5" />,
-  },
-];
 
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectUrl = searchParams.get("redirect") || "/account";
-  const shouldReduceMotion = useReducedMotion();
 
-  const { isAuthenticated, loginWithPassword, loginWithPhone, sendPhoneOtp } = useAuth();
+  const { user, isAuthenticated, loginWithPassword, loginWithPhone, sendPhoneOtp } = useAuth();
 
+  // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      router.push(redirectUrl);
+      if (user?.isAdmin) {
+        redirectToAdminPortal();
+      } else {
+        router.push(redirectUrl);
+      }
     }
-  }, [isAuthenticated, router, redirectUrl]);
+  }, [isAuthenticated, user, router, redirectUrl]);
 
-  // Tab State
-  const [activeTab, setActiveTab] = useState<string>("password");
-  const [slideDirection, setSlideDirection] = useState<number>(1);
-
-  // Form Fields
+  // ================= FORM STATE =================
   const [identifier, setIdentifier] = useState<string>("0901234567");
   const [password, setPassword] = useState<string>("H4carePass@2026");
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [rememberMe, setRememberMe] = useState<boolean>(true);
 
-  // OTP Fields
-  const [otpPhone, setOtpPhone] = useState<string>("0901234567");
-  const [otpFormattedPhone, setOtpFormattedPhone] = useState<string>("0901 234 567");
-  const [otpCarrier, setOtpCarrier] = useState<string>("MobiFone");
-  const [otpChannel, setOtpChannel] = useState<"zalo" | "sms">("zalo");
+  // OTP mode toggle
+  const [useOtpMode, setUseOtpMode] = useState<boolean>(false);
   const [otpStep, setOtpStep] = useState<"phone" | "verify">("phone");
   const [otpValues, setOtpValues] = useState<string[]>(["8", "4", "2", "6", "9", "1"]);
   const [countdown, setCountdown] = useState<number>(60);
@@ -74,70 +58,52 @@ function LoginContent() {
   // Status feedback
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [isSuccess, setIsSuccess] = useState<boolean>(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [focusedField, setFocusedField] = useState<string | null>(null);
 
-  // Desktop Mouse Parallax
-  const [mouseParallax, setMouseParallax] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
-  const [isTouchDevice, setIsTouchDevice] = useState<boolean>(false);
+  // Recent accounts list
+  const [recentAccounts, setRecentAccounts] = useState<Array<{ fullName: string; identifier: string; role: string }>>([]);
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      setIsTouchDevice("ontouchstart" in window || navigator.maxTouchPoints > 0);
+    try {
+      const stored = localStorage.getItem("h4care_recent_accounts");
+      if (stored) {
+        setRecentAccounts(JSON.parse(stored));
+      } else {
+        setRecentAccounts([
+          { fullName: "Nguyễn Văn An", identifier: "0901234567", role: "Hội viên Thân thiết" },
+          { fullName: "Trần Thị Mai", identifier: "0909888999", role: "Hội viên VIP" },
+          { fullName: "Quản trị viên", identifier: "admin@pharmatrust.vn", role: "ADMIN" },
+        ]);
+      }
+    } catch (e) {
+      console.warn("Failed to load recent accounts", e);
     }
   }, []);
 
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (isTouchDevice || shouldReduceMotion) return;
-    const { clientX, clientY } = e;
-    const centerX = window.innerWidth / 2;
-    const centerY = window.innerHeight / 2;
-    const px = ((clientX - centerX) / centerX) * 4;
-    const py = ((clientY - centerY) / centerY) * 4;
-    setMouseParallax({ x: px, y: py });
+  const saveRecentAccount = (name: string, id: string, role: string) => {
+    try {
+      const updated = [
+        { fullName: name, identifier: id, role },
+        ...recentAccounts.filter((a) => a.identifier !== id),
+      ].slice(0, 4);
+      setRecentAccounts(updated);
+      localStorage.setItem("h4care_recent_accounts", JSON.stringify(updated));
+    } catch (e) {
+      console.warn("Failed to save recent account", e);
+    }
   };
 
-  // OTP Countdown
+  // OTP Countdown timer
   useEffect(() => {
     let timer: NodeJS.Timeout;
-    if (activeTab === "otp" && otpStep === "verify" && countdown > 0) {
+    if (useOtpMode && otpStep === "verify" && countdown > 0) {
       timer = setInterval(() => setCountdown((c) => c - 1), 1000);
     }
     return () => clearInterval(timer);
-  }, [activeTab, otpStep, countdown]);
+  }, [useOtpMode, otpStep, countdown]);
 
-  // Phone Formatter
-  const formatPhoneString = (inputVal: string) => {
-    let val = inputVal.replace(/\D/g, "");
-    if (val.length > 10) val = val.substring(0, 10);
-
-    let formatted = "";
-    if (val.length > 0) formatted += val.substring(0, 4);
-    if (val.length > 4) formatted += " " + val.substring(4, 7);
-    if (val.length > 7) formatted += " " + val.substring(7, 10);
-
-    let detectedCarrier = "Việt Nam (+84)";
-    if (val.startsWith("090") || val.startsWith("093") || val.startsWith("070") || val.startsWith("079")) {
-      detectedCarrier = "MobiFone";
-    } else if (val.startsWith("098") || val.startsWith("097") || val.startsWith("086") || val.startsWith("03")) {
-      detectedCarrier = "Viettel";
-    } else if (val.startsWith("091") || val.startsWith("094") || val.startsWith("088")) {
-      detectedCarrier = "VinaPhone";
-    }
-
-    return { raw: val, formatted, carrier: detectedCarrier };
-  };
-
-  const isPhone = /^[0-9+ \-]+$/.test(identifier.trim());
-
-  // Tab switch handler
-  const handleTabChange = (newTabId: string, direction: number) => {
-    setErrorMessage(null);
-    setSlideDirection(direction);
-    setActiveTab(newTabId);
-  };
-
-  // Submit Password Login
+  // ================= SUBMIT HANDLERS =================
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
@@ -157,26 +123,38 @@ function LoginContent() {
 
     if (result.success) {
       setIsSuccess(true);
-      setTimeout(() => {
-        router.push(redirectUrl);
-      }, 750);
+      if (result.user) {
+        saveRecentAccount(result.user.fullName, identifier.trim(), result.user.role);
+      }
+      const isTargetAdmin = result.user?.isAdmin;
+      if (isTargetAdmin) {
+        setSuccessMessage("Đăng nhập Quản trị viên thành công! Đang chuyển hướng vào Cổng Quản Trị...");
+        setTimeout(() => {
+          redirectToAdminPortal();
+        }, 500);
+      } else {
+        setSuccessMessage(`Chào mừng trở lại, ${result.user?.fullName}!`);
+        setTimeout(() => {
+          router.push(redirectUrl);
+        }, 750);
+      }
     } else {
       setErrorMessage(result.error || "Thông tin đăng nhập không chính xác. Vui lòng kiểm tra lại.");
     }
   };
 
-  // Submit OTP Request
   const handleOtpRequest = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
 
-    if (otpPhone.length < 9) {
+    const cleanPhone = identifier.replace(/\D/g, "");
+    if (cleanPhone.length < 9) {
       setErrorMessage("Vui lòng nhập số điện thoại hợp lệ (9 - 10 chữ số).");
       return;
     }
 
     setIsSubmitting(true);
-    const res = await sendPhoneOtp(otpPhone);
+    const res = await sendPhoneOtp(cleanPhone);
     setIsSubmitting(false);
 
     if (res.success) {
@@ -187,546 +165,424 @@ function LoginContent() {
     }
   };
 
-  // Submit OTP Verification
   const handleOtpVerify = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
 
     const otpCode = otpValues.join("");
     if (otpCode.length < 6) {
-      setErrorMessage("Vui lòng nhập đủ 6 chữ số mã OTP.");
+      setErrorMessage("Vui lòng nhập đầy đủ 6 chữ số mã xác thực OTP.");
       return;
     }
 
     setIsSubmitting(true);
-    const res = await loginWithPhone(otpPhone, otpCode);
+    const cleanPhone = identifier.replace(/\D/g, "");
+    const res = await loginWithPhone(cleanPhone, otpCode);
     setIsSubmitting(false);
 
     if (res.success) {
       setIsSuccess(true);
-      setTimeout(() => {
-        router.push(redirectUrl);
-      }, 750);
+      const isTargetAdmin = res.user?.isAdmin;
+      if (isTargetAdmin) {
+        setSuccessMessage("Đăng nhập Quản trị viên thành công! Đang chuyển hướng vào Cổng Quản Trị...");
+        setTimeout(() => {
+          redirectToAdminPortal();
+        }, 500);
+      } else {
+        setSuccessMessage(`Chào mừng trở lại, ${res.user?.fullName}!`);
+        setTimeout(() => {
+          router.push(redirectUrl);
+        }, 750);
+      }
     } else {
       setErrorMessage(res.error || "Mã OTP không chính xác.");
     }
   };
 
-  // Motion Variants
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: { staggerChildren: 0.09, delayChildren: 0.08 },
-    },
-  };
-
-  const itemVariants = {
-    hidden: { opacity: 0, y: 16, filter: "blur(6px)" },
-    visible: {
-      opacity: 1,
-      y: 0,
-      filter: "blur(0px)",
-      transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] },
-    },
-  };
-
-  // Directional Content Transition (Settigation Style)
-  const tabContentVariants = {
-    enter: (direction: number) => ({
-      x: direction > 0 ? 32 : -32,
-      opacity: 0,
-      filter: "blur(4px)",
-    }),
-    center: {
-      x: 0,
-      opacity: 1,
-      filter: "blur(0px)",
-      transition: { duration: 0.35, ease: [0.16, 1, 0.3, 1] },
-    },
-    exit: (direction: number) => ({
-      x: direction > 0 ? -32 : 32,
-      opacity: 0,
-      filter: "blur(4px)",
-      transition: { duration: 0.25, ease: [0.16, 1, 0.3, 1] },
-    }),
-  };
-
   return (
-    <div
-      onMouseMove={handleMouseMove}
-      className="relative min-h-screen w-full flex flex-col justify-between overflow-x-hidden text-slate-100 selection:bg-cyan-500/30 selection:text-cyan-200"
-    >
-      {/* Background */}
-      <SpatialLoginBackground mouseParallax={mouseParallax} />
-
-      {/* Top Header */}
-      <header className="relative z-20 w-full max-w-6xl mx-auto px-4 sm:px-6 py-5 sm:py-7 flex items-center justify-between">
-        <Link href="/" className="group flex items-center gap-3 focus:outline-none" title="Trở về trang chủ H4CARE">
-          <div className="relative w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-gradient-to-br from-cyan-400 via-blue-600 to-blue-800 p-0.5 shadow-[0_0_20px_rgba(34,211,238,0.35)] transition-transform duration-300 group-hover:scale-105">
-            <div className="w-full h-full rounded-[14px] bg-[#071329] flex items-center justify-center font-black text-lg sm:text-xl tracking-tighter text-white">
-              <span className="bg-gradient-to-r from-white via-cyan-200 to-cyan-400 bg-clip-text text-transparent">
-                H4
-              </span>
-            </div>
-          </div>
-
-          <div className="flex flex-col">
-            <div className="flex items-center gap-1.5">
-              <span className="text-xl sm:text-2xl font-black tracking-tight text-white">H4CARE</span>
-              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
-            </div>
-            <span className="text-[10px] tracking-widest text-cyan-300/70 font-semibold uppercase hidden sm:block">
-              HỆ THỐNG Y TẾ SỐ
-            </span>
-          </div>
-        </Link>
-
+    <div className="min-h-screen bg-slate-50 flex flex-col justify-between selection:bg-brand-cyan-100 selection:text-brand-blue-900">
+      {/* Top Brand Navigation Header */}
+      <header className="w-full max-w-6xl mx-auto px-4 sm:px-6 py-4 sm:py-6 flex items-center justify-between">
+        <H4CareLogo size="md" withTagline={true} />
         <Link
           href="/"
-          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full text-xs font-semibold text-slate-300 hover:text-white bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 hover:border-cyan-400/40 backdrop-blur-md transition-all duration-200 active:scale-95 shadow-xs"
+          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:text-brand-blue-600 hover:border-brand-blue-300 hover:bg-slate-50 shadow-xs transition-all"
         >
-          <ArrowLeft className="w-3.5 h-3.5 text-cyan-400" />
+          <ArrowLeft className="w-3.5 h-3.5 text-brand-blue-600" />
           <span>Về trang chủ</span>
         </Link>
       </header>
 
-      {/* Main Interaction Stage */}
-      <main className="relative z-20 flex-1 w-full max-w-md mx-auto px-4 sm:px-6 flex flex-col justify-center py-6 sm:py-10">
-        <motion.div
-          initial="hidden"
-          animate="visible"
-          variants={containerVariants}
-          style={{
-            transform: shouldReduceMotion
-              ? undefined
-              : `translate3d(${mouseParallax.x * -3}px, ${mouseParallax.y * -3}px, 0)`,
-          }}
-          className="relative w-full"
-        >
-          <div className="absolute -inset-0.5 rounded-[32px] bg-gradient-to-b from-cyan-400/30 via-blue-600/10 to-transparent blur-md opacity-70 pointer-events-none" />
+      {/* Main Authentication Container */}
+      <main className="w-full max-w-6xl mx-auto px-4 sm:px-6 py-4 sm:py-8 flex items-center justify-center flex-1">
+        <div className="w-full grid grid-cols-1 lg:grid-cols-12 bg-white rounded-2xl border border-slate-200 shadow-depth-2 overflow-hidden">
+          
+          {/* Left Side: Medical Trust Brand Panel (Desktop Only) */}
+          <div className="hidden lg:block lg:col-span-5 relative">
+            <AuthBrandPanel />
+          </div>
 
-          {/* Architectural Glass Slab */}
-          <div className="relative rounded-[28px] sm:rounded-[32px] bg-[#081224]/85 border border-white/[0.12] backdrop-blur-2xl p-6 sm:p-9 shadow-[0_20px_60px_-15px_rgba(0,18,50,0.8)] overflow-hidden">
-            <div className="absolute top-0 inset-x-8 h-px bg-gradient-to-r from-transparent via-cyan-400/60 to-transparent" />
-
-            {/* Typography */}
-            <motion.div variants={itemVariants} className="text-center mb-5 sm:mb-6">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-950/60 border border-cyan-400/30 text-[11px] font-bold text-cyan-300 mb-3 shadow-[0_0_12px_rgba(6,182,212,0.15)]">
-                <ShieldCheck className="w-3.5 h-3.5 text-cyan-400" />
-                <span>Cổng kết nối hồ sơ y tế bảo mật</span>
+          {/* Right Side: Clean Medical Form */}
+          <div className="lg:col-span-7 p-6 sm:p-10 md:p-12 flex flex-col justify-center bg-white">
+            <div className="w-full max-w-md mx-auto">
+              
+              {/* Header Title & Brand Badge */}
+              <div className="mb-6">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-brand-emerald-700 border border-emerald-200/80 text-[11px] font-bold mb-3">
+                  <ShieldCheck className="w-3.5 h-3.5 text-brand-emerald-600" />
+                  <span>Nền tảng Y tế & Dược phẩm PharmaTrust</span>
+                </div>
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+                  Đăng nhập tài khoản
+                </h1>
+                <p className="text-xs sm:text-sm text-slate-600 mt-1 leading-relaxed">
+                  Tra cứu dữ liệu thuốc chuẩn xác, theo dõi đơn hàng và đồng hành cùng Dược sĩ.
+                </p>
               </div>
 
-              <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
-                Chào mừng trở lại.
-              </h1>
-              <p className="text-xs sm:text-sm text-slate-400 mt-1.5 leading-relaxed">
-                Đăng nhập để tiếp tục hành trình cùng{" "}
-                <span className="text-cyan-300 font-semibold">H4CARE</span>.
-              </p>
-            </motion.div>
-
-            {/* SETTIGATION SIGNATURE NAVIGATION TABS CAPSULE */}
-            <motion.div variants={itemVariants} className="mb-6">
-              <SettigationNavTabs
-                tabs={AUTH_TABS}
-                activeTab={activeTab}
-                onTabChange={handleTabChange}
-              />
-            </motion.div>
-
-            {/* Error Notification */}
-            <AnimatePresence>
-              {errorMessage && (
-                <motion.div
-                  initial={{ opacity: 0, y: -8, height: 0 }}
-                  animate={{ opacity: 1, y: 0, height: "auto" }}
-                  exit={{ opacity: 0, y: -8, height: 0 }}
-                  className="mb-4 overflow-hidden"
-                >
-                  <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-medium flex items-start gap-2.5">
-                    <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
-                    <span>{errorMessage}</span>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* DIRECTIONAL TAB CONTENT SLIDER */}
-            <div className="relative overflow-hidden">
-              <AnimatePresence custom={slideDirection} mode="wait">
-                {activeTab === "password" ? (
-                  /* ================= TAB 1: PASSWORD LOGIN ================= */
-                  <motion.form
-                    key="tab-password"
-                    custom={slideDirection}
-                    variants={tabContentVariants}
-                    initial="enter"
-                    animate="center"
-                    exit="exit"
-                    onSubmit={handlePasswordSubmit}
-                    className="space-y-4"
-                  >
-                    {/* Identifier */}
-                    <div className="space-y-1.5">
-                      <div className="flex items-center justify-between text-xs">
-                        <label className="font-semibold text-slate-300">
-                          Email hoặc Số điện thoại
-                        </label>
-                        {identifier && (
-                          <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider">
-                            {isPhone ? "Điện thoại" : "Tài khoản Email"}
-                          </span>
-                        )}
-                      </div>
-
-                      <div
-                        className={`relative rounded-2xl bg-white/[0.03] border transition-all duration-200 flex items-center ${
-                          focusedField === "identifier"
-                            ? "border-cyan-400/80 bg-cyan-950/20 shadow-[0_0_16px_rgba(34,211,238,0.18)]"
-                            : "border-white/10 hover:border-white/20"
-                        }`}
-                      >
-                        <div className="pl-4 pr-2 text-slate-400">
-                          {isPhone ? (
-                            <Smartphone
-                              className={`w-4 h-4 transition-colors ${
-                                focusedField === "identifier" ? "text-cyan-400" : ""
-                              }`}
-                            />
-                          ) : (
-                            <Mail
-                              className={`w-4 h-4 transition-colors ${
-                                focusedField === "identifier" ? "text-cyan-400" : ""
-                              }`}
-                            />
-                          )}
-                        </div>
-                        <input
-                          type="text"
-                          value={identifier}
-                          onChange={(e) => setIdentifier(e.target.value)}
-                          onFocus={() => setFocusedField("identifier")}
-                          onBlur={() => setFocusedField(null)}
-                          placeholder="0901 234 567 hoặc ten@email.com"
-                          className="w-full h-12 pr-4 bg-transparent text-sm font-semibold text-white placeholder-slate-500 focus:outline-none"
-                          required
-                        />
-                      </div>
-                    </div>
-
-                    {/* Password */}
-                    <div className="space-y-1.5">
-                      <div className="flex items-center justify-between text-xs">
-                        <label className="font-semibold text-slate-300">Mật khẩu</label>
-                        <Link
-                          href="/forgot-password"
-                          className="text-cyan-400 hover:text-cyan-300 font-semibold hover:underline transition-colors"
-                        >
-                          Quên mật khẩu?
-                        </Link>
-                      </div>
-
-                      <div
-                        className={`relative rounded-2xl bg-white/[0.03] border transition-all duration-200 flex items-center ${
-                          focusedField === "password"
-                            ? "border-cyan-400/80 bg-cyan-950/20 shadow-[0_0_16px_rgba(34,211,238,0.18)]"
-                            : "border-white/10 hover:border-white/20"
-                        }`}
-                      >
-                        <div className="pl-4 pr-2 text-slate-400">
-                          <Lock
-                            className={`w-4 h-4 transition-colors ${
-                              focusedField === "password" ? "text-cyan-400" : ""
-                            }`}
-                          />
-                        </div>
-                        <input
-                          type={showPassword ? "text" : "password"}
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
-                          onFocus={() => setFocusedField("password")}
-                          onBlur={() => setFocusedField(null)}
-                          placeholder="••••••••••••"
-                          className="w-full h-12 pr-11 bg-transparent text-sm font-semibold text-white placeholder-slate-500 focus:outline-none"
-                          required
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-3.5 text-slate-400 hover:text-white p-1"
-                        >
-                          {showPassword ? (
-                            <EyeOff className="w-4 h-4 text-cyan-400" />
-                          ) : (
-                            <Eye className="w-4 h-4" />
-                          )}
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Remember me & test account shortcut */}
-                    <div className="flex items-center justify-between text-xs pt-0.5">
-                      <label className="flex items-center gap-2 cursor-pointer select-none text-slate-300 hover:text-white transition-colors">
-                        <input
-                          type="checkbox"
-                          checked={rememberMe}
-                          onChange={(e) => setRememberMe(e.target.checked)}
-                          className="w-4 h-4 rounded border-slate-700 bg-white/5 accent-cyan-500 cursor-pointer"
-                        />
-                        <span>Ghi nhớ đăng nhập</span>
-                      </label>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIdentifier("0901234567");
-                          setPassword("H4carePass@2026");
-                        }}
-                        className="text-[11px] font-semibold text-cyan-400/80 hover:text-cyan-300 hover:underline"
-                      >
-                        Điền tài khoản mẫu
-                      </button>
-                    </div>
-
-                    {/* CTA FLUID SPRING BUTTON */}
-                    <div className="pt-2">
-                      <button
-                        type="submit"
-                        disabled={isSubmitting || isSuccess}
-                        className={`relative w-full h-[52px] rounded-full overflow-hidden flex items-center justify-center font-extrabold text-sm sm:text-base text-white tracking-wide transition-all duration-300 focus:outline-none active:scale-[0.985] cursor-pointer shadow-depth-3 ${
-                          isSuccess
-                            ? "bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-600 shadow-[0_0_24px_rgba(16,185,129,0.4)]"
-                            : "bg-gradient-to-r from-blue-600 via-cyan-500 to-blue-700 hover:brightness-110 shadow-[0_0_24px_rgba(6,182,212,0.35)]"
-                        }`}
-                      >
-                        {/* Specular Highlight Sheen */}
-                        <div className="absolute top-0 inset-x-4 h-px bg-gradient-to-r from-transparent via-white/80 to-transparent" />
-
-                        {isSubmitting ? (
-                          <div className="flex items-center gap-2 text-cyan-100">
-                            <Loader2 className="w-5 h-5 animate-spin text-cyan-200" />
-                            <span>Đang xác thực bảo mật...</span>
-                          </div>
-                        ) : isSuccess ? (
-                          <div className="flex items-center gap-2 text-emerald-100">
-                            <div className="w-5 h-5 rounded-full bg-white text-emerald-600 flex items-center justify-center font-black">
-                              <Check className="w-3.5 h-3.5 stroke-[3]" />
-                            </div>
-                            <span>Đăng nhập thành công</span>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-2">
-                            <Sparkles className="w-4 h-4 text-cyan-200 animate-pulse" />
-                            <span>Đăng nhập H4CARE</span>
-                            <ArrowRight className="w-4 h-4 text-cyan-200 transition-transform duration-200 group-hover:translate-x-1" />
-                          </div>
-                        )}
-                      </button>
-                    </div>
-                  </motion.form>
-                ) : (
-                  /* ================= TAB 2: OTP PHONE LOGIN ================= */
+              {/* Notification Alerts */}
+              <AnimatePresence>
+                {errorMessage && (
                   <motion.div
-                    key="tab-otp"
-                    custom={slideDirection}
-                    variants={tabContentVariants}
-                    initial="enter"
-                    animate="center"
-                    exit="exit"
-                    className="space-y-4"
+                    initial={{ opacity: 0, y: -6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -6 }}
+                    className="mb-5 p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-start gap-2.5 font-medium leading-relaxed"
                   >
-                    {otpStep === "phone" ? (
-                      <form onSubmit={handleOtpRequest} className="space-y-4">
-                        <div className="space-y-1.5">
-                          <div className="flex items-center justify-between text-xs">
-                            <label className="font-semibold text-slate-300">
-                              Số điện thoại nhận mã OTP
-                            </label>
-                            <span className="text-[10px] font-bold text-cyan-400 bg-cyan-950/80 px-2 py-0.5 rounded uppercase">
-                              {otpCarrier}
-                            </span>
-                          </div>
+                    <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                    <div className="flex-1">{errorMessage}</div>
+                  </motion.div>
+                )}
 
-                          <div
-                            className={`relative rounded-2xl bg-white/[0.03] border transition-all duration-200 flex items-center ${
-                              focusedField === "otpPhone"
-                                ? "border-cyan-400/80 bg-cyan-950/20 shadow-[0_0_16px_rgba(34,211,238,0.18)]"
-                                : "border-white/10 hover:border-white/20"
-                            }`}
-                          >
-                            <span className="pl-4 pr-2 text-xs font-bold text-cyan-300 select-none border-r border-white/10">
-                              🇻🇳 +84
-                            </span>
-                            <input
-                              type="tel"
-                              value={otpFormattedPhone}
-                              onChange={(e) => {
-                                const res = formatPhoneString(e.target.value);
-                                setOtpPhone(res.raw);
-                                setOtpFormattedPhone(res.formatted);
-                                setOtpCarrier(res.carrier);
-                              }}
-                              onFocus={() => setFocusedField("otpPhone")}
-                              onBlur={() => setFocusedField(null)}
-                              placeholder="0901 234 567"
-                              className="w-full h-12 px-3 bg-transparent text-sm font-semibold text-white focus:outline-none"
-                              required
-                            />
-                          </div>
-                        </div>
-
-                        {/* Channel selector */}
-                        <div className="grid grid-cols-2 gap-2 text-xs font-semibold">
-                          <button
-                            type="button"
-                            onClick={() => setOtpChannel("zalo")}
-                            className={`p-2.5 rounded-xl border transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                              otpChannel === "zalo"
-                                ? "bg-cyan-950/80 border-cyan-400/60 text-cyan-300"
-                                : "bg-white/[0.02] border-white/10 text-slate-400 hover:text-white"
-                            }`}
-                          >
-                            <span className="w-4 h-4 rounded bg-[#0068ff] text-white text-[9px] font-black flex items-center justify-center">Z</span>
-                            <span>Zalo ZNS (1s)</span>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => setOtpChannel("sms")}
-                            className={`p-2.5 rounded-xl border transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                              otpChannel === "sms"
-                                ? "bg-cyan-950/80 border-cyan-400/60 text-cyan-300"
-                                : "bg-white/[0.02] border-white/10 text-slate-400 hover:text-white"
-                            }`}
-                          >
-                            <span>Tin nhắn SMS</span>
-                          </button>
-                        </div>
-
-                        <div className="pt-2">
-                          <button
-                            type="submit"
-                            disabled={isSubmitting}
-                            className="relative w-full h-[52px] rounded-full overflow-hidden flex items-center justify-center font-extrabold text-sm sm:text-base text-white tracking-wide bg-gradient-to-r from-blue-600 via-cyan-500 to-blue-700 hover:brightness-110 shadow-[0_0_24px_rgba(6,182,212,0.35)] transition-all duration-300 focus:outline-none active:scale-[0.985] cursor-pointer"
-                          >
-                            <div className="absolute top-0 inset-x-4 h-px bg-gradient-to-r from-transparent via-white/80 to-transparent" />
-                            {isSubmitting ? (
-                              <div className="flex items-center gap-2">
-                                <Loader2 className="w-5 h-5 animate-spin" />
-                                <span>Đang gửi mã OTP...</span>
-                              </div>
-                            ) : (
-                              <span>Tiếp tục bằng mã OTP</span>
-                            )}
-                          </button>
-                        </div>
-                      </form>
-                    ) : (
-                      <form onSubmit={handleOtpVerify} className="space-y-4">
-                        <div className="flex items-center justify-between text-xs">
-                          <button
-                            type="button"
-                            onClick={() => setOtpStep("phone")}
-                            className="text-cyan-400 hover:underline flex items-center gap-1 font-semibold"
-                          >
-                            <ArrowLeft className="w-3.5 h-3.5" />
-                            <span>Đổi số điện thoại</span>
-                          </button>
-                          <span className="text-slate-400 font-bold">Bước 2/2</span>
-                        </div>
-
-                        <div className="p-3 rounded-2xl bg-cyan-950/40 border border-cyan-500/20 text-xs text-cyan-200">
-                          Mã xác thực gồm 6 chữ số đã gửi qua{" "}
-                          <strong>{otpChannel === "zalo" ? "Zalo ZNS" : "Tin nhắn SMS"}</strong> tới số{" "}
-                          <strong className="text-white font-bold">{otpFormattedPhone}</strong>.
-                        </div>
-
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between text-xs">
-                            <label className="font-semibold text-slate-300">Nhập 6 số OTP</label>
-                            <button
-                              type="button"
-                              onClick={() => setOtpValues(["8", "4", "2", "6", "9", "1"])}
-                              className="text-[11px] font-bold text-cyan-400 hover:underline"
-                            >
-                              Dán mã mẫu (842691)
-                            </button>
-                          </div>
-
-                          <div className="grid grid-cols-6 gap-2">
-                            {otpValues.map((val, idx) => (
-                              <input
-                                key={idx}
-                                type="text"
-                                inputMode="numeric"
-                                maxLength={1}
-                                value={val}
-                                onChange={(e) => {
-                                  const next = [...otpValues];
-                                  next[idx] = e.target.value.slice(-1);
-                                  setOtpValues(next);
-                                }}
-                                className="w-full h-12 rounded-xl bg-white/[0.04] border border-white/15 focus:border-cyan-400 text-center text-lg font-black text-white focus:outline-none focus:ring-1 focus:ring-cyan-400"
-                              />
-                            ))}
-                          </div>
-                        </div>
-
-                        <div className="pt-2">
-                          <button
-                            type="submit"
-                            disabled={isSubmitting || isSuccess}
-                            className={`relative w-full h-[52px] rounded-full overflow-hidden flex items-center justify-center font-extrabold text-sm sm:text-base text-white tracking-wide transition-all duration-300 focus:outline-none active:scale-[0.985] cursor-pointer shadow-depth-3 ${
-                              isSuccess
-                                ? "bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-600 shadow-[0_0_24px_rgba(16,185,129,0.4)]"
-                                : "bg-gradient-to-r from-blue-600 via-cyan-500 to-blue-700 hover:brightness-110 shadow-[0_0_24px_rgba(6,182,212,0.35)]"
-                            }`}
-                          >
-                            <div className="absolute top-0 inset-x-4 h-px bg-gradient-to-r from-transparent via-white/80 to-transparent" />
-                            {isSubmitting ? (
-                              <div className="flex items-center gap-2">
-                                <Loader2 className="w-5 h-5 animate-spin" />
-                                <span>Đang kiểm tra OTP...</span>
-                              </div>
-                            ) : isSuccess ? (
-                              <div className="flex items-center gap-2 text-emerald-100">
-                                <div className="w-5 h-5 rounded-full bg-white text-emerald-600 flex items-center justify-center font-black">
-                                  <Check className="w-3.5 h-3.5 stroke-[3]" />
-                                </div>
-                                <span>Xác thực thành công</span>
-                              </div>
-                            ) : (
-                              <span>Xác nhận & Đăng nhập</span>
-                            )}
-                          </button>
-                        </div>
-                      </form>
-                    )}
+                {isSuccess && successMessage && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="mb-5 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-start gap-2.5 font-medium leading-relaxed"
+                  >
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                    <div className="flex-1">{successMessage}</div>
                   </motion.div>
                 )}
               </AnimatePresence>
-            </div>
 
-            {/* Bottom Register Link */}
-            <motion.div
-              variants={itemVariants}
-              className="mt-6 pt-5 border-t border-white/[0.08] text-center text-xs text-slate-400"
-            >
-              Chưa có tài khoản H4CARE?{" "}
-              <Link
-                href="/register"
-                className="font-extrabold text-cyan-300 hover:text-cyan-200 hover:underline transition-colors ml-1"
-              >
-                Đăng ký ngay
-              </Link>
-            </motion.div>
+              {/* Mode Toggle: Password vs Phone OTP */}
+              <div className="grid grid-cols-2 p-1 bg-slate-100 rounded-xl mb-6 border border-slate-200/80 text-xs font-semibold">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUseOtpMode(false);
+                    setErrorMessage(null);
+                  }}
+                  className={`py-2 rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                    !useOtpMode
+                      ? "bg-white text-slate-900 shadow-xs font-bold"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  <Lock className="w-3.5 h-3.5 text-brand-blue-600" />
+                  <span>Dùng Mật khẩu</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUseOtpMode(true);
+                    setOtpStep("phone");
+                    setErrorMessage(null);
+                  }}
+                  className={`py-2 rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                    useOtpMode
+                      ? "bg-white text-slate-900 shadow-xs font-bold"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  <Smartphone className="w-3.5 h-3.5 text-brand-blue-600" />
+                  <span>Mã OTP di động</span>
+                </button>
+              </div>
+
+              {/* MODE 1: Standard Password Authentication */}
+              {!useOtpMode && (
+                <form onSubmit={handlePasswordSubmit} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                      Email hoặc Số điện thoại
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={identifier}
+                        onChange={(e) => setIdentifier(e.target.value)}
+                        placeholder="Nhập email hoặc số điện thoại..."
+                        required
+                        className="w-full px-3.5 py-2.5 pl-10 rounded-xl bg-white border border-slate-200 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-brand-blue-600 focus:ring-4 focus:ring-brand-blue-100 transition-all font-medium"
+                      />
+                      <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                        {identifier.includes("@") ? (
+                          <Mail className="w-4 h-4 text-brand-blue-600" />
+                        ) : (
+                          <Smartphone className="w-4 h-4 text-brand-blue-600" />
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-xs font-bold text-slate-700">Mật khẩu</label>
+                      <Link
+                        href="/forgot-password"
+                        className="text-xs text-brand-blue-600 hover:text-brand-blue-800 font-semibold transition-colors"
+                      >
+                        Quên mật khẩu?
+                      </Link>
+                    </div>
+                    <div className="relative">
+                      <input
+                        type={showPassword ? "text" : "password"}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="Nhập mật khẩu của bạn..."
+                        required
+                        className="w-full px-3.5 py-2.5 pl-10 pr-10 rounded-xl bg-white border border-slate-200 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-brand-blue-600 focus:ring-4 focus:ring-brand-blue-100 transition-all font-medium"
+                      />
+                      <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                        <Lock className="w-4 h-4 text-brand-blue-600" />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors p-1"
+                        aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                      >
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1">
+                    <label className="flex items-center gap-2 cursor-pointer select-none text-xs text-slate-600">
+                      <input
+                        type="checkbox"
+                        checked={rememberMe}
+                        onChange={(e) => setRememberMe(e.target.checked)}
+                        className="w-4 h-4 rounded text-brand-blue-600 border-slate-300 focus:ring-brand-blue-500"
+                      />
+                      <span>Ghi nhớ đăng nhập trên thiết bị này</span>
+                    </label>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isSubmitting || isSuccess}
+                    className="w-full py-3 px-4 rounded-xl bg-brand-blue-600 hover:bg-brand-blue-700 text-white font-bold text-sm shadow-depth-1 hover:shadow-depth-2 transition-all flex items-center justify-center gap-2 active:scale-[0.99] disabled:opacity-60 cursor-pointer"
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Đang xác thực thông tin...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Đăng nhập</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </>
+                    )}
+                  </button>
+                </form>
+              )}
+
+              {/* MODE 2: OTP Fast Verification */}
+              {useOtpMode && (
+                <div>
+                  {otpStep === "phone" ? (
+                    <form onSubmit={handleOtpRequest} className="space-y-4">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                          Số điện thoại nhận mã OTP
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="tel"
+                            value={identifier}
+                            onChange={(e) => setIdentifier(e.target.value)}
+                            placeholder="Ví dụ: 0901234567"
+                            required
+                            className="w-full px-3.5 py-2.5 pl-10 rounded-xl bg-white border border-slate-200 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-brand-blue-600 focus:ring-4 focus:ring-brand-blue-100 transition-all font-medium"
+                          />
+                          <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                            <Smartphone className="w-4 h-4 text-brand-blue-600" />
+                          </div>
+                        </div>
+                      </div>
+
+                      <button
+                        type="submit"
+                        disabled={isSubmitting}
+                        className="w-full py-3 px-4 rounded-xl bg-brand-blue-600 hover:bg-brand-blue-700 text-white font-bold text-sm shadow-depth-1 hover:shadow-depth-2 transition-all flex items-center justify-center gap-2 active:scale-[0.99] disabled:opacity-60"
+                      >
+                        {isSubmitting ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <span>Đang gửi mã OTP...</span>
+                          </>
+                        ) : (
+                          <>
+                            <span>Gửi mã xác thực OTP</span>
+                            <ArrowRight className="w-4 h-4" />
+                          </>
+                        )}
+                      </button>
+                    </form>
+                  ) : (
+                    <form onSubmit={handleOtpVerify} className="space-y-4">
+                      <div className="text-center mb-4">
+                        <span className="text-xs text-slate-500">Mã xác thực 6 số đã gửi tới</span>
+                        <p className="text-sm font-bold text-slate-900">{identifier}</p>
+                      </div>
+
+                      <div className="flex justify-center gap-2">
+                        {otpValues.map((val, idx) => (
+                          <input
+                            key={idx}
+                            id={`otp-input-${idx}`}
+                            type="text"
+                            maxLength={1}
+                            value={val}
+                            onChange={(e) => {
+                              const newVals = [...otpValues];
+                              newVals[idx] = e.target.value.slice(-1);
+                              setOtpValues(newVals);
+                              if (e.target.value && idx < 5) {
+                                document.getElementById(`otp-input-${idx + 1}`)?.focus();
+                              }
+                            }}
+                            className="w-10 h-12 text-center text-lg font-bold rounded-xl border border-slate-200 text-slate-900 bg-white focus:outline-none focus:border-brand-blue-600 focus:ring-4 focus:ring-brand-blue-100 transition-all"
+                          />
+                        ))}
+                      </div>
+
+                      <div className="flex items-center justify-between text-xs text-slate-500 pt-2">
+                        <button
+                          type="button"
+                          onClick={() => setOtpStep("phone")}
+                          className="text-slate-600 hover:text-brand-blue-600 font-medium"
+                        >
+                          Đổi số điện thoại
+                        </button>
+                        <span>
+                          {countdown > 0 ? (
+                            `Gửi lại sau ${countdown}s`
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setCountdown(60);
+                                sendPhoneOtp(identifier);
+                              }}
+                              className="text-brand-blue-600 font-bold hover:underline"
+                            >
+                              Gửi lại mã
+                            </button>
+                          )}
+                        </span>
+                      </div>
+
+                      <button
+                        type="submit"
+                        disabled={isSubmitting || isSuccess}
+                        className="w-full py-3 px-4 rounded-xl bg-brand-blue-600 hover:bg-brand-blue-700 text-white font-bold text-sm shadow-depth-1 hover:shadow-depth-2 transition-all flex items-center justify-center gap-2 active:scale-[0.99] disabled:opacity-60"
+                      >
+                        {isSubmitting ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <span>Đang kiểm tra mã OTP...</span>
+                          </>
+                        ) : (
+                          <>
+                            <span>Xác nhận & Đăng nhập</span>
+                            <CheckCircle2 className="w-4 h-4" />
+                          </>
+                        )}
+                      </button>
+                    </form>
+                  )}
+                </div>
+              )}
+
+              {/* Quick Test Switcher - Clean Medical Pills */}
+              <div className="mt-6 pt-5 border-t border-slate-100">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                    Thử nghiệm nhanh vai trò
+                  </span>
+                  <span className="text-[10px] text-slate-400">1-Click điền mẫu</span>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIdentifier("admin@pharmatrust.vn");
+                      setPassword("Admin@123456");
+                      setUseOtpMode(false);
+                      setErrorMessage(null);
+                    }}
+                    className="p-2 rounded-xl border border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100 text-indigo-700 text-[11px] font-bold transition-all text-center"
+                    title="Đăng nhập tài khoản Quản trị viên (Chuyển tới Admin Portal)"
+                  >
+                    🛡️ Quản trị viên
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIdentifier("0901234567");
+                      setPassword("H4carePass@2026");
+                      setUseOtpMode(false);
+                      setErrorMessage(null);
+                    }}
+                    className="p-2 rounded-xl border border-sky-200 bg-sky-50/70 hover:bg-sky-100 text-sky-700 text-[11px] font-bold transition-all text-center"
+                    title="Khách hàng Nguyễn Văn An"
+                  >
+                    👤 Khách (An)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIdentifier("0909888999");
+                      setPassword("H4carePass@2026");
+                      setUseOtpMode(false);
+                      setErrorMessage(null);
+                    }}
+                    className="p-2 rounded-xl border border-emerald-200 bg-emerald-50/70 hover:bg-emerald-100 text-emerald-700 text-[11px] font-bold transition-all text-center"
+                    title="Hội viên VIP Trần Thị Mai"
+                  >
+                    ⭐ Khách (Mai VIP)
+                  </button>
+                </div>
+                <p className="text-[10.5px] text-slate-500 mt-2 leading-relaxed">
+                  * Tài khoản <strong>Quản trị viên</strong> sẽ tự động chuyển hướng vào Cổng Quản Trị Hệ Thống. Tài khoản <strong>Khách hàng</strong> sẽ vào trang Quản lý Đơn thuốc & Hội viên.
+                </p>
+              </div>
+
+              {/* Bottom Registration Link */}
+              <div className="mt-6 text-center text-xs text-slate-600">
+                Chưa có tài khoản thành viên?{" "}
+                <Link
+                  href="/register"
+                  className="font-bold text-brand-blue-600 hover:text-brand-blue-800 hover:underline"
+                >
+                  Đăng ký ngay
+                </Link>
+              </div>
+
+            </div>
           </div>
-        </motion.div>
+        </div>
       </main>
 
-      <footer className="relative z-20 w-full py-4 text-center text-[11px] text-slate-500">
-        <p>H4CARE • “Chăm sóc sức khỏe, bắt đầu từ sự thấu hiểu.” • Bản quyền thuộc H4CARE</p>
+      {/* Global Academic & Healthcare Trust Subtext */}
+      <footer className="w-full text-center py-4 text-[11px] text-slate-400 select-none">
+        <span>Hệ thống Quản lý Dữ liệu Thuốc & Bán lẻ Dược phẩm PharmaTrust • Định hướng chuẩn GPP & GSP</span>
       </footer>
     </div>
   );
@@ -734,13 +590,7 @@ function LoginContent() {
 
 export default function LoginPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen bg-[#050b18] flex items-center justify-center text-cyan-400">
-          <div className="w-8 h-8 rounded-full border-2 border-cyan-400 border-t-transparent animate-spin" />
-        </div>
-      }
-    >
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-xs text-slate-400">Đang khởi tạo PharmaTrust...</div>}>
       <LoginContent />
     </Suspense>
   );

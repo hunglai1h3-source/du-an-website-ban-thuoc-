@@ -68,9 +68,9 @@ export const MobileDrawer: React.FC<MobileDrawerProps> = ({ isOpen, onClose }) =
           {/* Body */}
           <div className="p-4 space-y-5 flex-1">
             {/* Pharmacist Quick Call Bar */}
-            <div className="p-3.5 rounded-2xl bg-gradient-to-r from-brand-blue-50 to-brand-cyan-50 border border-brand-blue-100 shadow-depth-1">
+            <div className="p-3.5 rounded-2xl bg-brand-blue-50/80 border border-brand-blue-200/80 shadow-xs">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-brand-blue-600 text-white flex items-center justify-center shadow-sm">
+                <div className="w-10 h-10 rounded-xl bg-brand-blue-600 text-white flex items-center justify-center shadow-xs">
                   <Stethoscope className="w-5 h-5" />
                 </div>
                 <div>
@@ -89,7 +89,7 @@ export const MobileDrawer: React.FC<MobileDrawerProps> = ({ isOpen, onClose }) =
             {/* Category Accordion */}
             <div>
               <div className="flex items-center justify-between mb-2">
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">
                   Danh mục y tế & dược phẩm
                 </p>
                 <Link
@@ -101,7 +101,7 @@ export const MobileDrawer: React.FC<MobileDrawerProps> = ({ isOpen, onClose }) =
                 </Link>
               </div>
 
-              <div className="divide-y divide-slate-100 border border-slate-100 rounded-2xl overflow-hidden shadow-depth-1">
+              <div className="divide-y divide-slate-100 border border-slate-200 rounded-2xl overflow-hidden shadow-xs">
                 {CATEGORIES_DATA.map((cat) => {
                   const isExpanded = expandedCat === cat.id;
                   return (
@@ -167,7 +167,7 @@ export const MobileDrawer: React.FC<MobileDrawerProps> = ({ isOpen, onClose }) =
                 <span>Khám phá toàn bộ thuốc</span>
               </Link>
               <Link
-                href="/prescription"
+                href="/category/thuoc-ke-don"
                 onClick={onClose}
                 className="flex items-center gap-3 p-2.5 text-xs sm:text-sm font-medium text-slate-700 hover:bg-slate-50 rounded-xl transition-colors"
               >
@@ -183,7 +183,7 @@ export const MobileDrawer: React.FC<MobileDrawerProps> = ({ isOpen, onClose }) =
                 <span>Đăng nhập / Tài khoản</span>
               </Link>
               <Link
-                href="/help"
+                href="/about-project"
                 onClick={onClose}
                 className="flex items-center gap-3 p-2.5 text-xs sm:text-sm font-medium text-slate-700 hover:bg-slate-50 rounded-xl transition-colors"
               >

@@ -20,6 +20,7 @@ export interface Category {
 
 export interface Product {
   id: string;
+  dbId?: number;
   name: string;
   slug: string;
   sku: string;
@@ -28,7 +29,7 @@ export interface Product {
   categoryName: string;     // Display category name (e.g. 'Thuốc Không Kê Đơn')
   subCategory?: string;     // Subcategory slug (e.g. 'giam-dau-ha-sot')
   price: number;
-  salePrice?: number;
+  salePrice?: number | null;
   images: string[];
   shortDescription: string;
   description: string;

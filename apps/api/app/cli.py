@@ -10,20 +10,28 @@ Ho tro thao tac truc tiep tren Terminal:
 
 import argparse
 import csv
+import io
+import os
+import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
+from sqlalchemy import select
 
 from app.db.session import SessionLocal
 from app.models import (
     CanonicalProduct,
     CrawlRun,
     DataSource,
+    Ingredient,
     PriceObservation,
     ProductCandidate,
+    ProductIngredient,
     RegulatoryRecord,
 )
 from app.models.enums import ConfidenceLabel, PublishStatus, RunStatus, SourceType
+from app.services.normalization import normalize_for_match, normalize_registration_number
+from app.services.scoring import calculate_product_score
 from app.tasks.jobs import execute_crawl
 
 
@@ -136,7 +144,7 @@ def cmd_crawl(args):
             db.refresh(run)
 
             print(f"     Đang thực thi phiên cào #{run.id}...")
-            execute_crawl(run.id)
+            res = execute_crawl(run.id)
 
             db.refresh(run)
             print(f"     Kết quả: {run.status.value}")
@@ -270,7 +278,7 @@ def cmd_export(args):
 
         file_size = Path(output_path).stat().st_size
         print(f"[OK] Xuất thành công file: {output_path} ({file_size:,} bytes, {len(rows)} bản ghi)")
-        print("     Bạn có thể nạp file này trực tiếp cho App chính của mình.\n")
+        print(f"     Bạn có thể nạp file này trực tiếp cho App chính của mình.\n")
     finally:
         db.close()
 

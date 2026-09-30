@@ -1,15 +1,19 @@
 import {
   AlertCircle,
   CheckCircle2,
+  Clock,
   Eye,
+  Filter,
   Loader2,
+  Package,
   RefreshCw,
   Search,
   ShoppingBag,
   Truck,
   X,
+  XCircle,
 } from 'lucide-react'
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { api } from '../services/api'
 
 interface OrderSummary {
@@ -36,6 +40,36 @@ interface OrderDetailItem {
   subtotal: number
 }
 
+interface BatchAllocationInfo {
+  batch_id: number
+  batch_number: string
+  expiry_date: string
+  allocated_quantity: number
+}
+
+interface FulfillmentItemInfo {
+  fulfillment_item_id: number
+  order_item_id: number
+  product_name: string
+  quantity: number
+  batches: BatchAllocationInfo[]
+}
+
+interface OrderFulfillmentInfo {
+  id: number
+  fulfillment_code: string
+  warehouse_id: number
+  warehouse_code: string
+  warehouse_name: string
+  status: string
+  carrier_name: string | null
+  tracking_code: string | null
+  shipping_fee: number
+  shipped_at: string | null
+  delivered_at: string | null
+  items: FulfillmentItemInfo[]
+}
+
 interface OrderDetailData {
   id: number
   order_code: string
@@ -51,6 +85,7 @@ interface OrderDetailData {
   note: string | null
   created_at: string | null
   items: OrderDetailItem[]
+  fulfillments?: OrderFulfillmentInfo[]
 }
 
 const STATUS_LABELS: { [key: string]: { label: string; color: string; bg: string } } = {
@@ -62,17 +97,31 @@ const STATUS_LABELS: { [key: string]: { label: string; color: string; bg: string
   CANCELLED: { label: 'Đã hủy', color: '#b91c1c', bg: '#fee2e2' },
 }
 
+const FULFILLMENT_STATUS_LABELS: { [key: string]: { label: string; color: string; bg: string } } = {
+  PENDING: { label: 'Chờ lấy hàng', color: '#b45309', bg: '#fef3c7' },
+  PICKED: { label: 'Đã lấy hàng', color: '#1d4ed8', bg: '#dbeafe' },
+  PACKED: { label: 'Đã đóng gói', color: '#4338ca', bg: '#e0e7ff' },
+  SHIPPED: { label: 'Đã xuất kho giao', color: '#0284c7', bg: '#e0f2fe' },
+  DELIVERED: { label: 'Đã giao thành công', color: '#15803d', bg: '#dcfce7' },
+  CANCELLED: { label: 'Đã hủy kiện', color: '#b91c1c', bg: '#fee2e2' },
+}
+
 export function OrdersPage() {
   const [orders, setOrders] = useState<OrderSummary[]>([])
   const [loading, setLoading] = useState(false)
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL')
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedOrder, setSelectedOrder] = useState<OrderDetailData | null>(null)
-  const [loadingDetailId, setLoadingDetailId] = useState<number | null>(null)
+  const [loadingDetail, setLoadingDetail] = useState(false)
   const [updatingId, setUpdatingId] = useState<number | null>(null)
+  const [updatingFulfillmentId, setUpdatingFulfillmentId] = useState<number | null>(null)
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
 
-  const loadOrders = useCallback(async () => {
+  useEffect(() => {
+    loadOrders()
+  }, [selectedStatus])
+
+  async function loadOrders() {
     setLoading(true)
     try {
       const q = new URLSearchParams()
@@ -86,11 +135,7 @@ export function OrdersPage() {
     } finally {
       setLoading(false)
     }
-  }, [selectedStatus, searchQuery])
-
-  useEffect(() => {
-    loadOrders()
-  }, [loadOrders])
+  }
 
   function handleSearchSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -98,14 +143,14 @@ export function OrdersPage() {
   }
 
   async function openOrderDetail(orderId: number) {
-    setLoadingDetailId(orderId)
+    setLoadingDetail(true)
     try {
       const res = await api<OrderDetailData>(`/admin/orders/${orderId}`)
       setSelectedOrder(res)
     } catch (err: any) {
       alert('Không tải được chi tiết đơn hàng: ' + (err?.message || 'Lỗi mạng'))
     } finally {
-      setLoadingDetailId(null)
+      setLoadingDetail(false)
     }
   }
 
@@ -126,6 +171,32 @@ export function OrdersPage() {
       setNotification({ type: 'error', message: err?.message || 'Không thể cập nhật trạng thái đơn hàng.' })
     } finally {
       setUpdatingId(null)
+    }
+  }
+
+  async function handleUpdateFulfillmentStatus(fulfillmentId: number, newStatus: string) {
+    setUpdatingFulfillmentId(fulfillmentId)
+    setNotification(null)
+    try {
+      await api(`/admin/orders/fulfillments/${fulfillmentId}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: newStatus }),
+      })
+      setNotification({
+        type: 'success',
+        message: `Đã chuyển trạng thái kiện hàng sang "${FULFILLMENT_STATUS_LABELS[newStatus]?.label || newStatus}"!`,
+      })
+      if (selectedOrder) {
+        await openOrderDetail(selectedOrder.id)
+      }
+      await loadOrders()
+    } catch (err: any) {
+      setNotification({
+        type: 'error',
+        message: err?.message || 'Không thể cập nhật trạng thái kiện hàng.',
+      })
+    } finally {
+      setUpdatingFulfillmentId(null)
     }
   }
 
@@ -252,9 +323,15 @@ export function OrdersPage() {
                         </div>
                       </td>
                       <td style={{ padding: '12px 16px' }}>
-                        <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 4, background: '#f1f5f9', color: '#475569' }}>
-                          {o.payment_method}
-                        </span>
+                        {o.payment_method === 'MOMO' ? (
+                          <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 4, background: '#fdf2f8', color: '#be185d', border: '1px solid #fbcfe8' }}>
+                            MoMo Sandbox
+                          </span>
+                        ) : (
+                          <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 4, background: '#f1f5f9', color: '#475569' }}>
+                            {o.payment_method}
+                          </span>
+                        )}
                       </td>
                       <td style={{ padding: '12px 16px' }}>
                         <span
@@ -276,12 +353,11 @@ export function OrdersPage() {
                           <button
                             type="button"
                             onClick={() => openOrderDetail(o.id)}
-                            disabled={loadingDetailId === o.id}
                             className="secondary-button"
                             style={{ padding: '4px 10px', fontSize: 12 }}
                             title="Xem chi tiết đơn hàng"
                           >
-                            {loadingDetailId === o.id ? <Loader2 size={13} className="spin" /> : <Eye size={13} />} Chi tiết
+                            <Eye size={13} /> Chi tiết
                           </button>
 
                           {o.order_status === 'PENDING' && (
@@ -336,7 +412,9 @@ export function OrdersPage() {
           <div
             className="modal-window"
             style={{
-              maxWidth: 680,
+              maxWidth: 780,
+              maxHeight: '90vh',
+              overflowY: 'auto',
               width: '100%',
               background: '#ffffff',
               color: '#0f172a',
@@ -344,7 +422,6 @@ export function OrdersPage() {
               padding: 26,
               boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.45)',
               border: '1px solid #e2e8f0',
-              overflow: 'hidden',
             }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -385,15 +462,95 @@ export function OrdersPage() {
 
               <div style={{ marginBottom: 8 }}>
                 <span style={{ color: '#64748b', fontSize: 12 }}>Địa chỉ nhận hàng:</span>
-                <div style={{ fontWeight: 600, color: '#0f172a' }}>{selectedOrder.shipping_address} ({selectedOrder.shipping_city || 'Toàn quốc'})</div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 2 }}>
+                  <div style={{ fontWeight: 600, color: '#0f172a' }}>
+                    {selectedOrder.shipping_address} ({selectedOrder.shipping_city || 'Toàn quốc'})
+                  </div>
+                  <a
+                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                      `${selectedOrder.shipping_address}, ${selectedOrder.shipping_city || 'Việt Nam'}`
+                    )}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 4,
+                      fontSize: 11,
+                      fontWeight: 600,
+                      color: '#0284c7',
+                      background: '#e0f2fe',
+                      padding: '3px 8px',
+                      borderRadius: 6,
+                      textDecoration: 'none',
+                      flexShrink: 0,
+                    }}
+                    title="Mở Google Maps chỉ đường"
+                  >
+                    🗺️ Mở Google Maps
+                  </a>
+                </div>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 8, borderTop: '1px solid #e2e8f0' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 8, borderTop: '1px solid #e2e8f0', flexWrap: 'wrap', gap: 8 }}>
                 <div>
                   <span style={{ color: '#64748b', fontSize: 12 }}>Phương thức thanh toán: </span>
-                  <span style={{ fontWeight: 600, color: '#0f172a' }}>{selectedOrder.payment_method === 'COD' ? 'Tiền mặt khi nhận hàng (COD)' : 'Chuyển khoản'}</span>
+                  <span style={{ fontWeight: 600, color: '#0f172a' }}>
+                    {selectedOrder.payment_method === 'MOMO'
+                      ? 'Ví điện tử MoMo Sandbox'
+                      : selectedOrder.payment_method === 'COD'
+                      ? 'Tiền mặt khi nhận hàng (COD)'
+                      : 'Chuyển khoản'}
+                  </span>
+                  <span
+                    style={{
+                      marginLeft: 8,
+                      fontSize: 11,
+                      fontWeight: 700,
+                      padding: '2px 6px',
+                      borderRadius: 4,
+                      background: selectedOrder.payment_status === 'PAID' ? '#dcfce7' : '#fef3c7',
+                      color: selectedOrder.payment_status === 'PAID' ? '#15803d' : '#b45309',
+                    }}
+                  >
+                    {selectedOrder.payment_status === 'PAID' ? '✓ ĐÃ THANH TOÁN' : '⏳ CHỜ THANH TOÁN'}
+                  </span>
                 </div>
-                <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  {selectedOrder.payment_method === 'MOMO' && selectedOrder.payment_status !== 'PAID' && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          await api('/payments/momo/simulate', {
+                            method: 'POST',
+                            body: JSON.stringify({ order_code: selectedOrder.order_code, success: true }),
+                          })
+                          setNotification({
+                            type: 'success',
+                            message: 'Đã nhận Webhook MoMo giả lập thành công! Đơn hàng đã chuyển sang ĐÃ THANH TOÁN (PAID).',
+                          })
+                          await openOrderDetail(selectedOrder.id)
+                          await loadOrders()
+                        } catch (e: any) {
+                          alert('Lỗi: ' + (e?.message || 'Không thể mô phỏng'))
+                        }
+                      }}
+                      style={{
+                        padding: '4px 8px',
+                        fontSize: 11,
+                        fontWeight: 700,
+                        background: '#fdf2f8',
+                        color: '#be185d',
+                        border: '1px solid #fbcfe8',
+                        borderRadius: 6,
+                        cursor: 'pointer',
+                      }}
+                      title="Mô phỏng MoMo gửi IPN Webhook xác nhận thanh toán"
+                    >
+                      ⚡ Giả lập MoMo Webhook (PAID)
+                    </button>
+                  )}
                   <span
                     style={{
                       display: 'inline-block',
@@ -423,7 +580,7 @@ export function OrdersPage() {
               <span style={{ fontSize: 11, color: '#64748b' }}>Định hướng chuẩn GPP</span>
             </div>
             
-            <div style={{ maxHeight: 220, overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: 10, marginBottom: 18, background: '#ffffff' }}>
+            <div style={{ maxHeight: 180, overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: 10, marginBottom: 18, background: '#ffffff' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, background: '#ffffff' }}>
                 <thead>
                   <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', textAlign: 'left', color: '#64748b', fontSize: 11 }}>
@@ -435,16 +592,16 @@ export function OrdersPage() {
                 <tbody>
                   {selectedOrder.items.map((it, idx) => (
                     <tr key={it.id} style={{ borderBottom: '1px solid #f1f5f9', background: idx % 2 === 0 ? '#ffffff' : '#fafafa' }}>
-                      <td style={{ padding: '10px 14px' }}>
+                      <td style={{ padding: '8px 14px' }}>
                         <div style={{ fontWeight: 600, color: '#0f172a' }}>{it.product_name}</div>
                         {it.product_sku && (
                           <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>SĐK: {it.product_sku}</div>
                         )}
                       </td>
-                      <td style={{ padding: '10px 14px', textAlign: 'center', fontWeight: 600, color: '#334155' }}>
+                      <td style={{ padding: '8px 14px', textAlign: 'center', fontWeight: 600, color: '#334155' }}>
                         x{it.quantity}
                       </td>
-                      <td style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 700, color: '#047857' }}>
+                      <td style={{ padding: '8px 14px', textAlign: 'right', fontWeight: 700, color: '#047857' }}>
                         {it.subtotal.toLocaleString('vi-VN')} đ
                       </td>
                     </tr>
@@ -452,6 +609,177 @@ export function OrdersPage() {
                 </tbody>
               </table>
             </div>
+
+            {/* PHÂN BỔ ĐA KHO & LÔ THUỐC THEO NGUYÊN TẮC FEFO */}
+            {selectedOrder.fulfillments && selectedOrder.fulfillments.length > 0 && (
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Package size={16} color="#0284c7" />
+                    <h4 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#0f172a' }}>
+                      Điều Phối Kho & Phân Bổ Lô FEFO ({selectedOrder.fulfillments.length} kiện)
+                    </h4>
+                  </div>
+                  {selectedOrder.fulfillments.length > 1 && (
+                    <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 6, background: '#fef3c7', color: '#b45309' }}>
+                      ⚡ ĐƠN TÁCH ĐA KHO
+                    </span>
+                  )}
+                </div>
+
+                {selectedOrder.fulfillments.length > 1 && (
+                  <div style={{ padding: 10, background: '#fffbeb', borderRadius: 8, border: '1px solid #fef3c7', fontSize: 12, color: '#92400e', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <AlertCircle size={15} />
+                    <span>
+                      Đơn hàng được phân bổ và đóng gói từ <strong>{selectedOrder.fulfillments.length} kho khác nhau</strong> do kho riêng lẻ không đủ tổng tồn khả dụng.
+                    </span>
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {selectedOrder.fulfillments.map((ff, ffIdx) => {
+                    const ffBadge = FULFILLMENT_STATUS_LABELS[ff.status] || { label: ff.status, color: '#475569', bg: '#f1f5f9' }
+                    return (
+                      <div
+                        key={ff.id}
+                        style={{
+                          background: '#f8fafc',
+                          borderRadius: 10,
+                          border: '1px solid #e2e8f0',
+                          padding: 14,
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span style={{ fontSize: 12, fontWeight: 800, color: '#1e40af', background: '#dbeafe', padding: '2px 8px', borderRadius: 6 }}>
+                              Kiện #{ffIdx + 1}: {ff.warehouse_code}
+                            </span>
+                            <span style={{ fontSize: 12, color: '#475569', fontWeight: 600 }}>
+                              {ff.warehouse_name}
+                            </span>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span
+                              style={{
+                                fontSize: 11,
+                                fontWeight: 700,
+                                padding: '2px 8px',
+                                borderRadius: 10,
+                                color: ffBadge.color,
+                                background: ffBadge.bg,
+                              }}
+                            >
+                              {ffBadge.label}
+                            </span>
+                            <span style={{ fontSize: 11, color: '#64748b', fontFamily: 'monospace' }}>
+                              Mã kiện: {ff.fulfillment_code}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Thông tin vận chuyển kiện */}
+                        <div style={{ fontSize: 12, color: '#64748b', marginBottom: 8, display: 'flex', gap: 16 }}>
+                          <div>Đơn vị: <strong>{ff.carrier_name || 'GHTK'}</strong></div>
+                          {ff.tracking_code && <div>Mã vận đơn: <code style={{ color: '#0369a1' }}>{ff.tracking_code}</code></div>}
+                          <div>Phí vận chuyển: <strong>{ff.shipping_fee.toLocaleString('vi-VN')} đ</strong></div>
+                        </div>
+
+                        {/* Danh sách thuốc và lô FEFO */}
+                        <div style={{ background: '#ffffff', borderRadius: 8, border: '1px solid #e2e8f0', padding: 8, marginBottom: 10 }}>
+                          {ff.items.map((fit) => (
+                            <div key={fit.fulfillment_item_id} style={{ marginBottom: 6, fontSize: 12 }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 600, color: '#1e293b' }}>
+                                <span>• {fit.product_name}</span>
+                                <span>x{fit.quantity}</span>
+                              </div>
+                              {fit.batches && fit.batches.length > 0 && (
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4, marginLeft: 12 }}>
+                                  {fit.batches.map((b) => (
+                                    <span
+                                      key={b.batch_id}
+                                      style={{
+                                        fontSize: 11,
+                                        padding: '2px 6px',
+                                        borderRadius: 4,
+                                        background: '#ecfdf5',
+                                        border: '1px solid #a7f3d0',
+                                        color: '#065f46',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: 4,
+                                      }}
+                                    >
+                                      <strong>Lô: {b.batch_number}</strong>
+                                      <span>(HSD: {b.expiry_date})</span>
+                                      <span style={{ fontWeight: 700, color: '#047857' }}>x{b.allocated_quantity}</span>
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Thao tác chuyển trạng thái kiện hàng */}
+                        <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', flexWrap: 'wrap', alignItems: 'center' }}>
+                          {ff.status === 'PENDING' && (
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateFulfillmentStatus(ff.id, 'PICKED')}
+                              disabled={updatingFulfillmentId === ff.id}
+                              style={{ padding: '4px 10px', fontSize: 12, background: '#2563eb', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600 }}
+                            >
+                              Xác nhận lấy hàng (PICKED)
+                            </button>
+                          )}
+                          {ff.status === 'PICKED' && (
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateFulfillmentStatus(ff.id, 'PACKED')}
+                              disabled={updatingFulfillmentId === ff.id}
+                              style={{ padding: '4px 10px', fontSize: 12, background: '#4338ca', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600 }}
+                            >
+                              Đã đóng gói (PACKED)
+                            </button>
+                          )}
+                          {ff.status === 'PACKED' && (
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateFulfillmentStatus(ff.id, 'SHIPPED')}
+                              disabled={updatingFulfillmentId === ff.id}
+                              style={{ padding: '4px 10px', fontSize: 12, background: '#0284c7', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600 }}
+                              title="Xuất kho giao: Tự động trừ tồn on_hand và ghi Thẻ kho DISPATCH"
+                            >
+                              🚚 Xuất kho giao (SHIPPED)
+                            </button>
+                          )}
+                          {ff.status === 'SHIPPED' && (
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateFulfillmentStatus(ff.id, 'DELIVERED')}
+                              disabled={updatingFulfillmentId === ff.id}
+                              style={{ padding: '4px 10px', fontSize: 12, background: '#16a34a', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600 }}
+                            >
+                              ✓ Đã giao thành công (DELIVERED)
+                            </button>
+                          )}
+                          {ff.status !== 'SHIPPED' && ff.status !== 'DELIVERED' && ff.status !== 'CANCELLED' && (
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateFulfillmentStatus(ff.id, 'CANCELLED')}
+                              disabled={updatingFulfillmentId === ff.id}
+                              style={{ padding: '4px 8px', fontSize: 11, background: '#fee2e2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: 6, cursor: 'pointer' }}
+                            >
+                              Hủy kiện
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Tổng cộng & Thao tác chuyển trạng thái */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', background: '#f0fdf4', borderRadius: 10, border: '1px solid #bbf7d0', marginBottom: 20 }}>

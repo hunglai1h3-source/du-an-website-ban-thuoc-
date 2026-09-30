@@ -1,0 +1,314 @@
+import random
+import time
+import unittest
+from decimal import Decimal
+from fastapi.testclient import TestClient
+
+from app.core.config import settings
+from app.db.base import Base
+from app.db.session import SessionLocal, engine
+from app.main import app
+from app.models import (
+    CanonicalProduct,
+    InventoryBatch,
+    Order,
+    OrderItem,
+    PaymentTransaction,
+    PaymentWebhookEvent,
+    PriceObservation,
+    ProductSku,
+    Warehouse,
+    WarehouseBatchStock,
+)
+from app.models.enums import PublishStatus, RegulatoryStatus, RxOtcStatus
+from app.services.momo_service import MomoPaymentService
+
+
+class TestMomoPaymentSuite(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        Base.metadata.create_all(bind=engine)
+
+    def setUp(self):
+        self.client = TestClient(app)
+        self.db = SessionLocal()
+
+        # Tạo kho hàng nếu chưa có
+        self.wh = self.db.query(Warehouse).filter_by(code="KHO-HCM-01").first()
+        if not self.wh:
+            self.wh = Warehouse(
+                code="KHO-HCM-01",
+                name="Tổng kho Miền Nam",
+                address="45 Hoàng Hoa Thám, Tân Bình, TP.HCM",
+                lat=10.7872,
+                lng=106.7001,
+                is_active=True,
+                is_central=True,
+            )
+            self.db.add(self.wh)
+            self.db.commit()
+            self.db.refresh(self.wh)
+
+        # Tạo sản phẩm mẫu
+        ts = int(time.time() * 1000) % 1000000
+        pid = random.randint(200000, 299999)
+        self.prod = CanonicalProduct(
+            id=pid,
+            canonical_name=f"Thuốc Test MoMo {ts}",
+            registration_number=f"VD-{pid}-26",
+            regulatory_status=RegulatoryStatus.ACTIVE,
+            rx_otc_status=RxOtcStatus.OTC,
+            publish_status=PublishStatus.PUBLISHED,
+        )
+        self.db.add(self.prod)
+        self.db.commit()
+
+        self.price_obs = PriceObservation(
+            product_id=pid,
+            source_id=1,
+            source_url=f"https://example.com/p/{pid}",
+            observed_price=Decimal("150000.0"),
+        )
+        self.db.add(self.price_obs)
+
+        self.sku = ProductSku(
+            canonical_product_id=pid,
+            sku_code=f"SKU-{pid}",
+            base_price=Decimal("150000.0"),
+            is_default=True,
+            is_active=True,
+        )
+        self.db.add(self.sku)
+        self.db.commit()
+        self.db.refresh(self.sku)
+
+        from datetime import date, timedelta
+        self.batch = InventoryBatch(
+            sku_id=self.sku.id,
+            batch_number=f"LOT-MOMO-{ts}",
+            expiry_date=date.today() + timedelta(days=365),
+            initial_quantity=100,
+            status="ACTIVE",
+        )
+        self.db.add(self.batch)
+        self.db.commit()
+        self.db.refresh(self.batch)
+
+        self.stock = WarehouseBatchStock(
+            warehouse_id=self.wh.id,
+            batch_id=self.batch.id,
+            quantity_on_hand=100,
+            quantity_available=100,
+            quantity_reserved=0,
+        )
+        self.db.add(self.stock)
+        self.db.commit()
+
+        # Tạo đơn hàng mẫu chờ thanh toán
+        self.order_code = f"PT-MOMO-{ts}"
+        self.order = Order(
+            order_code=self.order_code,
+            customer_name="Nguyễn Thanh Toán",
+            customer_phone="0911223344",
+            customer_email="thanhtoan.nguyen@example.com",
+            shipping_address="123 Nguyễn Thị Minh Khai, Q1, TP.HCM",
+            shipping_city="Hồ Chí Minh",
+            payment_method="MOMO",
+            payment_status="PENDING",
+            order_status="PENDING",
+            total_amount=Decimal("300000.0"),
+            shipping_fee=Decimal("0.0"),
+            items=[
+                OrderItem(
+                    product_id=pid,
+                    product_name=self.prod.canonical_name,
+                    product_sku=self.sku.sku_code,
+                    price=Decimal("150000.0"),
+                    quantity=2,
+                    subtotal=Decimal("300000.0"),
+                )
+            ],
+        )
+        self.db.add(self.order)
+        self.db.commit()
+        self.db.refresh(self.order)
+
+    def tearDown(self):
+        try:
+            self.db.rollback()
+        except Exception:
+            pass
+        self.db.close()
+
+    def test_01_signature_generation(self):
+        """Kiểm tra độ chính xác của thuật toán chữ ký số HMAC-SHA256."""
+        secret = "test_secret_key_123"
+        raw_data = "accessKey=KEY123&amount=50000&orderId=ORDER001"
+        sig1 = MomoPaymentService.generate_signature(raw_data, secret)
+        sig2 = MomoPaymentService.generate_signature(raw_data, secret)
+
+        self.assertEqual(sig1, sig2)
+        self.assertEqual(len(sig1), 64)  # SHA256 hex string độ dài 64 chars
+
+        # Dữ liệu thay đổi thì chữ ký phải thay đổi
+        sig_diff = MomoPaymentService.generate_signature(raw_data + "&extra=1", secret)
+        self.assertNotEqual(sig1, sig_diff)
+
+    def test_02_create_momo_payment_request(self):
+        """Khách hàng tạo yêu cầu thanh toán MoMo Sandbox cho đơn hàng."""
+        payload = {
+            "order_code": self.order_code,
+            "return_url": "http://localhost:3000/checkout/result",
+        }
+        resp = self.client.post("/api/v1/payments/momo/create", json=payload)
+        self.assertEqual(resp.status_code, 200, resp.text)
+        data = resp.json()
+
+        self.assertEqual(data["status"], "SUCCESS")
+        self.assertEqual(data["order_code"], self.order_code)
+        self.assertEqual(data["amount"], 300000)
+        self.assertIn("pay_url", data)
+        self.assertIn("qr_code_url", data)
+
+        # Kiểm tra bản ghi PaymentTransaction trong CSDL
+        txn = self.db.query(PaymentTransaction).filter_by(order_id=self.order.id, provider="MOMO").first()
+        self.assertIsNotNone(txn)
+        self.assertEqual(txn.status, "PENDING")
+        self.assertEqual(txn.amount, Decimal("300000.0"))
+
+    def test_03_momo_ipn_webhook_success_completes_order(self):
+        """IPN Webhook từ MoMo với resultCode=0 xác nhận đơn hàng đã thanh toán thành công."""
+        # Chuẩn bị dữ liệu IPN giả lập có chữ ký chuẩn
+        secret = settings.momo_secret_key
+        access = settings.momo_access_key
+        partner = settings.momo_partner_code
+        amount = "300000"
+        order_id = self.order_code
+        request_id = f"REQ-{order_id}-1"
+        trans_id = f"MOMO-TRANS-{random.randint(1000000, 9999999)}"
+        result_code = "0"
+        message = "Giao dịch thành công"
+        order_info = "Thanh toan don thuoc"
+        order_type = "momo_wallet"
+        pay_type = "qr"
+        response_time = str(int(time.time() * 1000))
+        extra_data = ""
+
+        raw_signature = (
+            f"accessKey={access}&"
+            f"amount={amount}&"
+            f"extraData={extra_data}&"
+            f"message={message}&"
+            f"orderId={order_id}&"
+            f"orderInfo={order_info}&"
+            f"orderType={order_type}&"
+            f"partnerCode={partner}&"
+            f"payType={pay_type}&"
+            f"requestId={request_id}&"
+            f"responseTime={response_time}&"
+            f"resultCode={result_code}&"
+            f"transId={trans_id}"
+        )
+        sig = MomoPaymentService.generate_signature(raw_signature, secret)
+
+        ipn_payload = {
+            "partnerCode": partner,
+            "orderId": order_id,
+            "requestId": request_id,
+            "amount": int(amount),
+            "orderInfo": order_info,
+            "orderType": order_type,
+            "transId": trans_id,
+            "resultCode": int(result_code),
+            "message": message,
+            "payType": pay_type,
+            "responseTime": int(response_time),
+            "extraData": extra_data,
+            "signature": sig,
+        }
+
+        resp = self.client.post("/api/v1/payments/momo/webhook", json=ipn_payload)
+        self.assertEqual(resp.status_code, 200, resp.text)
+        data = resp.json()
+        self.assertEqual(data["resultCode"], 0)
+
+        # Kiểm tra đơn hàng trong CSDL được chuyển sang PAID và CONFIRMED
+        self.db.refresh(self.order)
+        self.assertEqual(self.order.payment_status, "PAID")
+        self.assertEqual(self.order.order_status, "CONFIRMED")
+
+        # Kiểm tra Thẻ thanh toán (PaymentTransaction) chuyển sang SUCCESS
+        txn = self.db.query(PaymentTransaction).filter_by(order_id=self.order.id).first()
+        self.assertIsNotNone(txn)
+        self.assertEqual(txn.status, "SUCCESS")
+        self.assertEqual(txn.provider_trans_id, trans_id)
+
+        # Kiểm tra PaymentWebhookEvent đã lưu log
+        evt = self.db.query(PaymentWebhookEvent).filter_by(event_id=trans_id).first()
+        self.assertIsNotNone(evt)
+        self.assertTrue(evt.processed)
+
+    def test_04_momo_ipn_invalid_signature_rejected(self):
+        """Từ chối Webhook khi chữ ký số không khớp hoặc bị sửa đổi (HTTP 400)."""
+        ipn_payload = {
+            "partnerCode": settings.momo_partner_code,
+            "orderId": self.order_code,
+            "requestId": f"REQ-{self.order_code}",
+            "amount": 300000,
+            "orderInfo": "Thanh toan don thuoc",
+            "orderType": "momo_wallet",
+            "transId": "FORGED-9999",
+            "resultCode": 0,
+            "message": "Giao dịch thành công",
+            "payType": "qr",
+            "responseTime": int(time.time() * 1000),
+            "extraData": "",
+            "signature": "fake_forged_invalid_signature_1234567890",
+        }
+
+        resp = self.client.post("/api/v1/payments/momo/webhook", json=ipn_payload)
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("Invalid HMAC Signature", resp.json()["detail"])
+
+        # Trạng thái đơn vẫn là PENDING
+        self.db.refresh(self.order)
+        self.assertEqual(self.order.payment_status, "PENDING")
+
+    def test_05_idempotent_replay_does_not_duplicate_processing(self):
+        """Gửi lặp IPN Webhook nhiều lần không gây lỗi và bảo toàn trạng thái (Idempotency)."""
+        # Mô phỏng thanh toán lần 1 thành công
+        sim_resp1 = self.client.post(
+            "/api/v1/payments/momo/simulate",
+            json={"order_code": self.order_code, "success": True},
+        )
+        self.assertEqual(sim_resp1.status_code, 200)
+
+        self.db.refresh(self.order)
+        self.assertEqual(self.order.payment_status, "PAID")
+
+        # Mô phỏng gửi lại lần 2
+        sim_resp2 = self.client.post(
+            "/api/v1/payments/momo/simulate",
+            json={"order_code": self.order_code, "success": True},
+        )
+        self.assertEqual(sim_resp2.status_code, 200)
+        self.assertEqual(sim_resp2.json()["resultCode"], 0)
+
+        # Đơn vẫn giữ nguyên trạng thái PAID
+        self.db.refresh(self.order)
+        self.assertEqual(self.order.payment_status, "PAID")
+
+    def test_06_query_payment_status(self):
+        """Tra cứu trạng thái thanh toán đơn hàng qua API."""
+        resp = self.client.get(f"/api/v1/payments/orders/{self.order_code}/status")
+        self.assertEqual(resp.status_code, 200, resp.text)
+        data = resp.json()
+
+        self.assertEqual(data["order_code"], self.order_code)
+        self.assertEqual(data["payment_status"], "PENDING")
+        self.assertEqual(data["payment_method"], "MOMO")
+        self.assertEqual(data["total_amount"], 300000.0)
+
+
+if __name__ == "__main__":
+    unittest.main()

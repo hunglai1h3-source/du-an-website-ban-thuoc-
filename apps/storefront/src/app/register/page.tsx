@@ -3,10 +3,10 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/lib/auth/auth-context";
-import { LiquidMetalButton } from "@/components/auth/LiquidMetalButton";
-import { SpatialLoginBackground } from "@/components/auth/SpatialLoginBackground";
+import { H4CareLogo } from "@/components/branding/H4CareLogo";
+import { AuthBrandPanel } from "@/components/auth/AuthBrandPanel";
 import {
   ArrowLeft,
   User,
@@ -19,12 +19,12 @@ import {
   CheckCircle2,
   AlertCircle,
   Sparkles,
-  Check,
+  Loader2,
+  ArrowRight,
 } from "lucide-react";
 
 export default function RegisterPage() {
   const router = useRouter();
-  const shouldReduceMotion = useReducedMotion();
   const { isAuthenticated, register } = useAuth();
 
   useEffect(() => {
@@ -34,13 +34,13 @@ export default function RegisterPage() {
   }, [isAuthenticated, router]);
 
   // Form Fields
-  const [fullName, setFullName] = useState<string>("Nguyễn Văn An");
-  const [phone, setPhone] = useState<string>("0901234567");
-  const [formattedPhone, setFormattedPhone] = useState<string>("0901 234 567");
-  const [carrier, setCarrier] = useState<string>("MobiFone");
-  const [email, setEmail] = useState<string>("an.nguyen@example.com");
-  const [password, setPassword] = useState<string>("H4carePass@2026");
-  const [confirmPassword, setConfirmPassword] = useState<string>("H4carePass@2026");
+  const [fullName, setFullName] = useState<string>("");
+  const [phone, setPhone] = useState<string>("");
+  const [formattedPhone, setFormattedPhone] = useState<string>("");
+  const [carrier, setCarrier] = useState<string>("Việt Nam (+84)");
+  const [email, setEmail] = useState<string>("");
+  const [password, setPassword] = useState<string>("");
+  const [confirmPassword, setConfirmPassword] = useState<string>("");
 
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState<boolean>(false);
@@ -51,27 +51,36 @@ export default function RegisterPage() {
   const [isSuccess, setIsSuccess] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Focus tracking
-  const [focusedField, setFocusedField] = useState<string | null>(null);
+  // Password strength calculator
+  const getPasswordStrength = (pwd: string) => {
+    if (!pwd) return { score: 0, text: "", color: "" };
+    let score = 0;
+    if (pwd.length >= 6) score += 1;
+    if (pwd.length >= 8) score += 1;
+    if (/[A-Z]/.test(pwd) && /[a-z]/.test(pwd)) score += 1;
+    if (/[0-9]/.test(pwd) || /[^A-Za-z0-9]/.test(pwd)) score += 1;
+    if (score <= 1) return { score: 1, text: "Yếu", color: "bg-rose-500", textCol: "text-rose-600" };
+    if (score === 2) return { score: 2, text: "Trung bình", color: "bg-amber-500", textCol: "text-amber-600" };
+    if (score === 3) return { score: 3, text: "Khá mạnh", color: "bg-sky-500", textCol: "text-sky-600" };
+    return { score: 4, text: "Rất an toàn", color: "bg-emerald-500", textCol: "text-emerald-600" };
+  };
 
-  // Desktop Mouse Parallax
-  const [mouseParallax, setMouseParallax] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
-  const [isTouchDevice, setIsTouchDevice] = useState<boolean>(false);
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      setIsTouchDevice("ontouchstart" in window || navigator.maxTouchPoints > 0);
-    }
-  }, []);
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (isTouchDevice || shouldReduceMotion) return;
-    const { clientX, clientY } = e;
-    const centerX = window.innerWidth / 2;
-    const centerY = window.innerHeight / 2;
-    const px = ((clientX - centerX) / centerX) * 4;
-    const py = ((clientY - centerY) / centerY) * 4;
-    setMouseParallax({ x: px, y: py });
+  const fillSampleNewAccount = () => {
+    const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+    const sampleNames = ["Lê Minh Hoàng", "Vũ Phương Linh", "Đặng Quốc Anh", "Hoàng Kim Ngân", "Phạm Hải Đăng", "Bùi Thanh Trúc"];
+    const randomName = sampleNames[Math.floor(Math.random() * sampleNames.length)];
+    const samplePhone = `0977${randomSuffix}`;
+    const sampleEmail = `khachhang${randomSuffix}@pharmatrust.vn`;
+    
+    setFullName(randomName);
+    setPhone(samplePhone);
+    const formatted = formatPhoneString(samplePhone);
+    setFormattedPhone(formatted.formatted);
+    setCarrier(formatted.carrier);
+    setEmail(sampleEmail);
+    setPassword("H4carePass@2026");
+    setConfirmPassword("H4carePass@2026");
+    setErrorMessage(null);
   };
 
   // Phone Formatter Utility
@@ -89,11 +98,18 @@ export default function RegisterPage() {
       detectedCarrier = "MobiFone";
     } else if (val.startsWith("098") || val.startsWith("097") || val.startsWith("086") || val.startsWith("03")) {
       detectedCarrier = "Viettel";
-    } else if (val.startsWith("091") || val.startsWith("094") || val.startsWith("088")) {
+    } else if (val.startsWith("091") || val.startsWith("094") || val.startsWith("088") || val.startsWith("08")) {
       detectedCarrier = "VinaPhone";
     }
 
     return { raw: val, formatted, carrier: detectedCarrier };
+  };
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { raw, formatted, carrier: detectedCarrier } = formatPhoneString(e.target.value);
+    setPhone(raw);
+    setFormattedPhone(formatted);
+    setCarrier(detectedCarrier);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -105,7 +121,7 @@ export default function RegisterPage() {
       return;
     }
     if (!phone || phone.length < 9) {
-      setErrorMessage("Số điện thoại chưa đúng định dạng.");
+      setErrorMessage("Số điện thoại chưa đúng định dạng (tối thiểu 9-10 số).");
       return;
     }
     if (password.length < 6) {
@@ -136,326 +152,277 @@ export default function RegisterPage() {
         router.push("/account");
       }, 750);
     } else {
-      setErrorMessage(res.error || "Đăng ký không thành công. Vui lòng thử lại.");
+      setErrorMessage(res.error || "Đăng ký không thành công. Vui lòng kiểm tra lại thông tin.");
     }
   };
 
-  // Motion Variants
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: { staggerChildren: 0.08, delayChildren: 0.1 },
-    },
-  };
-
-  const itemVariants = {
-    hidden: { opacity: 0, y: 16, filter: "blur(6px)" },
-    visible: {
-      opacity: 1,
-      y: 0,
-      filter: "blur(0px)",
-      transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] },
-    },
-  };
+  const pwdStrength = getPasswordStrength(password);
 
   return (
-    <div
-      onMouseMove={handleMouseMove}
-      className="relative min-h-screen w-full flex flex-col justify-between overflow-x-hidden text-slate-100 selection:bg-cyan-500/30 selection:text-cyan-200"
-    >
-      {/* ================= SPATIAL MULTI-LAYER BACKGROUND ================= */}
-      <SpatialLoginBackground mouseParallax={mouseParallax} />
-
-      {/* ================= TOP NAVIGATION BAR ================= */}
-      <header className="relative z-20 w-full max-w-6xl mx-auto px-4 sm:px-6 py-5 sm:py-7 flex items-center justify-between">
-        <Link href="/" className="group flex items-center gap-3 focus:outline-none" title="Trở về trang chủ H4CARE">
-          <div className="relative w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-gradient-to-br from-cyan-400 via-blue-600 to-blue-800 p-0.5 shadow-[0_0_20px_rgba(34,211,238,0.35)] transition-transform duration-300 group-hover:scale-105">
-            <div className="w-full h-full rounded-[14px] bg-[#071329] flex items-center justify-center font-black text-lg sm:text-xl tracking-tighter text-white">
-              <span className="bg-gradient-to-r from-white via-cyan-200 to-cyan-400 bg-clip-text text-transparent">
-                H4
-              </span>
-            </div>
-          </div>
-          <div className="flex flex-col">
-            <div className="flex items-center gap-1.5">
-              <span className="text-xl sm:text-2xl font-black tracking-tight text-white">H4CARE</span>
-              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
-            </div>
-            <span className="text-[10px] tracking-widest text-cyan-300/70 font-semibold uppercase hidden sm:block">
-              HỒ SƠ THÀNH VIÊN
-            </span>
-          </div>
-        </Link>
-
+    <div className="min-h-screen bg-slate-50 flex flex-col justify-between selection:bg-brand-cyan-100 selection:text-brand-blue-900">
+      {/* Top Brand Navigation Header */}
+      <header className="w-full max-w-6xl mx-auto px-4 sm:px-6 py-4 sm:py-6 flex items-center justify-between">
+        <H4CareLogo size="md" withTagline={true} />
         <Link
-          href="/login"
-          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-full text-xs font-semibold text-slate-300 hover:text-white bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 hover:border-cyan-400/40 backdrop-blur-md transition-all duration-200 active:scale-95 shadow-xs"
+          href="/"
+          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:text-brand-blue-600 hover:border-brand-blue-300 hover:bg-slate-50 shadow-xs transition-all"
         >
-          <ArrowLeft className="w-3.5 h-3.5 text-cyan-400" />
-          <span>Đăng nhập</span>
+          <ArrowLeft className="w-3.5 h-3.5 text-brand-blue-600" />
+          <span>Về trang chủ</span>
         </Link>
       </header>
 
-      {/* ================= MAIN INTERACTION STAGE ================= */}
-      <main className="relative z-20 flex-1 w-full max-w-lg mx-auto px-4 sm:px-6 flex flex-col justify-center py-6 sm:py-10">
-        <motion.div
-          initial="hidden"
-          animate="visible"
-          variants={containerVariants}
-          style={{
-            transform: shouldReduceMotion
-              ? undefined
-              : `translate3d(${mouseParallax.x * -3}px, ${mouseParallax.y * -3}px, 0)`,
-          }}
-          className="relative w-full"
-        >
-          {/* Outer Specular Edge Glow */}
-          <div className="absolute -inset-0.5 rounded-[32px] bg-gradient-to-b from-cyan-400/30 via-blue-600/10 to-transparent blur-md opacity-70 pointer-events-none" />
+      {/* Main Container */}
+      <main className="w-full max-w-6xl mx-auto px-4 sm:px-6 py-4 sm:py-8 flex items-center justify-center flex-1">
+        <div className="w-full grid grid-cols-1 lg:grid-cols-12 bg-white rounded-2xl border border-slate-200 shadow-depth-2 overflow-hidden">
+          
+          {/* Left Side: Medical Trust Brand Panel (Desktop Only) */}
+          <div className="hidden lg:block lg:col-span-5 relative">
+            <AuthBrandPanel />
+          </div>
 
-          {/* Architectural Glass Slab Card */}
-          <div className="relative rounded-[28px] sm:rounded-[32px] bg-[#081224]/85 border border-white/[0.12] backdrop-blur-2xl p-6 sm:p-9 shadow-[0_20px_60px_-15px_rgba(0,18,50,0.8)] overflow-hidden">
-            <div className="absolute top-0 inset-x-8 h-px bg-gradient-to-r from-transparent via-cyan-400/60 to-transparent" />
+          {/* Right Side: Clean Medical Registration Form */}
+          <div className="lg:col-span-7 p-6 sm:p-10 md:p-12 flex flex-col justify-center bg-white">
+            <div className="w-full max-w-md mx-auto">
+              
+              {/* Header Title */}
+              <div className="mb-6">
+                <div className="flex items-center justify-between gap-2 mb-3">
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-brand-emerald-700 border border-emerald-200/80 text-[11px] font-bold">
+                    <ShieldCheck className="w-3.5 h-3.5 text-brand-emerald-600" />
+                    <span>Hội viên PharmaTrust</span>
+                  </div>
 
-            {/* Header Typography */}
-            <motion.div variants={itemVariants} className="text-center mb-6">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-950/60 border border-cyan-400/30 text-[11px] font-bold text-cyan-300 mb-3 shadow-[0_0_12px_rgba(6,182,212,0.15)]">
-                <ShieldCheck className="w-3.5 h-3.5 text-cyan-400" />
-                <span>Hồ sơ chăm sóc sức khỏe gia đình</span>
+                  <button
+                    type="button"
+                    onClick={fillSampleNewAccount}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-sky-50 text-brand-blue-700 hover:bg-sky-100 border border-sky-200/80 text-[11px] font-bold transition-all"
+                    title="Điền tự động dữ liệu thành viên ngẫu nhiên để test nhanh"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-brand-blue-600" />
+                    <span>Tạo nhanh mẫu</span>
+                  </button>
+                </div>
+
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+                  Tạo tài khoản thành viên
+                </h1>
+                <p className="text-xs sm:text-sm text-slate-600 mt-1 leading-relaxed">
+                  Đăng ký tài khoản để theo dõi đơn thuốc, tích điểm và nhận tư vấn chuyên môn từ Dược sĩ.
+                </p>
               </div>
 
-              <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
-                Tạo tài khoản hội viên.
-              </h1>
-              <p className="text-xs sm:text-sm text-slate-400 mt-1.5 leading-relaxed">
-                Lưu trữ đơn thuốc trọn đời, tích điểm 2% và tư vấn Dược sĩ 1-1 cùng{" "}
-                <span className="text-cyan-300 font-semibold">H4CARE</span>.
-              </p>
-            </motion.div>
-
-            {/* Error Feedback */}
-            <AnimatePresence>
-              {errorMessage && (
-                <motion.div
-                  initial={{ opacity: 0, y: -8, height: 0 }}
-                  animate={{ opacity: 1, y: 0, height: "auto" }}
-                  exit={{ opacity: 0, y: -8, height: 0 }}
-                  className="mb-4 overflow-hidden"
-                >
-                  <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-medium flex items-start gap-2.5">
-                    <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
-                    <span>{errorMessage}</span>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* Form */}
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Full Name */}
-              <motion.div variants={itemVariants} className="space-y-1.5">
-                <label className="block text-xs font-semibold text-slate-300">
-                  Họ và tên của bạn <span className="text-cyan-400">*</span>
-                </label>
-                <div
-                  className={`relative rounded-2xl bg-white/[0.03] border transition-all duration-200 flex items-center ${
-                    focusedField === "name"
-                      ? "border-cyan-400/80 bg-cyan-950/20 shadow-[0_0_16px_rgba(34,211,238,0.18)]"
-                      : "border-white/10 hover:border-white/20"
-                  }`}
-                >
-                  <div className="pl-4 pr-2 text-slate-400">
-                    <User className={`w-4 h-4 ${focusedField === "name" ? "text-cyan-400" : ""}`} />
-                  </div>
-                  <input
-                    type="text"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    onFocus={() => setFocusedField("name")}
-                    onBlur={() => setFocusedField(null)}
-                    placeholder="Nguyễn Văn An"
-                    className="w-full h-11 pr-4 bg-transparent text-sm font-semibold text-white placeholder-slate-500 focus:outline-none"
-                    required
-                  />
-                </div>
-              </motion.div>
-
-              {/* Phone with Carrier Badge */}
-              <motion.div variants={itemVariants} className="space-y-1.5">
-                <div className="flex items-center justify-between text-xs">
-                  <label className="font-semibold text-slate-300">
-                    Số điện thoại di động <span className="text-cyan-400">*</span>
-                  </label>
-                  <span className="text-[10px] font-bold text-cyan-400 bg-cyan-950/80 border border-cyan-500/30 px-2 py-0.5 rounded-md uppercase">
-                    {carrier}
-                  </span>
-                </div>
-                <div
-                  className={`relative rounded-2xl bg-white/[0.03] border transition-all duration-200 flex items-center ${
-                    focusedField === "phone"
-                      ? "border-cyan-400/80 bg-cyan-950/20 shadow-[0_0_16px_rgba(34,211,238,0.18)]"
-                      : "border-white/10 hover:border-white/20"
-                  }`}
-                >
-                  <span className="pl-4 pr-2 text-xs font-bold text-cyan-300/90 border-r border-white/10 select-none">
-                    🇻🇳 +84
-                  </span>
-                  <input
-                    type="tel"
-                    value={formattedPhone}
-                    onChange={(e) => {
-                      const res = formatPhoneString(e.target.value);
-                      setPhone(res.raw);
-                      setFormattedPhone(res.formatted);
-                      setCarrier(res.carrier);
-                    }}
-                    onFocus={() => setFocusedField("phone")}
-                    onBlur={() => setFocusedField(null)}
-                    placeholder="0901 234 567"
-                    className="w-full h-11 px-3 bg-transparent text-sm font-semibold text-white placeholder-slate-500 focus:outline-none"
-                    required
-                  />
-                </div>
-              </motion.div>
-
-              {/* Email */}
-              <motion.div variants={itemVariants} className="space-y-1.5">
-                <div className="flex items-center justify-between text-xs">
-                  <label className="font-semibold text-slate-300">Email (nhận hóa đơn & đơn thuốc điện tử)</label>
-                  <span className="text-[10px] text-slate-500">Tùy chọn</span>
-                </div>
-                <div
-                  className={`relative rounded-2xl bg-white/[0.03] border transition-all duration-200 flex items-center ${
-                    focusedField === "email"
-                      ? "border-cyan-400/80 bg-cyan-950/20 shadow-[0_0_16px_rgba(34,211,238,0.18)]"
-                      : "border-white/10 hover:border-white/20"
-                  }`}
-                >
-                  <div className="pl-4 pr-2 text-slate-400">
-                    <Mail className={`w-4 h-4 ${focusedField === "email" ? "text-cyan-400" : ""}`} />
-                  </div>
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    onFocus={() => setFocusedField("email")}
-                    onBlur={() => setFocusedField(null)}
-                    placeholder="ten@email.com"
-                    className="w-full h-11 pr-4 bg-transparent text-sm font-semibold text-white placeholder-slate-500 focus:outline-none"
-                  />
-                </div>
-              </motion.div>
-
-              {/* Password & Confirm Password (Grid) */}
-              <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-semibold text-slate-300">
-                    Mật khẩu <span className="text-cyan-400">*</span>
-                  </label>
-                  <div
-                    className={`relative rounded-2xl bg-white/[0.03] border transition-all duration-200 flex items-center ${
-                      focusedField === "password"
-                        ? "border-cyan-400/80 bg-cyan-950/20 shadow-[0_0_16px_rgba(34,211,238,0.18)]"
-                        : "border-white/10 hover:border-white/20"
-                    }`}
+              {/* Notification Alerts */}
+              <AnimatePresence>
+                {errorMessage && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -6 }}
+                    className="mb-5 p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-start gap-2.5 font-medium leading-relaxed"
                   >
+                    <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                    <div className="flex-1">{errorMessage}</div>
+                  </motion.div>
+                )}
+
+                {isSuccess && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="mb-5 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-start gap-2.5 font-medium leading-relaxed"
+                  >
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                    <div className="flex-1">Đăng ký thành công! Đang chuyển hướng vào hồ sơ thành viên...</div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Form Body */}
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    Họ và tên của bạn
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      placeholder="Ví dụ: Nguyễn Văn An"
+                      required
+                      className="w-full px-3.5 py-2.5 pl-10 rounded-xl bg-white border border-slate-200 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-brand-blue-600 focus:ring-4 focus:ring-brand-blue-100 transition-all font-medium"
+                    />
+                    <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                      <User className="w-4 h-4 text-brand-blue-600" />
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-xs font-bold text-slate-700">Số điện thoại</label>
+                    <span className="text-[10.5px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
+                      {carrier}
+                    </span>
+                  </div>
+                  <div className="relative">
+                    <input
+                      type="tel"
+                      value={formattedPhone}
+                      onChange={handlePhoneChange}
+                      placeholder="0901 234 567"
+                      required
+                      className="w-full px-3.5 py-2.5 pl-10 rounded-xl bg-white border border-slate-200 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-brand-blue-600 focus:ring-4 focus:ring-brand-blue-100 transition-all font-medium"
+                    />
+                    <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                      <Smartphone className="w-4 h-4 text-brand-blue-600" />
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    Email <span className="text-slate-400 font-normal">(không bắt buộc)</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="nguyenvanan@example.com"
+                      className="w-full px-3.5 py-2.5 pl-10 rounded-xl bg-white border border-slate-200 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-brand-blue-600 focus:ring-4 focus:ring-brand-blue-100 transition-all font-medium"
+                    />
+                    <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                      <Mail className="w-4 h-4 text-brand-blue-600" />
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">Mật khẩu</label>
+                  <div className="relative">
                     <input
                       type={showPassword ? "text" : "password"}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      onFocus={() => setFocusedField("password")}
-                      onBlur={() => setFocusedField(null)}
-                      placeholder="Tối thiểu 6 ký tự"
-                      className="w-full h-11 pl-4 pr-9 bg-transparent text-sm font-semibold text-white placeholder-slate-500 focus:outline-none"
+                      placeholder="Tối thiểu 6 ký tự..."
                       required
+                      className="w-full px-3.5 py-2.5 pl-10 pr-10 rounded-xl bg-white border border-slate-200 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-brand-blue-600 focus:ring-4 focus:ring-brand-blue-100 transition-all font-medium"
                     />
+                    <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                      <Lock className="w-4 h-4 text-brand-blue-600" />
+                    </div>
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-2.5 text-slate-400 hover:text-white p-1"
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors p-1"
                     >
-                      {showPassword ? <EyeOff className="w-3.5 h-3.5 text-cyan-400" /> : <Eye className="w-3.5 h-3.5" />}
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
+
+                  {/* Password strength indicator */}
+                  {password && (
+                    <div className="mt-2 flex items-center gap-2">
+                      <div className="flex-1 grid grid-cols-4 gap-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                        {[1, 2, 3, 4].map((step) => (
+                          <div
+                            key={step}
+                            className={`h-full transition-colors ${
+                              pwdStrength.score >= step ? pwdStrength.color : "bg-transparent"
+                            }`}
+                          />
+                        ))}
+                      </div>
+                      <span className={`text-[11px] font-bold ${pwdStrength.textCol}`}>
+                        {pwdStrength.text}
+                      </span>
+                    </div>
+                  )}
                 </div>
 
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-semibold text-slate-300">
-                    Xác nhận lại <span className="text-cyan-400">*</span>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    Xác nhận mật khẩu
                   </label>
-                  <div
-                    className={`relative rounded-2xl bg-white/[0.03] border transition-all duration-200 flex items-center ${
-                      focusedField === "confirmPassword"
-                        ? "border-cyan-400/80 bg-cyan-950/20 shadow-[0_0_16px_rgba(34,211,238,0.18)]"
-                        : "border-white/10 hover:border-white/20"
-                    }`}
-                  >
+                  <div className="relative">
                     <input
                       type={showConfirmPassword ? "text" : "password"}
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
-                      onFocus={() => setFocusedField("confirmPassword")}
-                      onBlur={() => setFocusedField(null)}
-                      placeholder="Nhập lại mật khẩu"
-                      className="w-full h-11 pl-4 pr-9 bg-transparent text-sm font-semibold text-white placeholder-slate-500 focus:outline-none"
+                      placeholder="Nhập lại mật khẩu..."
                       required
+                      className="w-full px-3.5 py-2.5 pl-10 pr-10 rounded-xl bg-white border border-slate-200 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-brand-blue-600 focus:ring-4 focus:ring-brand-blue-100 transition-all font-medium"
                     />
+                    <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                      <Lock className="w-4 h-4 text-brand-blue-600" />
+                    </div>
                     <button
                       type="button"
                       onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      className="absolute right-2.5 text-slate-400 hover:text-white p-1"
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors p-1"
                     >
-                      {showConfirmPassword ? <EyeOff className="w-3.5 h-3.5 text-cyan-400" /> : <Eye className="w-3.5 h-3.5" />}
+                      {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
                 </div>
-              </motion.div>
 
-              {/* Agreement checkbox */}
-              <motion.div variants={itemVariants} className="pt-1">
-                <label className="flex items-start gap-2.5 cursor-pointer text-xs text-slate-300">
-                  <input
-                    type="checkbox"
-                    checked={agreeTerms}
-                    onChange={(e) => setAgreeTerms(e.target.checked)}
-                    className="w-4 h-4 rounded border-slate-700 bg-white/5 accent-cyan-500 mt-0.5 cursor-pointer"
-                  />
-                  <span className="leading-snug">
-                    Tôi đồng ý với{" "}
-                    <span className="text-cyan-300 hover:underline">Điều khoản dịch vụ</span> &{" "}
-                    <span className="text-cyan-300 hover:underline">Chính sách bảo mật y tế H4CARE</span>.
-                  </span>
-                </label>
-              </motion.div>
+                <div className="pt-1">
+                  <label className="flex items-start gap-2.5 cursor-pointer select-none text-xs text-slate-600 leading-snug">
+                    <input
+                      type="checkbox"
+                      checked={agreeTerms}
+                      onChange={(e) => setAgreeTerms(e.target.checked)}
+                      className="w-4 h-4 mt-0.5 rounded text-brand-blue-600 border-slate-300 focus:ring-brand-blue-500"
+                    />
+                    <span>
+                      Tôi đồng ý với{" "}
+                      <span className="text-brand-blue-600 font-semibold">Điều khoản dịch vụ</span> &{" "}
+                      <span className="text-brand-blue-600 font-semibold">Chính sách bảo mật y tế</span>{" "}
+                      của PharmaTrust.
+                    </span>
+                  </label>
+                </div>
 
-              {/* Signature Liquid Metal Button */}
-              <motion.div variants={itemVariants} className="pt-3">
-                <LiquidMetalButton type="submit" isLoading={isSubmitting} isSuccess={isSuccess}>
-                  Tạo tài khoản H4CARE
-                </LiquidMetalButton>
-              </motion.div>
-            </form>
+                <button
+                  type="submit"
+                  disabled={isSubmitting || isSuccess}
+                  className="w-full py-3 px-4 rounded-xl bg-brand-blue-600 hover:bg-brand-blue-700 text-white font-bold text-sm shadow-depth-1 hover:shadow-depth-2 transition-all flex items-center justify-center gap-2 active:scale-[0.99] disabled:opacity-60 cursor-pointer"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Đang khởi tạo tài khoản...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Đăng ký tài khoản</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </>
+                  )}
+                </button>
+              </form>
 
-            {/* Bottom Login Link */}
-            <motion.div
-              variants={itemVariants}
-              className="mt-6 pt-5 border-t border-white/[0.08] text-center text-xs text-slate-400"
-            >
-              Đã có tài khoản H4CARE?{" "}
-              <Link
-                href="/login"
-                className="font-extrabold text-cyan-300 hover:text-cyan-200 hover:underline transition-colors"
-              >
-                Đăng nhập ngay
-              </Link>
-            </motion.div>
+              {/* Login link */}
+              <div className="mt-6 text-center text-xs text-slate-600">
+                Đã có tài khoản thành viên?{" "}
+                <Link
+                  href="/login"
+                  className="font-bold text-brand-blue-600 hover:text-brand-blue-800 hover:underline"
+                >
+                  Đăng nhập tại đây
+                </Link>
+              </div>
+
+            </div>
           </div>
-        </motion.div>
+        </div>
       </main>
 
-      {/* Footer */}
-      <footer className="relative z-20 w-full py-4 text-center text-[11px] text-slate-500">
-        <p>H4CARE • “Chăm sóc sức khỏe, bắt đầu từ sự thấu hiểu.” • Bản quyền thuộc H4CARE</p>
+      {/* Global Academic & Healthcare Trust Subtext */}
+      <footer className="w-full text-center py-4 text-[11px] text-slate-400 select-none">
+        <span>Hệ thống Quản lý Dữ liệu Thuốc & Bán lẻ Dược phẩm PharmaTrust • Định hướng chuẩn GPP & GSP</span>
       </footer>
     </div>
   );

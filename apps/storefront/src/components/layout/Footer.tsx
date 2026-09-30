@@ -8,123 +8,144 @@ import { PhoneCall, ShieldCheck, Heart, MapPin, Mail, ExternalLink } from "lucid
 
 export const Footer: React.FC = () => {
   return (
-    <footer className="mt-auto border-t border-slate-200/90 bg-slate-950 text-slate-400 text-xs select-none">
+    <footer className="mt-auto bg-[#0b1329] border-t border-slate-800 text-slate-300 text-xs select-none">
       {/* Upper Main Footer Grid */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8 lg:gap-6">
-          {/* Col 1 & 2: Brand Identity & Vision */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8 lg:gap-8">
+          {/* Col 1 & 2: Brand Identity, Vision & Trust */}
           <div className="lg:col-span-2 space-y-4">
             <H4CareLogo variant="white" size="md" withTagline={true} />
-            <p className="text-slate-400 text-xs leading-relaxed max-w-sm mt-3">
+            <p className="text-slate-300/90 text-xs leading-relaxed max-w-sm mt-3">
               Nền tảng tra cứu và tiếp cận dược phẩm số hóa hiện đại. Hỗ trợ tư vấn chuyên môn Dược khoa, cung cấp thông tin minh bạch theo định hướng tiêu chuẩn Thực hành Tốt (GPP & GSP).
             </p>
 
-            {/* Academic Credential Badge */}
-            <div className="pt-2">
+            {/* Academic Credential & Medical Standards Badge */}
+            <div className="pt-1 flex flex-wrap items-center gap-2">
               <FptPolyBadge variant="dark" />
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-900/80 border border-slate-800 text-[10px] text-slate-300 font-medium">
+                <ShieldCheck className="w-3 h-3 text-brand-emerald-400" />
+                <span>Định hướng chuẩn GPP / GSP</span>
+              </div>
             </div>
 
-            {/* Hotline consultation pill */}
-            <div className="pt-2 flex items-center gap-3">
+            {/* Hotline consultation card */}
+            <div className="pt-2">
               <a
                 href="tel:18006868"
-                className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 hover:border-brand-blue-500/50 text-cyan-400 hover:text-white transition-colors"
+                className="inline-flex items-center gap-3 px-4 py-2.5 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-cyan-400/50 hover:bg-slate-900 text-slate-200 transition-all duration-150 group shadow-xs"
               >
-                <PhoneCall className="w-3.5 h-3.5" />
-                <span className="text-xs font-bold">1800 6868 (Tư vấn Dược sĩ)</span>
+                <div className="w-8 h-8 rounded-lg bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 flex items-center justify-center group-hover:scale-105 transition-transform">
+                  <PhoneCall className="w-4 h-4" />
+                </div>
+                <div>
+                  <span className="text-[10.5px] text-slate-400 block font-medium">Tổng đài Dược sĩ 24/7 (Miễn phí)</span>
+                  <span className="text-xs font-bold text-cyan-300 tracking-wide group-hover:text-white transition-colors">1800 6868</span>
+                </div>
               </a>
             </div>
           </div>
 
           {/* Col 3: Danh Mục Dược Phẩm */}
-          <div className="space-y-3">
-            <h4 className="text-slate-200 font-bold text-xs uppercase tracking-wider">
+          <div className="space-y-3.5">
+            <h4 className="text-white font-bold text-xs uppercase tracking-wider flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-brand-blue-500" />
               Danh Mục Sản Phẩm
             </h4>
-            <ul className="space-y-2 text-slate-400 text-xs">
+            <ul className="space-y-2 text-slate-300 text-xs">
               <li>
-                <Link href="/category/thuoc-khong-ke-don" className="hover:text-white transition-colors">
+                <Link href="/category/thuoc-khong-ke-don" className="hover:text-cyan-300 transition-colors inline-block hover:translate-x-0.5 transform duration-150">
                   Thuốc Không Kê Đơn (OTC)
                 </Link>
               </li>
               <li>
-                <Link href="/category/thuoc-ke-don" className="hover:text-white transition-colors">
+                <Link href="/category/thuoc-ke-don" className="hover:text-cyan-300 transition-colors inline-block hover:translate-x-0.5 transform duration-150">
                   Thuốc Kê Đơn (Rx)
                 </Link>
               </li>
               <li>
-                <Link href="/category/thuc-pham-chuc-nang" className="hover:text-white transition-colors">
+                <Link href="/category/thuc-pham-chuc-nang" className="hover:text-cyan-300 transition-colors inline-block hover:translate-x-0.5 transform duration-150">
                   Vitamin & Thực Phẩm Chức Năng
                 </Link>
               </li>
               <li>
-                <Link href="/category/thiet-bi-y-te" className="hover:text-white transition-colors">
+                <Link href="/category/thiet-bi-y-te" className="hover:text-cyan-300 transition-colors inline-block hover:translate-x-0.5 transform duration-150">
                   Thiết Bị Y Tế & Chăm Sóc
                 </Link>
               </li>
-              <li>
-                <Link href="/products" className="hover:text-cyan-400 transition-colors font-medium">
-                  Tất cả sản phẩm →
+              <li className="pt-1">
+                <Link href="/products" className="text-cyan-400 hover:text-cyan-300 font-semibold transition-colors inline-flex items-center gap-1">
+                  <span>Tất cả sản phẩm</span>
+                  <span>→</span>
                 </Link>
               </li>
             </ul>
           </div>
 
-          {/* Col 4: Dịch Vụ & Hỗ Trợ */}
-          <div className="space-y-3">
-            <h4 className="text-slate-200 font-bold text-xs uppercase tracking-wider">
+          {/* Col 4: Dịch Vụ Khách Hàng & Tiêu Chuẩn */}
+          <div className="space-y-3.5">
+            <h4 className="text-white font-bold text-xs uppercase tracking-wider flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
               Dịch Vụ Khách Hàng
             </h4>
-            <ul className="space-y-2 text-slate-400 text-xs">
+            <ul className="space-y-2 text-slate-300 text-xs">
               <li>
-                <Link href="/category/thuoc-ke-don" className="hover:text-white transition-colors">
+                <Link href="/category/thuoc-ke-don" className="hover:text-cyan-300 transition-colors inline-block hover:translate-x-0.5 transform duration-150">
                   Gửi đơn thuốc Bác sĩ
                 </Link>
               </li>
               <li>
-                <span className="text-slate-500">Tra cứu đơn thuốc điện tử</span>
+                <span className="text-slate-400 hover:text-slate-300 transition-colors cursor-default">
+                  Tra cứu đơn thuốc điện tử
+                </span>
               </li>
               <li>
-                <span className="text-slate-500">Chính sách giao nhận chuẩn GSP</span>
+                <span className="text-slate-400 hover:text-slate-300 transition-colors cursor-default">
+                  Chính sách giao nhận chuẩn GSP
+                </span>
               </li>
               <li>
-                <span className="text-slate-500">Chính sách đổi trả linh hoạt</span>
+                <span className="text-slate-400 hover:text-slate-300 transition-colors cursor-default">
+                  Chính sách đổi trả linh hoạt
+                </span>
               </li>
               <li>
-                <span className="text-slate-500">Bảo mật thông tin bệnh án</span>
+                <span className="text-slate-400 hover:text-slate-300 transition-colors cursor-default">
+                  Bảo mật thông tin bệnh án
+                </span>
               </li>
             </ul>
           </div>
 
           {/* Col 5: Về Dự Án & Học Thuật */}
-          <div className="space-y-3">
-            <h4 className="text-slate-200 font-bold text-xs uppercase tracking-wider">
+          <div className="space-y-3.5">
+            <h4 className="text-white font-bold text-xs uppercase tracking-wider flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
               Thông Tin Đồ Án
             </h4>
-            <ul className="space-y-2 text-slate-400 text-xs">
+            <ul className="space-y-2.5 text-slate-300 text-xs">
               <li>
-                <span className="text-slate-300 font-medium block">
+                <span className="text-white font-semibold block">
                   FPT Polytechnic
                 </span>
-                <span className="text-slate-500 text-[11px]">
+                <span className="text-slate-400 text-[11px] block mt-0.5">
                   Khoa Công Nghệ Thông Tin
                 </span>
               </li>
-              <li className="pt-1">
-                <span className="text-slate-400 block text-[11px]">
+              <li className="pt-1 border-t border-slate-800/80">
+                <span className="text-slate-400 block text-[11px] mb-1">
                   Nhóm sinh viên thực hiện:
                 </span>
-                <span className="text-slate-300 font-medium">
+                <span className="text-cyan-300 font-medium text-[11.5px] bg-slate-900/90 px-2 py-1 rounded-md border border-slate-800 inline-block">
                   Hùng • Đức Anh • Hoàn • Cường
                 </span>
               </li>
-              <li className="pt-2">
+              <li className="pt-1.5">
                 <Link
                   href="/about-project"
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-cyan-400 hover:text-cyan-300 text-[11px] font-semibold border border-slate-800 transition-colors"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-cyan-400 hover:text-white text-[11px] font-semibold border border-slate-800 hover:border-slate-700 transition-colors shadow-xs"
                 >
                   <span>Hồ sơ & Báo cáo kỹ thuật</span>
-                  <ExternalLink className="w-3 h-3" />
+                  <ExternalLink className="w-3 h-3 text-cyan-400" />
                 </Link>
               </li>
             </ul>
@@ -133,16 +154,16 @@ export const Footer: React.FC = () => {
       </div>
 
       {/* Bottom Legal & Ethical Standards Ribbon */}
-      <div className="border-t border-slate-900 bg-slate-950 py-5">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-slate-500">
+      <div className="border-t border-slate-800/90 bg-[#060a16] py-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-slate-400">
           <div className="flex items-center gap-2 text-center sm:text-left">
-            <ShieldCheck className="w-4 h-4 text-brand-emerald-500 shrink-0" />
+            <ShieldCheck className="w-4 h-4 text-brand-emerald-400 shrink-0" />
             <span>
               © 2026 H4CARE. Dự án mô phỏng E-Commerce Dược Phẩm Cao Cấp • Tuân thủ chuẩn thông tin y tế.
             </span>
           </div>
 
-          <div className="text-slate-400 text-[11px]">
+          <div className="text-slate-400 text-[11px] font-medium">
             Đồ án tốt nghiệp • FPT Polytechnic
           </div>
         </div>

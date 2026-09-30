@@ -7,23 +7,27 @@ from urllib.parse import urljoin, urlparse
 import httpx
 from bs4 import BeautifulSoup
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, HttpUrl
 from sqlalchemy import select
 
 from app.api.deps import get_current_user, require_roles
-from app.core.config import settings
 from app.db.session import SessionLocal
 from app.models import (
     AdminAlert,
     CanonicalProduct,
+    CrawlLock,
     DataSource,
     FailedCrawlItem,
     Ingredient,
     PriceObservation,
+    ProductCandidate,
     ProductIngredient,
+    ProductSourceField,
+    RawDocument,
+    RegulatoryRecord,
     User,
 )
-from app.models.enums import PublishStatus, RegulatoryStatus, RxOtcStatus, SourceType, UserRole
+from app.models.enums import ProcessingStatus, PublishStatus, RegulatoryStatus, RxOtcStatus, SourceType, UserRole
 from app.services.crawler import (
     FetchResult,
     LongChauAdapter,
@@ -516,7 +520,7 @@ def scrape_page(payload: ScrapePageRequest, current_user: User = Depends(get_cur
                 resp = httpx.get(single_url, headers=headers, timeout=15)
                 soup = BeautifulSoup(resp.text, "html.parser")
                 links = [urljoin(single_url, a["href"]) for a in soup.find_all("a", href=True)]
-                prod_links = list(set([lnk for lnk in links if any(k in lnk for k in [".html", "/thuoc", "/san-pham/"])]))[:limit]
+                prod_links = list(set([l for l in links if any(k in l for k in [".html", "/thuoc", "/san-pham/"])]))[:limit]
 
                 if prod_links:
                     for pu in prod_links:
@@ -1302,7 +1306,7 @@ def list_failed_items(current_user: User = Depends(get_current_user)):
     db = SessionLocal()
     try:
         items = db.scalars(
-            select(FailedCrawlItem).where(FailedCrawlItem.resolved.is_(False)).order_by(FailedCrawlItem.id.desc()).limit(30)
+            select(FailedCrawlItem).where(FailedCrawlItem.resolved == False).order_by(FailedCrawlItem.id.desc()).limit(30)
         ).all()
         return [
             {
@@ -1325,6 +1329,7 @@ def retry_failed_item(item_id: int, admin: User = Depends(require_roles(UserRole
     """
     Thử lại một item bị lỗi mà không cần cào lại toàn bộ nguồn.
     """
+    from app.services.crawler_pipeline import execute_crawl_pipeline
     db = SessionLocal()
     try:
         item = db.get(FailedCrawlItem, item_id)

@@ -35,19 +35,19 @@ export const ProductSortBar: React.FC<ProductSortBarProps> = ({
   ];
 
   return (
-    <div className="w-full bg-white rounded-2xl border border-slate-200/80 p-3 shadow-sm flex flex-wrap items-center justify-between gap-3">
+    <div className="w-full bg-white rounded-2xl border border-slate-200 p-3 shadow-xs flex flex-wrap items-center justify-between gap-3">
       {/* Left: Total products found & Mobile filter trigger */}
       <div className="flex items-center gap-3">
         <button
           onClick={onOpenMobileFilter}
-          className="lg:hidden inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 active:scale-95 transition-all"
+          className="lg:hidden inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 active:scale-95 transition-all shadow-xs"
         >
           <SlidersHorizontal className="w-4 h-4 text-brand-blue-600" />
           <span>Bộ Lọc</span>
         </button>
 
         <span className="text-xs text-slate-600 font-medium">
-          Tìm thấy <span className="font-bold text-brand-blue-700">{total}</span> sản phẩm dược phẩm
+          Tìm thấy <span className="font-extrabold text-brand-blue-600">{total}</span> sản phẩm dược phẩm
         </span>
       </div>
 

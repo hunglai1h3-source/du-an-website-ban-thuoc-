@@ -1,10 +1,11 @@
 export interface AuthUser {
-  id: string;
+  id: string | number;
   fullName: string;
   phone: string;
   email?: string;
   avatarUrl?: string;
-  role: "Hội viên" | "Hội viên Thân thiết" | "Hội viên VIP";
+  role: "ADMIN" | "DATA_REVIEWER" | "CUSTOMER" | "Hội viên" | "Hội viên Thân thiết" | "Hội viên VIP" | string;
+  isAdmin?: boolean;
   points?: number;
   createdAt?: string;
 }
@@ -52,10 +53,11 @@ export interface FormErrorState {
 export interface AuthContextType {
   user: AuthUser | null;
   isAuthenticated: boolean;
+  isAdmin: boolean;
   isLoading: boolean;
-  loginWithPhone: (phone: string, otp: string) => Promise<{ success: boolean; error?: string }>;
-  loginWithPassword: (identifier: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  loginWithPhone: (phone: string, otp: string) => Promise<{ success: boolean; error?: string; user?: AuthUser }>;
+  loginWithPassword: (identifier: string, password: string) => Promise<{ success: boolean; error?: string; user?: AuthUser }>;
   sendPhoneOtp: (phone: string) => Promise<{ success: boolean; error?: string }>;
-  register: (data: Partial<RegisterFormState>) => Promise<{ success: boolean; error?: string }>;
+  register: (data: Partial<RegisterFormState>) => Promise<{ success: boolean; error?: string; user?: AuthUser }>;
   logout: () => void;
 }

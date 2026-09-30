@@ -2,7 +2,7 @@ import re
 import unicodedata
 from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.db.session import get_db
@@ -60,12 +60,17 @@ def determine_category_and_subcategory(product: CanonicalProduct) -> tuple[str, 
     return cat_slug, cat_name, sub_cat
 
 
-def serialize_product(product: CanonicalProduct, price: int | None = None) -> dict[str, Any]:
+def serialize_product(
+    product: CanonicalProduct,
+    price: int | None = None,
+    rating: float = 0.0,
+    review_count: int = 0,
+) -> dict[str, Any]:
     cat_slug, cat_name, sub_cat = determine_category_and_subcategory(product)
     
-    # Resolve price
-    final_price = price or 50000
-    sale_price = int(final_price * 0.95) if final_price > 80000 else None
+    # Resolve price from actual DB data (no 50,000 VND fallback)
+    final_price = price if price is not None else 0
+    sale_price = int(final_price * 0.95) if (final_price and final_price > 80000) else None
 
     # Ingredients string
     ing_names = []
@@ -125,9 +130,9 @@ def serialize_product(product: CanonicalProduct, price: int | None = None) -> di
         "sideEffects": product.side_effects or "Thông báo ngay cho bác sĩ hoặc dược sĩ nếu gặp phải bất kỳ tác dụng phụ không mong muốn nào.",
         "precautions": "Đọc kỹ hướng dẫn sử dụng trước khi dùng. Không tự ý tăng liều. Để xa tầm tay trẻ em.",
         "storage": product.storage_conditions or "Bảo quản nơi khô ráo, thoáng mát, nhiệt độ dưới 30°C, tránh ánh sáng trực tiếp.",
-        "stock": 100,
-        "rating": round(4.8 + ((product.id % 3) * 0.1), 1),
-        "reviewCount": 28 + ((product.id * 11) % 180),
+        "stock": 0,
+        "rating": rating,
+        "reviewCount": review_count,
         "isPrescription": is_rx,
         "isFeatured": product.id in featured_ids,
         "isBestSeller": product.id in bestseller_ids,
@@ -139,7 +144,7 @@ def serialize_product(product: CanonicalProduct, price: int | None = None) -> di
 def get_store_products(
     category: str | None = None,
     subCategory: str | None = None,
-    prescriptionType: str = Query("all", pattern="^(all|otc|rx)$"),
+    prescriptionType: str = Query("otc", regex="^(all|otc|rx)$"),
     search: str | None = None,
     sort: str = "popular",
     limit: int = Query(150, ge=1, le=300),
@@ -184,6 +189,7 @@ def get_store_products(
     # Pre-fetch prices
     prod_ids = [p.id for p in products]
     prices_map: dict[int, int] = {}
+    reviews_map: dict[int, tuple[float, int]] = {}
     if prod_ids:
         price_rows = db.query(PriceObservation.product_id, PriceObservation.observed_price).filter(
             PriceObservation.product_id.in_(prod_ids)
@@ -192,9 +198,22 @@ def get_store_products(
             if pid not in prices_map and pval is not None:
                 prices_map[pid] = int(pval)
 
+        from app.models.inventory import ProductReview
+        rev_rows = db.query(
+            ProductReview.canonical_product_id,
+            func.avg(ProductReview.rating),
+            func.count(ProductReview.id),
+        ).filter(
+            ProductReview.canonical_product_id.in_(prod_ids),
+            ProductReview.is_approved == True,
+        ).group_by(ProductReview.canonical_product_id).all()
+        for pid, avg_r, cnt in rev_rows:
+            reviews_map[pid] = (round(float(avg_r), 1) if avg_r else 0.0, int(cnt) if cnt else 0)
+
     serialized = []
     for p in products:
-        item = serialize_product(p, price=prices_map.get(p.id))
+        r_val, r_cnt = reviews_map.get(p.id, (0.0, 0))
+        item = serialize_product(p, price=prices_map.get(p.id), rating=r_val, review_count=r_cnt)
         
         # Category filters in memory
         if category and item["category"] != category:
@@ -284,7 +303,19 @@ def get_store_product_detail(slug_or_id: str, db: Session = Depends(get_db)):
     ).first()
     price_val = int(price_row[0]) if (price_row and price_row[0] is not None) else None
 
-    return serialize_product(product, price=price_val)
+    # Fetch real review stats
+    from app.models.inventory import ProductReview
+    rev_row = db.query(
+        func.avg(ProductReview.rating),
+        func.count(ProductReview.id),
+    ).filter(
+        ProductReview.canonical_product_id == product.id,
+        ProductReview.is_approved == True,
+    ).first()
+    p_rating = round(float(rev_row[0]), 1) if (rev_row and rev_row[0] is not None) else 0.0
+    p_count = int(rev_row[1]) if (rev_row and rev_row[1] is not None) else 0
+
+    return serialize_product(product, price=price_val, rating=p_rating, review_count=p_count)
 
 
 @router.get("/categories")

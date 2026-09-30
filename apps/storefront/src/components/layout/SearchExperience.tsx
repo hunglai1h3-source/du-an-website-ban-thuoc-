@@ -117,10 +117,10 @@ export const SearchExperience: React.FC<SearchExperienceProps> = ({
     <div ref={containerRef} className={`relative w-full ${className}`}>
       {/* Search Input Bar */}
       <div
-        className={`relative flex items-center w-full transition-all duration-200 rounded-2xl ${
+        className={`relative flex items-center w-full transition-all duration-200 rounded-xl ${
           isOpen
-            ? "ring-2 ring-brand-blue-500/80 shadow-depth-2 bg-white"
-            : "bg-slate-100/90 hover:bg-slate-100/70 border border-slate-200/80 shadow-sm"
+            ? "ring-2 ring-brand-blue-500 shadow-depth-2 bg-white border border-brand-blue-500"
+            : "bg-slate-50 hover:bg-slate-100/80 border border-slate-200 shadow-xs"
         }`}
       >
         <div className="pl-4 pr-2 text-slate-400">
@@ -170,72 +170,78 @@ export const SearchExperience: React.FC<SearchExperienceProps> = ({
             initial={{ opacity: 0, y: 6, scale: 0.99 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 4, scale: 0.99 }}
-            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-            className={`absolute left-0 right-0 mt-2 z-50 rounded-2xl bg-white/98 backdrop-blur-xl border border-slate-200/90 shadow-depth-3 overflow-hidden ${
+            transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
+            style={{ backgroundColor: "#ffffff" }}
+            className={`absolute left-0 right-0 mt-2 z-[100] rounded-2xl bg-white border border-slate-200 shadow-2xl overflow-hidden ${
               isMobileModal ? "static mt-4 shadow-none border-0" : "max-h-[560px] overflow-y-auto"
             }`}
           >
-            <div className="p-4 divide-y divide-slate-100">
+            <div className="p-4 divide-y divide-slate-100 bg-white">
               {/* 1. Live Search Results if typing */}
               {debouncedQuery ? (
-                <div className="pb-3">
-                  <div className="flex items-center justify-between mb-2.5">
-                    <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                <div className="pb-3 bg-white">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600 uppercase tracking-wider">
                       <Search className="w-3.5 h-3.5 text-brand-blue-600" />
                       <span>Kết quả tìm kiếm cho &ldquo;{query}&rdquo;</span>
                     </div>
-                    <span className="text-[11px] font-semibold text-brand-blue-600">
+                    <span className="text-[11px] font-bold text-brand-blue-600 bg-brand-blue-50 px-2 py-0.5 rounded-full border border-brand-blue-100">
                       {liveResults.length} sản phẩm
                     </span>
                   </div>
 
                   {liveResults.length > 0 ? (
                     <div className="space-y-2">
-                      {liveResults.map((prod) => (
-                        <div
-                          key={prod.id}
-                          onClick={() => handleSelectProduct(prod)}
-                          className="flex items-center gap-3 p-2.5 rounded-xl border border-slate-100 hover:border-brand-blue-200 hover:bg-brand-blue-50/40 cursor-pointer transition-all duration-150 group"
-                        >
-                          <div className="w-12 h-12 rounded-lg bg-slate-50 border border-slate-200/80 overflow-hidden shrink-0 flex items-center justify-center p-1">
-                            <img
-                              src={prod.images[0]}
-                              alt={prod.name}
-                              className="w-full h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-200"
-                            />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-1.5 mb-0.5">
-                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate">
-                                {prod.brand}
-                              </span>
-                              {prod.isPrescription ? (
-                                <span className="text-[9px] font-bold text-rose-700 bg-rose-50 px-1.5 py-0.2 rounded border border-rose-200">
-                                  Thuốc kê đơn (Rx)
-                                </span>
-                              ) : (
-                                <span className="text-[9px] font-semibold text-brand-blue-600 bg-brand-blue-50 px-1.5 py-0.2 rounded">
-                                  {prod.categoryName}
-                                </span>
-                              )}
+                      {liveResults.map((prod) => {
+                        const safeBrand = !prod.brand || prod.brand.includes("{") || prod.brand.includes('"') || prod.brand.length > 40
+                          ? "Dược Phẩm Chính Hãng"
+                          : prod.brand;
+                        return (
+                          <div
+                            key={prod.id}
+                            onClick={() => handleSelectProduct(prod)}
+                            className="flex items-center gap-3 p-3 rounded-xl border border-slate-200/90 bg-white hover:border-brand-blue-400 hover:bg-brand-blue-50/50 cursor-pointer transition-all duration-150 group shadow-xs"
+                          >
+                            <div className="w-12 h-12 rounded-lg bg-slate-50 border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center p-1">
+                              <img
+                                src={prod.images[0]}
+                                alt={prod.name}
+                                className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-200"
+                              />
                             </div>
-                            <h4 className="text-xs font-semibold text-slate-800 line-clamp-1 group-hover:text-brand-blue-600 transition-colors">
-                              {prod.name}
-                            </h4>
-                            <div className="flex items-baseline gap-2 mt-0.5">
-                              <span className="text-xs font-black text-brand-blue-700">
-                                {formatVND(prod.salePrice || prod.price)}
-                              </span>
-                              {prod.salePrice && (
-                                <span className="text-[10px] text-slate-400 line-through">
-                                  {formatVND(prod.price)}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5 mb-1">
+                                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider truncate max-w-[160px] inline-block">
+                                  {safeBrand}
                                 </span>
-                              )}
+                                {prod.isPrescription ? (
+                                  <span className="text-[9px] font-bold text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200">
+                                    Thuốc kê đơn (Rx)
+                                  </span>
+                                ) : (
+                                  <span className="text-[9px] font-semibold text-brand-blue-700 bg-brand-blue-50 px-1.5 py-0.5 rounded border border-brand-blue-100">
+                                    {prod.categoryName}
+                                  </span>
+                                )}
+                              </div>
+                              <h4 className="text-xs font-bold text-slate-900 line-clamp-1 group-hover:text-brand-blue-600 transition-colors">
+                                {prod.name}
+                              </h4>
+                              <div className="flex items-baseline gap-2 mt-1">
+                                <span className="text-xs font-black text-brand-blue-700">
+                                  {formatVND(prod.salePrice || prod.price)}
+                                </span>
+                                {prod.salePrice && (
+                                  <span className="text-[10px] text-slate-400 line-through">
+                                    {formatVND(prod.price)}
+                                  </span>
+                                )}
+                              </div>
                             </div>
+                            <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-brand-blue-600 group-hover:translate-x-1 transition-all shrink-0" />
                           </div>
-                          <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-brand-blue-600 group-hover:translate-x-1 transition-all shrink-0" />
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   ) : (
                     <div className="py-6 text-center text-slate-500 space-y-2">
