@@ -36,7 +36,7 @@ function LoginContent() {
   useEffect(() => {
     if (isAuthenticated) {
       if (user?.isAdmin) {
-        redirectToAdminPortal();
+        router.push("/admin");
       } else {
         router.push(redirectUrl);
       }
@@ -128,10 +128,11 @@ function LoginContent() {
       }
       const isTargetAdmin = result.user?.isAdmin;
       if (isTargetAdmin) {
-        setSuccessMessage("Đăng nhập Quản trị viên thành công! Đang chuyển hướng vào Cổng Quản Trị...");
+        setSuccessMessage("Đăng nhập Quản trị viên thành công! Đang mở Cổng Quản Trị trong tab mới...");
+        redirectToAdminPortal("", true);
         setTimeout(() => {
-          redirectToAdminPortal();
-        }, 500);
+          router.push("/");
+        }, 800);
       } else {
         setSuccessMessage(`Chào mừng trở lại, ${result.user?.fullName}!`);
         setTimeout(() => {
@@ -184,10 +185,11 @@ function LoginContent() {
       setIsSuccess(true);
       const isTargetAdmin = res.user?.isAdmin;
       if (isTargetAdmin) {
-        setSuccessMessage("Đăng nhập Quản trị viên thành công! Đang chuyển hướng vào Cổng Quản Trị...");
+        setSuccessMessage("Đăng nhập Quản trị viên thành công! Đang mở Cổng Quản Trị trong tab mới...");
+        redirectToAdminPortal("", true);
         setTimeout(() => {
-          redirectToAdminPortal();
-        }, 500);
+          router.push("/");
+        }, 800);
       } else {
         setSuccessMessage(`Chào mừng trở lại, ${res.user?.fullName}!`);
         setTimeout(() => {

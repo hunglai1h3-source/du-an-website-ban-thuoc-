@@ -223,12 +223,12 @@ export const Header: React.FC<HeaderProps> = ({ onReplayIntro }) => {
                             type="button"
                             onClick={() => {
                               setIsAccountDropdownOpen(false);
-                              redirectToAdminPortal();
+                              redirectToAdminPortal("", true);
                             }}
                             className="w-full text-left flex items-center gap-2 px-4 py-2 text-brand-blue-700 hover:bg-blue-100/70 font-bold text-xs"
                           >
                             <ShieldCheck className="w-4 h-4 text-brand-blue-600" />
-                            <span>Cổng Quản Trị Hệ Thống</span>
+                            <span>Cổng Quản Trị Hệ Thống (Tab Mới)</span>
                           </button>
                           <Link
                             href="/admin"

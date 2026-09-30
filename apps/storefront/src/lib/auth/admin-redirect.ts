@@ -25,26 +25,34 @@ export function getAdminPortalUrl(preferredPort: 5173 | 8000 = 5173, path = ""):
 }
 
 /**
- * Actively checks which admin port is alive (5173 Vite dev server or 8000 FastAPI SPA)
+ * Actively checks which admin port is alive (8000 FastAPI SPA or 5173 Vite dev server)
  * and navigates to it with the credentials query attached.
+ * If openInNewTab is true, opens in a new browser tab.
  */
-export async function redirectToAdminPortal(path = ""): Promise<void> {
+export async function redirectToAdminPortal(path = "", openInNewTab = false): Promise<void> {
   if (typeof window === "undefined") return;
 
   const query = getAdminAuthQuery();
   const cleanPath = path ? (path.startsWith("/") ? path : `/${path}`) : "/";
 
-  // Check port 5173 first with 400ms timeout
-  let targetUrl = `http://localhost:5173${cleanPath}${query}`;
+  // Check port 5173 first with 300ms timeout
+  let targetUrl = `http://localhost:8000${cleanPath}${query}`;
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 400);
+    const timeoutId = setTimeout(() => controller.abort(), 300);
     await fetch("http://localhost:5173/", { mode: "no-cors", signal: controller.signal });
     clearTimeout(timeoutId);
+    targetUrl = `http://localhost:5173${cleanPath}${query}`;
   } catch {
-    // Port 5173 is offline or blocked, fallback to Port 8000
     targetUrl = `http://localhost:8000${cleanPath}${query}`;
   }
 
-  window.location.href = targetUrl;
+  if (openInNewTab) {
+    const newWindow = window.open(targetUrl, "_blank");
+    if (!newWindow) {
+      window.location.href = targetUrl;
+    }
+  } else {
+    window.location.href = targetUrl;
+  }
 }

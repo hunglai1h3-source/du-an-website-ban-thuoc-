@@ -241,7 +241,7 @@ export default function AdminPortalPage() {
           {/* Direct Full-Screen Open Button */}
           <button
             type="button"
-            onClick={() => redirectToAdminPortal(activeTab)}
+            onClick={() => redirectToAdminPortal(activeTab, true)}
             className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-brand-blue-600 hover:bg-brand-blue-700 active:bg-brand-blue-800 text-white text-xs font-bold transition-colors shadow-xs"
             title="Mở toàn màn hình Cổng Quản Trị Hệ Thống"
           >
@@ -301,7 +301,7 @@ export default function AdminPortalPage() {
                     key={mod.id}
                     onClick={() => {
                       setActiveTab(mod.id);
-                      redirectToAdminPortal(mod.id);
+                      redirectToAdminPortal(mod.id, true);
                     }}
                     className="group bg-white rounded-2xl p-5 border border-slate-200 hover:border-brand-blue-300 hover:shadow-sm transition-all duration-200 cursor-pointer flex flex-col justify-between"
                   >
@@ -374,7 +374,7 @@ export default function AdminPortalPage() {
               </button>
 
               <button
-                onClick={() => redirectToAdminPortal(activeTab)}
+                onClick={() => redirectToAdminPortal(activeTab, true)}
                 className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors"
               >
                 <span>Mở Tab Riêng</span>
