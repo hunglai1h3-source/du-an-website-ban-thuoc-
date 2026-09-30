@@ -66,15 +66,29 @@ def match_products(candidate: dict, product: dict) -> MatchResult:
     cand_ingredients = _ingredient_map(candidate.get("ingredients", []))
     product_ingredients = _ingredient_map(product.get("ingredients", []))
     if cand_ingredients and product_ingredients:
-        # Kiểm tra giao tập hoạt chất
-        common_ings = set(cand_ingredients).intersection(set(product_ingredients))
-        if common_ings:
-            score += 0.2
-            reasons.append("ingredient_strength_match")
-        elif set(cand_ingredients) != set(product_ingredients):
+        cand_names = set(cand_ingredients.keys())
+        prod_names = set(product_ingredients.keys())
+        common_names = cand_names.intersection(prod_names)
+
+        if not common_names:
             conflicts.append("ingredient_conflict")
         else:
-            conflicts.append("strength_conflict")
+            has_strength_conflict = False
+            for name in common_names:
+                c_str = cand_ingredients[name]
+                p_str = product_ingredients[name]
+                if c_str and p_str and c_str != p_str:
+                    has_strength_conflict = True
+                    break
+
+            if has_strength_conflict:
+                conflicts.append("strength_conflict")
+            else:
+                score += 0.2
+                reasons.append("ingredient_strength_match")
+
+            if cand_names != prod_names:
+                conflicts.append("ingredient_conflict")
 
     manufacturer_score = ratio(
         normalize_for_match(candidate.get("manufacturer")),

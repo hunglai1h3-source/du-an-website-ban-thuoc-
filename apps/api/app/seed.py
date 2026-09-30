@@ -4,6 +4,7 @@ from app.core.security import hash_password
 from app.db.base import Base
 from app.db.session import SessionLocal, engine
 from app.models import (
+    AdministrativeUnit,
     CanonicalProduct,
     DataConflict,
     DataSource,
@@ -83,7 +84,54 @@ REAL_SOURCES = [
         None,
         "Dữ liệu thuốc chính thức do quản trị viên tải lên từ tệp.",
     ),
+    (
+        "MANUAL",
+        "Nhập tệp dữ liệu thủ công (CSV / Excel / PDF)",
+        SourceType.MANUAL_UPLOAD,
+        4,
+        0.85,
+        None,
+        "Dữ liệu thuốc chính thức do quản trị viên tải lên từ tệp.",
+    ),
 ]
+
+ADMINISTRATIVE_UNITS = [
+    # Tỉnh / Thành phố
+    ("79", "Hồ Chí Minh", None, "PROVINCE", "Thành phố Hồ Chí Minh"),
+    ("01", "Hà Nội", None, "PROVINCE", "Thành phố Hà Nội"),
+    ("48", "Đà Nẵng", None, "PROVINCE", "Thành phố Đà Nẵng"),
+    ("92", "Cần Thơ", None, "PROVINCE", "Thành phố Cần Thơ"),
+    ("31", "Hải Phòng", None, "PROVINCE", "Thành phố Hải Phòng"),
+    # Quận / Huyện TP.HCM
+    ("760", "Quận 1", "79", "DISTRICT", "Quận 1, TP. Hồ Chí Minh"),
+    ("761", "Quận 12", "79", "DISTRICT", "Quận 12, TP. Hồ Chí Minh"),
+    ("765", "Quận Bình Thạnh", "79", "DISTRICT", "Quận Bình Thạnh, TP. Hồ Chí Minh"),
+    ("769", "Thành phố Thủ Đức", "79", "DISTRICT", "Thành phố Thủ Đức, TP. Hồ Chí Minh"),
+    ("770", "Quận 3", "79", "DISTRICT", "Quận 3, TP. Hồ Chí Minh"),
+    ("771", "Quận 10", "79", "DISTRICT", "Quận 10, TP. Hồ Chí Minh"),
+    # Quận / Huyện Hà Nội
+    ("001", "Quận Ba Đình", "01", "DISTRICT", "Quận Ba Đình, TP. Hà Nội"),
+    ("002", "Quận Hoàn Kiếm", "01", "DISTRICT", "Quận Hoàn Kiếm, TP. Hà Nội"),
+    ("004", "Quận Đống Đa", "01", "DISTRICT", "Quận Đống Đa, TP. Hà Nội"),
+    ("005", "Quận Hai Bà Trưng", "01", "DISTRICT", "Quận Hai Bà Trưng, TP. Hà Nội"),
+    ("009", "Quận Cầu Giấy", "01", "DISTRICT", "Quận Cầu Giấy, TP. Hà Nội"),
+]
+
+
+def seed_administrative_units(db):
+    for code, name, parent_code, level, full_name in ADMINISTRATIVE_UNITS:
+        existing = db.scalar(select(AdministrativeUnit).where(AdministrativeUnit.code == code))
+        if not existing:
+            db.add(
+                AdministrativeUnit(
+                    code=code,
+                    name=name,
+                    parent_code=parent_code,
+                    level=level,
+                    full_name=full_name,
+                )
+            )
+    db.flush()
 
 
 def seed_sources(db):
@@ -254,6 +302,7 @@ def main():
     try:
         seed_users(db)
         seed_sources(db)
+        seed_administrative_units(db)
         db.commit()
         if os.environ.get("SEED_DEMO") == "1":
             seed_demo_products(db)

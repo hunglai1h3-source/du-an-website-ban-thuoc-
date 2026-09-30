@@ -1,193 +1,150 @@
-# PharmaTrust Data Hub
+# PharmaTrust / H4CARE - Unified Healthcare & Medicine Data Ecosystem
 
-Phiên bản `1.1.1` — hỗ trợ Windows, Mac Apple Silicon và Mac Intel; sửa lỗi đọc `CORS_ORIGINS` khi khởi động API.
+Hệ sinh thái công nghệ y tế và dữ liệu thuốc tích hợp **PharmaTrust & H4CARE**, bao gồm sàn thương mại dược phẩm, cổng xử lý đơn thuốc điện tử (OCR + AI), hệ thống chuẩn hóa & đối soát dữ liệu thuốc quốc gia, và cổng quản trị vận hành chuyên sâu.
 
-Ứng dụng thu thập, chuẩn hóa, đối chiếu và chấm điểm **độ tin cậy của hồ sơ dữ liệu thuốc**. Hệ thống không bán thuốc, không chẩn đoán, không tư vấn liều và không xác nhận thuốc chính hãng.
+---
 
-## Chức năng đã có
+## 🏛️ Kiến trúc hệ thống & Phân bổ Cổng (Ports)
 
-- Đăng nhập JWT, refresh token và phân quyền `ADMIN`, `DATA_REVIEWER`, `VIEWER`.
-- Quản lý nguồn dữ liệu và lịch sử tác vụ thu thập.
-- Kiểm tra `robots.txt`, giới hạn domain, tốc độ và chặn SSRF.
-- Nhập CSV, XLSX, JSON, PDF, PNG và JPG.
-- OCR tiếng Việt/Anh trong Docker bằng Tesseract.
-- Ollama structured extraction với parser dự phòng khi Ollama không sẵn sàng.
-- Chuẩn hóa tên, số đăng ký, hàm lượng và đơn vị.
-- Ghép sản phẩm bằng số đăng ký, RapidFuzz, hoạt chất, hàm lượng và nhà sản xuất.
-- Rule engine, hard rules và điểm tin cậy phiên bản `1.0`.
-- Hàng chờ ứng viên, trung tâm mâu thuẫn và lịch sử điểm.
-- Bằng chứng theo từng trường dữ liệu.
-- Audit log bất biến từ giao diện.
-- Public API chỉ xuất dữ liệu thật đã đạt điều kiện.
-- Xuất CSV, XLSX và JSON.
-- Dashboard responsive và bộ dữ liệu demo 20 sản phẩm.
-- Docker Compose, bộ chạy Windows/macOS, backup/restore và test tự động.
+Hệ thống được tổ chức theo kiến trúc Monorepo phân tán với 3 dịch vụ chính:
 
-## Chạy nhanh bằng Docker
+| Dịch vụ | Thư mục | Công nghệ | Cổng / URL | Mô tả chức năng |
+|---|---|---|---|---|
+| **Storefront (Khách hàng)** | `apps/storefront` | Next.js 14 (App Router), Tailwind CSS, Framer Motion | [http://localhost:3000](http://localhost:3000) | Giao diện khách hàng: mua sắm thuốc, danh mục OTC/Rx, giỏ hàng, gửi đơn thuốc (OCR), thanh toán MoMo/COD, trang xác thực bảo mật H4CARE. |
+| **Admin Data Hub** | `apps/web` | React 18, Vite, TypeScript | [http://localhost:5173](http://localhost:5173) | Cổng quản trị dữ liệu: đối soát ứng viên thuốc, chấm điểm tin cậy (Trust Score), quản lý nguồn thu thập (DAV, MFR, Retail), kiểm toán audit logs. |
+| **Backend API** | `apps/api` | FastAPI, Python 3.11, SQLAlchemy, Alembic, Celery | [http://localhost:8000](http://localhost:8000) | Lõi API nghiệp vụ: Public API, tính điểm thuốc, xác thực JWT, thanh toán MoMo Sandbox, gửi email thông báo SMTP. |
+| **Swagger / OpenAPI** | `apps/api` | FastAPI OpenAPI UI | [http://localhost:8000/docs](http://localhost:8000/docs) | Tài liệu kiểm thử API tương tác trực tiếp. |
+| **Health Check API** | `apps/api` | REST Endpoint | [http://localhost:8000/api/v1/health](http://localhost:8000/api/v1/health) | Giám sát trạng thái hoạt động của máy chủ backend. |
 
-Yêu cầu: Docker Desktop đang chạy.
+---
 
+## 🚀 Khởi động nhanh (1-Click Startup trên Windows)
+
+Các script tự động hóa được đặt sẵn tại thư mục gốc của dự án:
+
+### 1. Khởi động toàn bộ hệ sinh thái (Khuyên dùng)
+Nhấp đúp chuột vào:
+```cmd
+run-local.bat
+```
+*(Hoặc `run-all.bat`)*
+- Tự động kiểm tra môi trường Node.js và Python.
+- Tự động khởi tạo và nạp dữ liệu mẫu vào `pharmatrust.db` nếu chưa có.
+- Khởi động đồng thời:
+  1. Backend API (Cổng `8000`)
+  2. Storefront Web (Cổng `3000`)
+  3. Admin Data Hub (Cổng `5173`)
+- Tự động mở trình duyệt tại `http://localhost:3000`.
+
+### 2. Khởi động riêng lẻ từng dịch vụ
+- **Chỉ chạy Backend API (:8000)**: Chạy `run-backend.bat`
+- **Chỉ chạy Frontend (:3000 & :5173)**: Chạy `run-frontend.bat`
+
+### 3. Dừng toàn bộ hệ thống
+Nhấp đúp chuột vào:
+```cmd
+stop-all.bat
+```
+Script sẽ tự động tìm và đóng toàn bộ các tiến trình đang lắng nghe trên các cổng `8000`, `3000` và `5173`.
+
+---
+
+## 🛠️ Cài đặt & Khởi động thủ công (Manual Setup)
+
+### Yêu cầu tiên quyết
+- **Node.js**: Phiên bản 20.x trở lên
+- **Python**: Phiên bản 3.11 hoặc 3.12
+
+### 1. Cấu hình Môi trường (Environment Variables)
+Sao chép file `.env.example` thành `.env` tại thư mục gốc:
 ```bash
-docker compose up --build
+cp .env.example .env
 ```
 
-Mở:
+Cấu trúc các file môi trường trong dự án:
+- `/.env`: Biến môi trường dùng chung cho hệ sinh thái và Backend API.
+- `/apps/api/.env.example`: Tài liệu biến môi trường chi tiết của Backend API.
+- `/apps/storefront/.env.example`: Biến môi trường cho module xử lý đơn thuốc và Prisma của Storefront.
+- `/apps/web/.env.example`: Cấu hình API URL cho Admin Hub.
 
-- Giao diện: http://localhost:5173
-- API docs: http://localhost:8000/docs
-- Health check: http://localhost:8000/api/v1/health
-
-Trên Windows có thể chạy `start-windows.bat`. Lần đầu nên chạy `setup-windows.ps1` bằng PowerShell.
-
-### Chạy trên macOS
-
-PharmaTrust hỗ trợ cả Mac Apple Silicon và Mac Intel. Hãy cài đúng bản Docker Desktop cho chip của máy, mở Docker Desktop và chờ Docker Engine chạy.
-
-Lần đầu:
-
-1. Bấm đúp `setup-macos.command` để kiểm tra máy, tạo `.env` với khóa bí mật ngẫu nhiên và build ứng dụng.
-2. Bấm đúp `start-macos.command`; script sẽ khởi động các dịch vụ và mở giao diện.
-3. Khi muốn dừng, bấm đúp `stop-macos.command`. Dữ liệu trong Docker volume vẫn được giữ.
-
-Nếu macOS chặn quyền chạy sau khi giải nén, mở Terminal tại thư mục dự án và chạy một lần:
-
+### 2. Thiết lập Backend API
 ```bash
-chmod +x setup-macos.command start-macos.command stop-macos.command
-```
-
-Sau đó chạy:
-
-```bash
-./setup-macos.command
-./start-macos.command
-```
-
-Không cần cài riêng Python, Node.js, PostgreSQL hoặc Redis khi chạy bằng Docker.
-
-`docker compose up --build` mặc định đọc `.env.example` để có thể khởi động ngay. Khi cấu hình thật:
-
-1. Sao chép `.env.example` thành `.env`.
-2. Đổi `SECRET_KEY` thành chuỗi ngẫu nhiên dài.
-3. Chạy với biến `ENV_FILE=.env` hoặc dùng script Windows.
-
-## Tài khoản demo
-
-| Vai trò | Email | Mật khẩu |
-|---|---|---|
-| Admin | `admin@pharmatrust.vn` | `Admin@123456` |
-| Data reviewer | `reviewer@pharmatrust.vn` | `Reviewer@123456` |
-| Viewer | `viewer@pharmatrust.vn` | `Viewer@123456` |
-
-Phải đổi hoặc xóa các tài khoản này trước khi triển khai thật.
-
-## Chạy phát triển không dùng Docker
-
-Backend yêu cầu Python 3.11 hoặc 3.12:
-
-```bash
+# Tạo môi trường ảo Python
 python -m venv .venv
+
+# Kích hoạt môi trường ảo
+# Trên Windows PowerShell:
+.\.venv\Scripts\Activate.ps1
+# Trên Linux/macOS:
 source .venv/bin/activate
+
+# Cài đặt thư viện phụ thuộc
 pip install -r apps/api/requirements-dev.txt
-export PYTHONPATH=apps/api
-alembic -c apps/api/alembic.ini upgrade head
+
+# Khởi tạo dữ liệu mẫu ban đầu (SQLite)
 python -m app.seed
-uvicorn app.main:app --reload --port 8000
+
+# Khởi động Backend API
+uvicorn app.main:app --app-dir apps/api --reload --host 0.0.0.0 --port 8000
 ```
 
-Windows PowerShell dùng `$env:PYTHONPATH="apps/api"` thay cho `export`.
+### 3. Thiết lập Storefront (Next.js)
+```bash
+cd apps/storefront
+npm install
+npx prisma generate
+npx prisma db push
+npm run dev -- -p 3000
+```
 
-Frontend:
-
+### 4. Thiết lập Admin Data Hub (Vite + React)
 ```bash
 cd apps/web
 npm install
 npm run dev
 ```
 
-Chế độ local dùng SQLite mặc định. Worker yêu cầu Redis:
+---
 
+## 🔐 Tài khoản Demo mặc định
+
+| Hệ thống | Vai trò | Email đăng nhập | Mật khẩu |
+|---|---|---|---|
+| **Admin Hub & API** | Quản trị viên (Admin) | `admin@pharmatrust.vn` | `Admin@123456` |
+| **Admin Hub & API** | Dược sĩ / Kiểm duyệt (Reviewer) | `reviewer@pharmatrust.vn` | `Reviewer@123456` |
+| **Admin Hub & API** | Người xem (Viewer) | `viewer@pharmatrust.vn` | `Viewer@123456` |
+| **Storefront** | Khách hàng mẫu | `khachhang@h4care.vn` | `KhachHang@123` |
+
+---
+
+## 🗄️ Cấu trúc Cơ sở dữ liệu
+
+- **PharmaTrust Core Database**: Tệp SQLite `pharmatrust.db` tại thư mục gốc (hoặc PostgreSQL khi chạy qua Docker/Production). Quản lý danh mục thuốc chuẩn hóa, nguồn dữ liệu (DAV, MFR, Retail), điểm tin cậy, quy tắc hard-rules và audit logs.
+- **Storefront Local Storage**: Tệp SQLite `apps/storefront/dev.db` phục vụ lưu trữ tiến trình tải lên, OCR và trích xuất AI của module đơn thuốc.
+
+---
+
+## 🧪 Kiểm thử & Đảm bảo Chất lượng (Quality Assurance)
+
+### Kiểm tra Backend API (Pytest)
 ```bash
-PYTHONPATH=apps/api celery -A app.tasks.celery_app:celery worker --loglevel=INFO
+# Chạy toàn bộ 75+ test suites của backend
+.\.venv\Scripts\python.exe -m pytest apps/api/tests -q
 ```
 
-## Cấu hình Ollama
-
-1. Cài Ollama và kéo mô hình:
-
+### Kiểm tra kiểu dữ liệu Frontend (TypeScript)
 ```bash
-ollama pull qwen2.5:3b
+# Kiểm tra Next.js Storefront
+cd apps/storefront && npx tsc --noEmit
+
+# Kiểm tra Vite Admin Hub
+cd apps/web && npx tsc --noEmit
 ```
 
-2. Đặt trong `.env`:
+---
 
-```env
-AI_PROVIDER=ollama
-OLLAMA_BASE_URL=http://host.docker.internal:11434
-OLLAMA_MODEL=qwen2.5:3b
-```
-
-Nếu Ollama không sẵn sàng, OCR vẫn chạy và hệ thống tự dùng parser quy tắc. Metadata lưu rõ `fallback_used`, model và prompt hash; không giả vờ rằng LLM đã xử lý thành công.
-
-Trên Docker Desktop cho Windows và macOS, `host.docker.internal` cho phép container kết nối đến Ollama đang chạy trên máy chủ. Trên Mac Apple Silicon, nên cài bản Ollama dành cho Apple Silicon và dùng mô hình phù hợp với dung lượng RAM.
-
-## Nhập dữ liệu
-
-Mẫu nằm tại `data/samples/products_demo.csv`. Các tên cột được nhận diện:
-
-- `name`, `product_name`, `ten_thuoc`, `tên thuốc`
-- `registration_number`, `so_dang_ky`, `số đăng ký`, `sdk`
-- `manufacturer`, `nha_san_xuat`, `nhà sản xuất`
-- `ingredients`, `hoat_chat`, `hoạt chất`
-- `dosage_form`, `dang_bao_che`, `dạng bào chế`
-- `package`, `quy_cach`, `quy cách`
-- `rx_otc`, `phan_loai`, `phân loại`
-
-Dữ liệu vừa nhập chỉ tạo `ProductCandidate`; không tự động xuất hiện trên Public API.
-
-## Public API
-
-Public API không yêu cầu token:
-
-```text
-GET /api/v1/public/products
-GET /api/v1/public/products/{id}
-GET /api/v1/public/search?q=...
-```
-
-Điều kiện xuất bản:
-
-- Không phải dữ liệu demo.
-- Điểm tối thiểu 85.
-- Nhãn `HIGH_OFFICIAL_MATCH`.
-- Không bị hard rule chặn.
-- Trạng thái `PUBLISHED`.
-
-## Kiểm thử
-
-```bash
-PYTHONPATH=apps/api pytest apps/api/tests -q --cov=apps/api/app
-cd apps/web && npm run build
-```
-
-## Backup và restore
-
-```bash
-bash scripts/backup.sh
-bash scripts/restore.sh backups/pharmatrust_YYYYMMDD_HHMMSS.sql
-```
-
-## Tài liệu
-
-- [Kiến trúc](docs/ARCHITECTURE.md)
-- [Công thức điểm và hard rules](docs/SCORING.md)
-- [Chính sách nguồn](docs/SOURCE_POLICY.md)
-- [Bảo mật](docs/SECURITY.md)
-- [Xử lý lỗi](docs/TROUBLESHOOTING.md)
-
-## Giới hạn quan trọng
-
-- Generic HTML adapter chỉ tạo ứng viên có confidence thấp. Muốn khai thác một nguồn thật cần adapter riêng dựa trên cấu trúc và quyền truy cập hợp lệ.
-- Không có kết quả crawler nào được coi là bằng chứng về hàng thật.
-- `DATA_REVIEWER` chỉ kiểm tra dữ liệu, không phải dược sĩ.
-- Rule engine không thay thế người chịu trách nhiệm chuyên môn khi thương mại hóa.
-- Dữ liệu demo hoàn toàn hư cấu và luôn bị Public API loại bỏ.
+## 🔒 Quy ước Bảo vệ Mã nguồn (Protected Scopes)
+Phần giao diện và logic Xác thực (Authentication) của H4CARE đã được hoàn thiện và khóa cố định (`LOCKED`):
+- `/login`, `/register`, `/forgot-password`, `/reset-password`
+- Bộ component không gian `components/auth/*`
+- Không tự ý sửa đổi hoặc refactor các route và component trên khi chưa có yêu cầu riêng biệt.

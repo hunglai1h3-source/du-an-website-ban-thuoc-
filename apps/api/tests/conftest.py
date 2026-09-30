@@ -14,7 +14,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 from app.db.base import Base  # noqa: E402
 from app.db.session import SessionLocal, engine  # noqa: E402
 from app.main import app  # noqa: E402
-from app.seed import seed_demo_products, seed_sources, seed_users  # noqa: E402
+from app.seed import seed_administrative_units, seed_demo_products, seed_sources, seed_users  # noqa: E402
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -24,13 +24,18 @@ def database():
     with SessionLocal() as db:
         seed_users(db)
         seed_sources(db)
+        seed_administrative_units(db)
         db.commit()
         seed_demo_products(db)
         db.commit()
     yield
     Base.metadata.drop_all(engine)
+    engine.dispose()
     if TEST_DB.exists():
-        TEST_DB.unlink()
+        try:
+            TEST_DB.unlink()
+        except (PermissionError, OSError):
+            pass
 
 
 @pytest.fixture

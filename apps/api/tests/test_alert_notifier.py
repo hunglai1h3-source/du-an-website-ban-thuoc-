@@ -7,7 +7,7 @@ from app.services.alert_notifier import (
     format_telegram_alert,
     send_telegram_message,
     send_webhook_alert,
-    test_telegram_connection,
+    test_telegram_connection as call_test_telegram_connection,
 )
 
 
@@ -79,7 +79,7 @@ class TestAlertNotifier(unittest.TestCase):
     def test_05_test_telegram_connection_success(self, mock_send):
         """Kiểm tra gửi tin thử nghiệm thành công."""
         mock_send.return_value = True
-        res = test_telegram_connection("bot_token_123", "chat_id_456")
+        res = call_test_telegram_connection("bot_token_123", "chat_id_456")
         self.assertTrue(res["success"])
         self.assertIn("thành công", res["message"])
 

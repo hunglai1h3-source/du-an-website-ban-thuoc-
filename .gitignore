@@ -1,8 +1,11 @@
 .env
+.env*.local
+.env.local
 .venv/
 __pycache__/
 *.py[cod]
 .pytest_cache/
+test_storage/
 .coverage
 htmlcov/
 *.db
