@@ -26,6 +26,7 @@ model Prescription {
   updatedAt        DateTime               @updatedAt
   ocrResult        PrescriptionOcrResult?
   extraction       PrescriptionExtraction?
+  safetyReports    SafetyReport[]
 
   @@index([sessionId])
   @@index([userId])
@@ -151,3 +152,101 @@ model DrugReference {
   @@index([genericName])
   @@map("drug_references")
 }
+
+// =======================================================
+// PHASE 5: DETERMINISTIC SAFETY ENGINE
+// =======================================================
+
+model SafetyReport {
+  id                       String                @id @default(uuid())
+  prescriptionId           String
+  prescription             Prescription          @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+  extractionId             String                // Snapshot ID của đợt bóc tách AI
+  extractionUpdatedAt      DateTime              // Dùng để phát hiện STALE khi extraction thay đổi
+  status                   String                // "PENDING" | "PROCESSING" | "COMPLETED" | "NEEDS_REVIEW" | "INCOMPLETE" | "FAILED" | "STALE"
+  isStale                  Boolean               @default(false)
+  totalFindings            Int                   @default(0)
+  criticalCount            Int                   @default(0)
+  highCount                Int                   @default(0)
+  warningCount             Int                   @default(0)
+  cautionCount             Int                   @default(0)
+  infoCount                Int                   @default(0)
+  allergyCheckStatus       String                // "COMPLETED" | "INSUFFICIENT_DATA" | "FAILED" | "SKIPPED"
+  interactionCheckStatus   String                // "COMPLETED" | "INSUFFICIENT_DATA" | "FAILED" | "SKIPPED"
+  dosageCheckStatus        String                // "COMPLETED" | "INSUFFICIENT_DATA" | "FAILED" | "SKIPPED"
+  duplicateCheckStatus     String                // "COMPLETED" | "INSUFFICIENT_DATA" | "FAILED" | "SKIPPED"
+  hasUnresolvedMedications Boolean               @default(false)
+  summaryText              String?
+  processingTimeMs         Int?
+  attemptCount             Int                   @default(1)
+  errorMessage             String?
+  errorCode                String?
+  createdAt                DateTime              @default(now())
+  updatedAt                DateTime              @updatedAt
+  findings                 SafetyFinding[]
+  ruleExecutions           SafetyRuleExecution[]
+
+  @@index([prescriptionId])
+  @@index([status])
+  @@index([isStale])
+  @@map("safety_reports")
+}
+
+model SafetyFinding {
+  id                  String       @id @default(uuid())
+  reportId            String
+  report              SafetyReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  ruleId              String       // "RULE_ALLERGY", "RULE_INTERACTION", "RULE_DOSAGE", "RULE_DUPLICATE"
+  findingType         String       // "ALLERGY" | "DRUG_INTERACTION" | "DOSAGE_LIMIT" | "STRUCTURAL_DOSAGE" | "DUPLICATE_MEDICATION" | "DUPLICATE_ACTIVE_INGREDIENT" | "INSUFFICIENT_DATA"
+  severity            String       // "CRITICAL" | "HIGH" | "WARNING" | "CAUTION" | "INFO"
+  title               String
+  description         String
+  clinicalExplanation String?
+  recommendationText  String?
+  medicationIdsJson   String?      // JSON string mảng ID thuốc liên quan
+  drugNamesJson       String?      // JSON string mảng tên thuốc liên quan
+  sourceId            String       // Mã nguồn tham chiếu
+  sourceName          String       // Tên nguồn (ví dụ: DEVELOPMENT_TEST_DATA)
+  sourceVersion       String       // Phiên bản dữ liệu nguồn
+  ruleVersion         String       // Phiên bản rule
+  createdAt           DateTime     @default(now())
+
+  @@index([reportId])
+  @@index([severity])
+  @@index([findingType])
+  @@map("safety_findings")
+}
+
+model SafetyRuleExecution {
+  id           String       @id @default(uuid())
+  reportId     String
+  report       SafetyReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  ruleId       String
+  ruleName     String
+  ruleVersion  String
+  status       String       // "COMPLETED" | "SKIPPED" | "FAILED" | "INSUFFICIENT_DATA"
+  findingCount Int          @default(0)
+  durationMs   Int?
+  message      String?
+  createdAt    DateTime     @default(now())
+
+  @@index([reportId])
+  @@map("safety_rule_executions")
+}
+
+model UserAllergyProfile {
+  id           String   @id @default(uuid())
+  userId       String?
+  sessionId    String?
+  allergenName String   // ví dụ: "Penicillin", "Aspirin", "Paracetamol"
+  allergenType String   @default("MEDICATION") // "MEDICATION" | "DRUG_CLASS" | "OTHER"
+  severity     String?  // "CRITICAL" | "HIGH" | "MODERATE"
+  reaction     String?  // ví dụ: "Phù mạch, nổi mề đay"
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([sessionId])
+  @@index([userId])
+  @@map("user_allergy_profiles")
+}
+

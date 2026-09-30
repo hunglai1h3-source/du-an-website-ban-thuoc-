@@ -23,6 +23,10 @@ import {
   ChevronDown,
   User,
   Stethoscope,
+  ShieldAlert,
+  AlertOctagon,
+  Activity,
+  CheckCircle,
 } from "lucide-react";
 import {
   PrescriptionStatus,
@@ -73,6 +77,15 @@ export const PrescriptionUploader: React.FC<PrescriptionUploaderProps> = ({
   const [extractionData, setExtractionData] = useState<any | null>(null);
   const [extractionError, setExtractionError] = useState<string | null>(null);
   const [confirmingMedId, setConfirmingMedId] = useState<string | null>(null);
+
+  // Phase 5: Safety Engine State
+  const [safetyStatus, setSafetyStatus] = useState<
+    "idle" | "processing" | "completed" | "needs_review" | "incomplete" | "failed"
+  >("idle");
+  const [safetyReport, setSafetyReport] = useState<any | null>(null);
+  const [safetyError, setSafetyError] = useState<string | null>(null);
+  const [userAllergensInput, setUserAllergensInput] = useState<string>("");
+  const [showAllergyInput, setShowAllergyInput] = useState<boolean>(false);
 
   const [isDragOver, setIsDragOver] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -163,11 +176,51 @@ export const PrescriptionUploader: React.FC<PrescriptionUploaderProps> = ({
             medications: updatedMeds,
           };
         });
+        // Báo cáo an toàn cũ bị STALE nếu thuốc thay đổi
+        setSafetyReport((prev: any) => (prev ? { ...prev, isStale: true } : prev));
       }
     } catch (e) {
       console.error("Lỗi khi xác nhận thuốc:", e);
     } finally {
       setConfirmingMedId(null);
+    }
+  };
+
+  const handleRunSafetyCheck = async (forceRerun: boolean = false) => {
+    if (!successData?.prescriptionId) return;
+    setSafetyStatus("processing");
+    setSafetyError(null);
+
+    const allergyProfile = userAllergensInput.trim()
+      ? userAllergensInput.split(",").map((s) => s.trim()).filter(Boolean)
+      : undefined;
+
+    try {
+      const res = await fetch(`/api/prescription/${successData.prescriptionId}/safety`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ forceRerun, allergyProfile }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setSafetyReport(data.report);
+        const repStatus = (data.report.status || "").toLowerCase();
+        setSafetyStatus(
+          repStatus === "completed"
+            ? "completed"
+            : repStatus === "needs_review"
+            ? "needs_review"
+            : repStatus === "incomplete"
+            ? "incomplete"
+            : "completed"
+        );
+      } else {
+        setSafetyStatus("failed");
+        setSafetyError(data.message || "Không thể thực hiện kiểm tra an toàn.");
+      }
+    } catch {
+      setSafetyStatus("failed");
+      setSafetyError("Không thể kết nối đến máy chủ Safety Engine.");
     }
   };
 
@@ -929,6 +982,301 @@ export const PrescriptionUploader: React.FC<PrescriptionUploaderProps> = ({
                           Dữ liệu thuốc trên được trích xuất trung thực từ đơn thuốc và đối chiếu danh mục. Hệ thống tuyệt đối không tự ý thay đổi liều lượng hay đưa ra khuyến cáo y khoa.
                         </span>
                       </div>
+                    </div>
+                  )}
+
+                  {/* Phase 5: Deterministic Safety Engine Section */}
+                  {(extractionStatus === "completed" || extractionStatus === "needs_review") && (
+                    <div className="mt-8 pt-6 border-t border-slate-200 space-y-4">
+                      {safetyStatus === "idle" && (
+                        <div className="p-5 rounded-2xl bg-gradient-to-r from-emerald-50/70 to-teal-50/70 border border-emerald-200/80 space-y-4">
+                          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                            <div className="flex items-start gap-3.5">
+                              <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                                <ShieldAlert className="w-5 h-5" />
+                              </div>
+                              <div>
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full">
+                                  Phase 5: Safety Engine
+                                </span>
+                                <h4 className="text-sm font-bold text-slate-900 mt-1">
+                                  Kiểm tra an toàn đơn thuốc xác định (Rule-Based)
+                                </h4>
+                                <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
+                                  Tự động đối soát tương tác thuốc (Drug-Drug), tiền sử dị ứng, cấu trúc định lượng và trùng lặp hoạt chất theo quy tắc xác định (không phụ thuộc LLM).
+                                </p>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleRunSafetyCheck(false)}
+                              className="w-full sm:w-auto shrink-0 inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:scale-95 transition-all shadow-sm cursor-pointer"
+                            >
+                              <Activity className="w-4 h-4" />
+                              <span>Kiểm tra an toàn</span>
+                            </button>
+                          </div>
+
+                          {/* Tùy chọn nhập tiền sử dị ứng */}
+                          <div className="pt-3 border-t border-emerald-200/60">
+                            <button
+                              type="button"
+                              onClick={() => setShowAllergyInput(!showAllergyInput)}
+                              className="text-xs font-semibold text-emerald-800 hover:underline flex items-center gap-1 cursor-pointer"
+                            >
+                              <span>{showAllergyInput ? "▼ Đóng khai báo dị ứng" : "▶ Khai báo tiền sử dị ứng thuốc (Tùy chọn)"}</span>
+                            </button>
+                            {showAllergyInput && (
+                              <div className="mt-2 space-y-1.5">
+                                <label className="text-[11px] text-slate-600 font-medium block">
+                                  Nhập các thuốc/hoạt chất từng bị dị ứng (phân tách bởi dấu phẩy, VD: Penicillin, Aspirin):
+                                </label>
+                                <input
+                                  type="text"
+                                  value={userAllergensInput}
+                                  onChange={(e) => setUserAllergensInput(e.target.value)}
+                                  placeholder="Ví dụ: Penicillin, Amoxicillin, Aspirin..."
+                                  className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                                />
+                                <span className="text-[10px] text-slate-400 block">
+                                  Nếu để trống, hệ thống sẽ ghi nhận trạng thái chưa có thông tin dị ứng (không tự suy đoán là an toàn).
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {safetyStatus === "processing" && (
+                        <div className="p-6 rounded-2xl bg-teal-50/50 border border-teal-200 flex flex-col items-center justify-center text-center space-y-3 animate-in fade-in duration-200">
+                          <Loader2 className="w-8 h-8 animate-spin text-teal-600" />
+                          <div>
+                            <h4 className="text-sm font-bold text-slate-900">
+                              Đang kiểm tra an toàn theo quy tắc xác định...
+                            </h4>
+                            <p className="text-xs text-slate-500 max-w-md mx-auto mt-1 leading-relaxed">
+                              Đang đối soát cặp tương tác thuốc, tiền sử dị ứng, liều dùng tối đa và nguy cơ trùng hoạt chất. Quá trình xử lý nội bộ an toàn.
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
+                      {safetyStatus === "failed" && (
+                        <div className="p-5 rounded-2xl bg-rose-50 border border-rose-200 space-y-3 animate-in fade-in duration-200">
+                          <div className="flex items-start gap-3">
+                            <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+                            <div className="flex-1">
+                              <h4 className="text-sm font-bold text-rose-900">
+                                Kiểm tra an toàn gián đoạn
+                              </h4>
+                              <p className="text-xs text-rose-700 mt-1 leading-relaxed">
+                                {safetyError || "Đã xảy ra sự cố trong quá trình đối soát an toàn."}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex justify-end">
+                            <button
+                              type="button"
+                              onClick={() => handleRunSafetyCheck(true)}
+                              className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold text-rose-700 bg-rose-100 hover:bg-rose-200 active:scale-95 transition-all cursor-pointer"
+                            >
+                              <RotateCw className="w-3.5 h-3.5" />
+                              <span>Thử lại kiểm tra an toàn</span>
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {safetyReport && (
+                        <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-5 animate-in fade-in duration-200">
+                          {/* Header Báo cáo An toàn */}
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                                <ShieldAlert className="w-4 h-4" />
+                              </div>
+                              <div>
+                                <h4 className="text-sm font-bold text-slate-900">
+                                  Báo cáo an toàn đơn thuốc (Safety Report)
+                                </h4>
+                                <span className="text-[11px] text-slate-500">
+                                  Thời gian xử lý: {safetyReport.processingTimeMs}ms | Tổng cảnh báo: {safetyReport.summary?.totalFindings || 0}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-2">
+                              {safetyReport.isStale ? (
+                                <span className="text-xs px-2.5 py-1 rounded-full font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                                  ⚠️ Dữ liệu thuốc đã thay đổi (STALE)
+                                </span>
+                              ) : safetyReport.status === "COMPLETED" ? (
+                                <span className="text-xs px-2.5 py-1 rounded-full font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                  ✓ Đã hoàn tất kiểm tra
+                                </span>
+                              ) : safetyReport.status === "NEEDS_REVIEW" ? (
+                                <span className="text-xs px-2.5 py-1 rounded-full font-bold bg-rose-100 text-rose-800 border border-rose-200">
+                                  ⚠️ Có cảnh báo cần xem xét
+                                </span>
+                              ) : (
+                                <span className="text-xs px-2.5 py-1 rounded-full font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                                  ℹ️ Kiểm tra chưa hoàn chỉnh
+                                </span>
+                              )}
+
+                              <button
+                                type="button"
+                                onClick={() => handleRunSafetyCheck(true)}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 active:scale-95 transition-all cursor-pointer"
+                                title="Chạy lại kiểm tra an toàn"
+                              >
+                                <RotateCw className="w-3 h-3" />
+                                <span>Kiểm tra lại</span>
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Cảnh báo Stale nếu có */}
+                          {safetyReport.isStale && (
+                            <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800 flex items-center justify-between gap-3">
+                              <div className="flex items-center gap-2">
+                                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                                <span>
+                                  Đơn thuốc đã có thay đổi kể từ lần kiểm tra an toàn gần nhất. Báo cáo hiển thị dưới đây có thể không còn khớp với danh sách thuốc hiện tại.
+                                </span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => handleRunSafetyCheck(true)}
+                                className="px-2.5 py-1 rounded-lg bg-amber-200 text-amber-900 font-bold hover:bg-amber-300 shrink-0"
+                              >
+                                Cập nhật ngay
+                              </button>
+                            </div>
+                          )}
+
+                          {/* Cảnh báo thuốc chưa xác nhận */}
+                          {safetyReport.hasUnresolvedMedications && (
+                            <div className="p-3.5 rounded-xl bg-slate-100 border border-slate-300 text-xs text-slate-700 flex items-center gap-2">
+                              <Info className="w-4 h-4 text-slate-500 shrink-0" />
+                              <span>
+                                Đơn thuốc có dòng thuốc chưa được xác nhận danh mục. Các quy tắc an toàn lâm sàng (tương tác, quá liều) sẽ chỉ áp dụng cho các thuốc đã được xác nhận.
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Summary Badges Breakdown */}
+                          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 text-xs">
+                            <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-center">
+                              <span className="text-[10px] text-rose-500 font-bold block uppercase">Nghiêm trọng</span>
+                              <span className="text-base font-extrabold text-rose-700">{safetyReport.summary?.criticalCount || 0}</span>
+                            </div>
+                            <div className="p-2.5 rounded-xl bg-orange-50 border border-orange-200 text-center">
+                              <span className="text-[10px] text-orange-500 font-bold block uppercase">Mức độ cao</span>
+                              <span className="text-base font-extrabold text-orange-700">{safetyReport.summary?.highCount || 0}</span>
+                            </div>
+                            <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-center">
+                              <span className="text-[10px] text-amber-500 font-bold block uppercase">Cần lưu ý</span>
+                              <span className="text-base font-extrabold text-amber-700">{safetyReport.summary?.warningCount || 0}</span>
+                            </div>
+                            <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-center">
+                              <span className="text-[10px] text-slate-400 font-bold block uppercase">Thận trọng</span>
+                              <span className="text-base font-extrabold text-slate-700">{safetyReport.summary?.cautionCount || 0}</span>
+                            </div>
+                            <div className="p-2.5 rounded-xl bg-blue-50 border border-blue-200 text-center">
+                              <span className="text-[10px] text-blue-500 font-bold block uppercase">Thông tin</span>
+                              <span className="text-base font-extrabold text-blue-700">{safetyReport.summary?.infoCount || 0}</span>
+                            </div>
+                          </div>
+
+                          {/* Danh sách Findings chi tiết */}
+                          <div className="space-y-3">
+                            <label className="text-xs font-bold text-slate-800 block">
+                              Chi tiết các điểm cảnh báo & Lưu ý an toàn ({safetyReport.findings?.length || 0}):
+                            </label>
+
+                            {(!safetyReport.findings || safetyReport.findings.length === 0) ? (
+                              <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 flex items-center gap-2">
+                                <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                                <span>
+                                  Không phát hiện cảnh báo từ các quy tắc hiện có (NO_FINDINGS_DETECTED).
+                                </span>
+                              </div>
+                            ) : (
+                              <div className="space-y-3">
+                                {safetyReport.findings.map((f: any, idx: number) => (
+                                  <div
+                                    key={f.id || idx}
+                                    className={`p-4 rounded-xl border text-xs space-y-2 ${
+                                      f.severity === "CRITICAL"
+                                        ? "bg-rose-50/70 border-rose-300"
+                                        : f.severity === "HIGH"
+                                        ? "bg-orange-50/60 border-orange-300"
+                                        : f.severity === "WARNING"
+                                        ? "bg-amber-50/60 border-amber-300"
+                                        : f.severity === "CAUTION"
+                                        ? "bg-slate-50 border-slate-300"
+                                        : "bg-blue-50/50 border-blue-200"
+                                    }`}
+                                  >
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 pb-2 border-b border-black/5">
+                                      <div className="flex items-center gap-2">
+                                        <span
+                                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                            f.severity === "CRITICAL"
+                                              ? "bg-rose-600 text-white"
+                                              : f.severity === "HIGH"
+                                              ? "bg-orange-600 text-white"
+                                              : f.severity === "WARNING"
+                                              ? "bg-amber-600 text-white"
+                                              : f.severity === "CAUTION"
+                                              ? "bg-slate-600 text-white"
+                                              : "bg-blue-600 text-white"
+                                          }`}
+                                        >
+                                          {f.severity}
+                                        </span>
+                                        <h5 className="font-bold text-slate-900">{f.title}</h5>
+                                      </div>
+                                      <span className="text-[10px] text-slate-400 font-mono">
+                                        {f.ruleId}
+                                      </span>
+                                    </div>
+
+                                    <p className="text-slate-700 leading-relaxed">{f.description}</p>
+
+                                    {f.clinicalExplanation && (
+                                      <p className="text-slate-600 text-[11px] italic bg-white/60 p-2 rounded-lg border border-black/5">
+                                        {f.clinicalExplanation}
+                                      </p>
+                                    )}
+
+                                    {f.recommendationText && (
+                                      <div className="text-[11px] font-medium text-slate-800 flex items-start gap-1.5 pt-1">
+                                        <Info className="w-3.5 h-3.5 text-slate-500 shrink-0 mt-0.5" />
+                                        <span>Khuyến nghị: {f.recommendationText}</span>
+                                      </div>
+                                    )}
+
+                                    <div className="pt-2 border-t border-black/5 flex items-center justify-between text-[10px] text-slate-400">
+                                      <span>Nguồn: {f.sourceName} ({f.sourceId})</span>
+                                      <span>Phiên bản quy tắc: v{f.ruleVersion}</span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Ranh giới y tế đạo đức */}
+                          <div className="p-3 rounded-xl bg-slate-100 border border-slate-200 text-[11px] text-slate-500 leading-relaxed flex items-center gap-2">
+                            <Info className="w-4 h-4 text-slate-400 shrink-0" />
+                            <span>
+                              Safety Engine thực hiện đánh giá độc lập dựa trên quy tắc và tập dữ liệu tham chiếu kiểm thử. Hệ thống không đóng vai trò bác sĩ hay kết luận tính an toàn tuyệt đối. Bác sĩ hoặc Dược sĩ lâm sàng là người đưa ra quyết định sau cùng.
+                            </span>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
               </div>
