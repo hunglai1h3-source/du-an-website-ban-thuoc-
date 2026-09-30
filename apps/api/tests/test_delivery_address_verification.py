@@ -297,6 +297,112 @@ class TestDeliveryAddressVerification(unittest.TestCase):
         data = resp.json()
         self.assertEqual(data["status"], "SUCCESS")
 
+    def test_09_official_34_provinces_after_2025(self):
+        """Kiểm tra API /locations/provinces trả về đúng 34 đơn vị hành chính cấp tỉnh."""
+        resp = self.client.get("/api/v1/locations/provinces")
+        self.assertEqual(resp.status_code, 200)
+        provinces = resp.json()
+        self.assertEqual(len(provinces), 34)
+        codes = [p["code"] for p in provinces]
+        self.assertEqual(len(codes), len(set(codes)))
+        # Phải có Hà Nội (01) và TP.HCM (79)
+        self.assertIn("01", codes)
+        self.assertIn("79", codes)
+
+    def test_10_locations_metadata(self):
+        """Kiểm tra Metadata chính thức năm 2025: 34 tỉnh, 3.321 xã, 2-tier."""
+        resp = self.client.get("/api/v1/locations/metadata")
+        self.assertEqual(resp.status_code, 200)
+        meta = resp.json()
+        self.assertEqual(meta["country"], "VN")
+        self.assertEqual(meta["administrativeModel"], "2-tier")
+        self.assertEqual(meta["effectiveDate"], "2025-07-01")
+        self.assertEqual(meta["totalProvinces"], 34)
+        self.assertEqual(meta["totalCommunes"], 3321)
+
+    def test_11_communes_filter_by_province(self):
+        """Kiểm tra danh sách xã/phường thuộc Hà Nội theo mô hình 2 cấp."""
+        resp = self.client.get("/api/v1/locations/communes?provinceCode=01")
+        self.assertEqual(resp.status_code, 200)
+        communes = resp.json()
+        self.assertGreater(len(communes), 50)
+        for c in communes:
+            self.assertEqual(c["provinceCode"], "01")
+            self.assertIn(c["type"], ["ward", "commune", "special_zone"])
+
+    def test_12_special_zone_support(self):
+        """Hệ thống phải hỗ trợ Đặc khu (special_zone) như Phú Quốc, Vân Đồn, Côn Đảo."""
+        resp = self.client.get("/api/v1/locations/communes?type=special_zone")
+        self.assertEqual(resp.status_code, 200)
+        sz_list = resp.json()
+        self.assertGreaterEqual(len(sz_list), 7)
+        names = [sz["name"] for sz in sz_list]
+        self.assertIn("Phú Quốc", names)
+        self.assertIn("Vân Đồn", names)
+        self.assertIn("Côn Đảo", names)
+
+    def test_13_unaccented_search_and_alias(self):
+        """Tìm kiếm không dấu 'ha noi' và tra cứu alias quận cũ 'Ba Đình'."""
+        # Tìm tỉnh không dấu
+        resp = self.client.get("/api/v1/locations/provinces?search=ha%20noi")
+        self.assertEqual(resp.status_code, 200)
+        provinces = resp.json()
+        self.assertTrue(any(p["code"] == "01" for p in provinces))
+
+        # Tìm xã/phường qua alias quận cũ
+        resp2 = self.client.get("/api/v1/locations/communes?provinceCode=01&search=Ba%20Đình")
+        self.assertEqual(resp2.status_code, 200)
+        results = resp2.json()
+        self.assertGreater(len(results), 0)
+
+    def test_14_checkout_2tier_succeeds_without_district(self):
+        """Đặt hàng thành công với schema 2 cấp hiện hành (Tỉnh/Thành + Xã/Phường), KHÔNG cần District."""
+        payload = {
+            "customer_name": "Nguyễn Minh Châu",
+            "customer_phone": "0987654321",
+            "shipping_address": "Số 12 Đường Hàng Bài, Phường Tràng Tiền, Thành phố Hà Nội",
+            "fulfillment_type": "DELIVERY",
+            "province_code": "01",
+            "commune_code": "011002",
+            "commune_type": "ward",
+            "lat": 21.0255,
+            "lng": 105.8530,
+            "is_verified": True,
+            "payment_method": "COD",
+            "items": [{"product_id": self.test_prod_id, "quantity": 1}],
+        }
+        resp = self.client.post("/api/v1/store/orders/checkout", json=payload)
+        self.assertEqual(resp.status_code, 200, resp.text)
+        data = resp.json()
+        self.assertEqual(data["status"], "SUCCESS")
+        order_code = data["order_code"]
+
+        order = self.db.query(Order).filter_by(order_code=order_code).first()
+        self.assertIsNotNone(order)
+        self.assertEqual(order.province_code_current, "01")
+        self.assertEqual(order.commune_code_current, "011002")
+        self.assertEqual(order.migration_status, "MIGRATED_2025")
+        self.assertTrue(order.is_verified)
+
+    def test_15_checkout_2tier_rejects_province_commune_mismatch(self):
+        """Chặn gian lận: Tỉnh Hà Nội (01) nhưng mã xã thuộc TP.HCM (79001) -> HTTP 400."""
+        payload = {
+            "customer_name": "Kẻ Gian Lận",
+            "customer_phone": "0912345678",
+            "shipping_address": "123 Test, Hà Nội",
+            "fulfillment_type": "DELIVERY",
+            "province_code": "01",
+            "commune_code": "79001",  # Côn Đảo thuộc TP.HCM
+            "lat": 21.0255,
+            "lng": 105.8530,
+            "is_verified": True,
+            "payment_method": "COD",
+            "items": [{"product_id": self.test_prod_id, "quantity": 1}],
+        }
+        resp = self.client.post("/api/v1/store/orders/checkout", json=payload)
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("không thuộc phạm vi hành chính", resp.json()["detail"])
+
 
 if __name__ == "__main__":
     unittest.main()

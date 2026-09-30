@@ -32,18 +32,30 @@ DISTRICT_DEFAULT_COORDINATES: dict[str, tuple[float, float]] = {
     "009": (21.0362, 105.7906),  # Cầu Giấy
 }
 
-PROVINCE_BOUNDING_BOXES: dict[str, dict[str, Any]] = {
-    # Hà Nội (01)
-    "01": {"min_lat": 20.50, "max_lat": 21.45, "min_lng": 105.25, "max_lng": 106.10, "name": "TP. Hà Nội"},
-    # TP. Hồ Chí Minh (79)
-    "79": {"min_lat": 10.35, "max_lat": 11.20, "min_lng": 106.30, "max_lng": 107.10, "name": "TP. Hồ Chí Minh"},
-    # Đà Nẵng (48)
-    "48": {"min_lat": 15.85, "max_lat": 16.30, "min_lng": 107.85, "max_lng": 108.40, "name": "TP. Đà Nẵng"},
-    # Cần Thơ (92)
-    "92": {"min_lat": 9.85, "max_lat": 10.40, "min_lng": 105.30, "max_lng": 105.95, "name": "TP. Cần Thơ"},
-    # Hải Phòng (31)
-    "31": {"min_lat": 20.50, "max_lat": 21.05, "min_lng": 106.45, "max_lng": 107.20, "name": "TP. Hải Phòng"},
-}
+from app.services.administrative_service import AdministrativeDataService
+
+PROVINCE_BOUNDING_BOXES: dict[str, dict[str, Any]] = {}
+for _p in AdministrativeDataService.get_provinces():
+    _bb = _p.get("boundingBox", {})
+    if _bb:
+        PROVINCE_BOUNDING_BOXES[_p["code"]] = {
+            "min_lat": _bb.get("minLat", 8.0),
+            "max_lat": _bb.get("maxLat", 24.0),
+            "min_lng": _bb.get("minLng", 102.0),
+            "max_lng": _bb.get("maxLng", 115.0),
+            "name": _p.get("fullName", _p.get("name")),
+        }
+
+# Fallback mặc định cho 5 đô thị nếu chưa nạp file
+if not PROVINCE_BOUNDING_BOXES:
+    PROVINCE_BOUNDING_BOXES = {
+        "01": {"min_lat": 20.50, "max_lat": 21.60, "min_lng": 105.20, "max_lng": 106.10, "name": "TP. Hà Nội"},
+        "79": {"min_lat": 8.50, "max_lat": 11.60, "min_lng": 106.30, "max_lng": 107.60, "name": "TP. Hồ Chí Minh"},
+        "48": {"min_lat": 14.80, "max_lat": 16.30, "min_lng": 107.10, "max_lng": 112.50, "name": "TP. Đà Nẵng"},
+        "92": {"min_lat": 9.20, "max_lat": 10.40, "min_lng": 105.20, "max_lng": 106.40, "name": "TP. Cần Thơ"},
+        "31": {"min_lat": 20.50, "max_lat": 21.30, "min_lng": 106.10, "max_lng": 107.20, "name": "TP. Hải Phòng"},
+    }
+
 
 
 def calculate_haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:

@@ -409,6 +409,18 @@ class Order(TimestampMixin, Base):
     total_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2))
     shipping_fee: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=Decimal("0.0"))
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # 2-Tier 2025 Administrative Model & Legacy Snapshot
+    province_code_current: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    commune_code_current: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    commune_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    formatted_address_current: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    legacy_province: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    legacy_district: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    legacy_ward: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    migration_status: Mapped[str | None] = mapped_column(String(50), default="MIGRATED_2025")
+    geocode_provider: Mapped[str | None] = mapped_column(String(50), default="nominatim")
+    place_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     items: Mapped[list["OrderItem"]] = relationship(back_populates="order", cascade="all, delete-orphan")
 

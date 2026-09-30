@@ -341,12 +341,16 @@ export default function CartPage() {
         items: checkoutItems,
         fulfillment_type: fulfillmentType,
         province_code: fulfillmentType === "DELIVERY" ? verifiedAddress?.provinceCode : undefined,
-        district_code: fulfillmentType === "DELIVERY" ? verifiedAddress?.districtCode : undefined,
-        ward_code: fulfillmentType === "DELIVERY" ? verifiedAddress?.wardCode : undefined,
-        street_address: fulfillmentType === "DELIVERY" ? verifiedAddress?.streetAddress : undefined,
+        commune_code: fulfillmentType === "DELIVERY" ? verifiedAddress?.communeCode : undefined,
+        commune_type: fulfillmentType === "DELIVERY" ? verifiedAddress?.communeType : undefined,
+        address_line: fulfillmentType === "DELIVERY" ? verifiedAddress?.streetAddress : undefined,
+        formatted_address: fullShippingAddress,
+        place_id: fulfillmentType === "DELIVERY" ? verifiedAddress?.placeId : undefined,
         lat: fulfillmentType === "DELIVERY" ? verifiedAddress?.lat : undefined,
         lng: fulfillmentType === "DELIVERY" ? verifiedAddress?.lng : undefined,
         is_verified: fulfillmentType === "DELIVERY" ? isAddressVerified : true,
+        district_code: fulfillmentType === "DELIVERY" ? (verifiedAddress?.districtName || verifiedAddress?.districtCode) : undefined,
+        ward_code: fulfillmentType === "DELIVERY" ? (verifiedAddress?.communeCode || verifiedAddress?.wardCode) : undefined,
       };
 
       const res = await fetch("/api/v1/store/orders/checkout", {
