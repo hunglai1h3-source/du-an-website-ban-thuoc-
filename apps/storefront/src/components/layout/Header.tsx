@@ -36,9 +36,28 @@ export const Header: React.FC<HeaderProps> = ({ onReplayIntro }) => {
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const [isAccountDropdownOpen, setIsAccountDropdownOpen] = useState(false);
-  const [cartCount, setCartCount] = useState(2); // Demo mock count
+  const [cartCount, setCartCount] = useState(0);
 
   useEffect(() => {
+    const updateCartCount = () => {
+      try {
+        const raw = localStorage.getItem("pharmatrust_cart");
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) {
+            const count = parsed.reduce((sum: number, item: any) => sum + (item.quantity || 1), 0);
+            setCartCount(count);
+            return;
+          }
+        }
+      } catch (e) {}
+      setCartCount(0);
+    };
+
+    updateCartCount();
+    window.addEventListener("cart_updated", updateCartCount);
+    window.addEventListener("storage", updateCartCount);
+
     const handleScroll = () => {
       if (window.scrollY > 15) {
         setIsScrolled(true);
@@ -48,7 +67,11 @@ export const Header: React.FC<HeaderProps> = ({ onReplayIntro }) => {
     };
 
     window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("cart_updated", updateCartCount);
+      window.removeEventListener("storage", updateCartCount);
+    };
   }, []);
 
   return (

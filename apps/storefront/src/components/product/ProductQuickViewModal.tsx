@@ -216,7 +216,41 @@ export const ProductQuickViewModal: React.FC<ProductQuickViewModalProps> = ({
                         className="flex-1 shadow-xs"
                         leftIcon={<ShoppingBag className="w-4 h-4" />}
                         onClick={() => {
-                          if (onAddToCart) onAddToCart(product);
+                          if (onAddToCart) {
+                            onAddToCart(product);
+                          } else {
+                            try {
+                              let cart: any[] = [];
+                              const raw = localStorage.getItem("pharmatrust_cart");
+                              if (raw) {
+                                const parsed = JSON.parse(raw);
+                                if (Array.isArray(parsed)) cart = parsed;
+                              }
+                              const dbId =
+                                product.dbId ||
+                                (product.id && product.id.startsWith("pt-")
+                                  ? parseInt(product.id.replace("pt-", ""), 10)
+                                  : 1);
+                              const existing = cart.findIndex((i: any) => i.id === product.id);
+                              if (existing > -1) {
+                                cart[existing].quantity += 1;
+                              } else {
+                                cart.push({
+                                  id: product.id,
+                                  dbId: dbId,
+                                  name: product.name,
+                                  price: product.salePrice || product.price,
+                                  salePrice: product.salePrice,
+                                  quantity: 1,
+                                  image: (product.images && product.images[0]) || "/images/medicines/panadol.jpg",
+                                  unit: product.packaging || "Hộp",
+                                  isPrescription: false,
+                                });
+                              }
+                              localStorage.setItem("pharmatrust_cart", JSON.stringify(cart));
+                              window.dispatchEvent(new Event("cart_updated"));
+                            } catch (err) {}
+                          }
                           onClose();
                         }}
                       >

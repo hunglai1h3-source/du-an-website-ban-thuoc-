@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { useParams, notFound } from "next/navigation";
+import { useParams, useRouter, notFound } from "next/navigation";
 import { Header } from "@/components/layout/Header";
 import { PRODUCTS_DATA } from "@/data/products";
 import { Product } from "@/types";
@@ -35,6 +35,8 @@ import {
   Clock,
   Check,
   X,
+  MapPin,
+  QrCode,
 } from "lucide-react";
 
 export default function ProductDetailPage() {
@@ -85,91 +87,62 @@ export default function ProductDetailPage() {
   const [isRxModalOpen, setIsRxModalOpen] = useState(false);
   const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
 
-  // Checkout Modal State
-  const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
-  const [checkoutName, setCheckoutName] = useState("");
-  const [checkoutPhone, setCheckoutPhone] = useState("");
-  const [checkoutAddress, setCheckoutAddress] = useState("");
-  const [checkoutPayment, setCheckoutPayment] = useState("COD");
-  const [checkoutNote, setCheckoutNote] = useState("");
-  const [submittingOrder, setSubmittingOrder] = useState(false);
-  const [formError, setFormError] = useState("");
-  const [orderSuccess, setOrderSuccess] = useState<{ order_code: string; total: number } | null>(null);
+  const router = useRouter();
+  const [showAddedToast, setShowAddedToast] = useState(false);
 
-  // Tự động điền thông tin tài khoản nếu đã đăng nhập
-  React.useEffect(() => {
-    if (user) {
-      if (user.fullName && !checkoutName) setCheckoutName(user.fullName);
-      if (user.phone && !checkoutPhone) setCheckoutPhone(user.phone);
-    }
-  }, [user]);
+  // Thêm sản phẩm vào giỏ hàng thực tế & đồng bộ với trang Giỏ hàng (/cart)
+  const handleAddToCart = (redirectAfter = false) => {
+    if (!product) return;
+    const currentPrice = product.salePrice || product.price || 0;
+    const dbId =
+      product.dbId ||
+      (product.id && product.id.startsWith("pt-")
+        ? parseInt(product.id.replace("pt-", ""), 10)
+        : 1);
 
-  async function handleConfirmOrder(e: React.FormEvent) {
-    e.preventDefault();
-    setFormError("");
-
-    const name = checkoutName.trim();
-    const phone = checkoutPhone.trim();
-    const address = checkoutAddress.trim();
-
-    if (!name || !phone || !address) {
-      setFormError("Vui lòng điền đầy đủ họ tên, số điện thoại và địa chỉ nhận hàng.");
-      return;
-    }
-    if (name.length < 2) {
-      setFormError("Họ và tên người nhận quá ngắn (tối thiểu 2 ký tự).");
-      return;
-    }
-    if (phone.length < 5) {
-      setFormError("Số điện thoại nhận hàng không hợp lệ (tối thiểu 5 ký tự).");
-      return;
-    }
-    if (address.length < 2) {
-      setFormError("Địa chỉ nhận hàng cần tối thiểu 2 ký tự.");
-      return;
-    }
-
-    setSubmittingOrder(true);
     try {
-      const dbId = (product && product.dbId) || (product && product.id && product.id.startsWith("pt-") ? parseInt(product.id.replace("pt-", ""), 10) : 1);
-      const res = await fetch("/api/v1/store/orders/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          customer_name: name,
-          customer_phone: phone,
-          shipping_address: address,
-          payment_method: checkoutPayment,
-          note: checkoutNote.trim() || undefined,
-          items: [{ product_id: dbId, quantity, price: (product ? (product.salePrice || product.price) : 50000) }],
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        let msg = "Đặt hàng không thành công. Vui lòng kiểm tra lại.";
-        if (typeof data.detail === "string") {
-          msg = data.detail;
-        } else if (Array.isArray(data.detail)) {
-          msg = data.detail
-            .map((d: any) => {
-              if (typeof d === "string") return d;
-              const field = d.loc ? d.loc[d.loc.length - 1] : "";
-              const m = d.msg || "dữ liệu không hợp lệ";
-              return field ? `${field}: ${m}` : m;
-            })
-            .join("; ");
-        } else if (data.message && typeof data.message === "string") {
-          msg = data.message;
-        }
-        throw new Error(msg);
+      let cart: any[] = [];
+      const raw = localStorage.getItem("pharmatrust_cart");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) cart = parsed;
       }
-      setOrderSuccess({ order_code: data.order_code, total: data.total_amount });
-    } catch (err: any) {
-      setFormError(err.message || "Đã xảy ra lỗi khi tạo đơn hàng.");
-    } finally {
-      setSubmittingOrder(false);
+
+      const existingIndex = cart.findIndex((i: any) => i.id === product.id);
+      if (existingIndex > -1) {
+        cart[existingIndex].quantity += quantity;
+      } else {
+        cart.push({
+          id: product.id,
+          dbId: dbId,
+          name: product.name,
+          price: currentPrice,
+          salePrice: product.salePrice,
+          quantity: quantity,
+          image: (product.images && product.images[0]) || "/images/medicines/panadol.jpg",
+          unit: product.packaging || "Hộp",
+          isPrescription: product.isPrescription || false,
+        });
+      }
+
+      localStorage.setItem("pharmatrust_cart", JSON.stringify(cart));
+      window.dispatchEvent(new Event("cart_updated"));
+
+      if (redirectAfter) {
+        // Mua ngay -> Chuyển thẳng sang trang Giỏ hàng & Thanh toán (có Bản đồ thực & VietQR)
+        router.push("/cart");
+      } else {
+        // Thêm vào giỏ hàng -> Hiển thị toast thông báo thành công
+        setShowAddedToast(true);
+        setTimeout(() => setShowAddedToast(false), 4500);
+      }
+    } catch (e) {
+      console.error("Lỗi cập nhật giỏ hàng:", e);
+      if (redirectAfter) {
+        router.push("/cart");
+      }
     }
-  }
+  };
 
   if (!product) {
     return (
@@ -512,11 +485,9 @@ export default function ProductDetailPage() {
                       <Button
                         variant="secondary"
                         size="lg"
-                        className="w-full sm:flex-1"
+                        className="w-full sm:flex-1 font-bold text-brand-blue-700 bg-brand-blue-50/80 hover:bg-brand-blue-100 border-brand-blue-200"
                         leftIcon={<ShoppingBag className="w-5 h-5" />}
-                        onClick={() => {
-                          alert(`Đã thêm ${quantity} sản phẩm ${product.name} vào giỏ hàng demo!`);
-                        }}
+                        onClick={() => handleAddToCart(false)}
                       >
                         Thêm Vào Giỏ Hàng
                       </Button>
@@ -524,11 +495,23 @@ export default function ProductDetailPage() {
                       <Button
                         variant="primary"
                         size="lg"
-                        className="w-full sm:flex-1 shadow-xs hover:shadow-depth-1"
-                        onClick={() => setIsCheckoutModalOpen(true)}
+                        className="w-full sm:flex-1 font-bold shadow-md hover:shadow-lg bg-brand-blue-600 hover:bg-brand-blue-700 active:bg-brand-blue-800 text-white transition-all"
+                        onClick={() => handleAddToCart(true)}
                       >
                         Mua Ngay
                       </Button>
+                    </div>
+
+                    {/* Delivery & Payment Assurance Badge */}
+                    <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 text-xs text-slate-600">
+                      <div className="flex items-center gap-2">
+                        <MapPin className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <span>Bản đồ định vị GPS & Tìm kho GPP gần nhất</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <QrCode className="w-4 h-4 text-brand-blue-600 shrink-0" />
+                        <span>Thanh toán VietQR Napas 247 & MoMo</span>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -704,191 +687,37 @@ export default function ProductDetailPage() {
         onOpenRxConsult={() => setIsRxModalOpen(true)}
       />
 
-      {/* Fast Checkout Modal */}
-      {isCheckoutModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-slate-100 relative">
-            <button
-              onClick={() => {
-                setIsCheckoutModalOpen(false);
-                setOrderSuccess(null);
-                setFormError("");
-              }}
-              className="absolute top-5 right-5 text-slate-400 hover:text-slate-600 transition-colors"
+      {/* Toast Notification khi thêm vào giỏ hàng thành công */}
+      {showAddedToast && (
+        <div className="fixed bottom-6 right-6 z-50 max-w-md w-[calc(100vw-3rem)] bg-white border border-emerald-300 rounded-2xl shadow-2xl p-4 flex items-center justify-between gap-3 animate-in fade-in slide-in-from-bottom-5 duration-200">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+              <CheckCircle2 className="w-5 h-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-bold text-slate-900 truncate">
+                Đã thêm vào giỏ hàng thành công!
+              </p>
+              <p className="text-[11px] text-slate-500 truncate">
+                {product.name} (x{quantity})
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => router.push("/cart")}
+              className="text-xs font-bold bg-brand-blue-600 hover:bg-brand-blue-700 text-white shadow-xs"
             >
-              <X className="w-5 h-5" />
+              Xem Giỏ Hàng
+            </Button>
+            <button
+              onClick={() => setShowAddedToast(false)}
+              className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
+            >
+              <X className="w-4 h-4" />
             </button>
-
-            {orderSuccess ? (
-              <div className="text-center py-6 space-y-4">
-                <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
-                  <CheckCircle2 className="w-8 h-8" />
-                </div>
-                <h3 className="text-2xl font-bold text-slate-900">Đặt Hàng Thành Công!</h3>
-                <p className="text-sm text-slate-600">
-                  Mã đơn hàng của bạn là: <strong className="text-brand-blue-700 font-mono text-base">{orderSuccess.order_code}</strong>
-                </p>
-                <div className="bg-slate-50 p-4 rounded-2xl text-xs text-slate-600 space-y-1 text-left">
-                  <div className="flex justify-between">
-                    <span>Sản phẩm:</span>
-                    <strong className="text-slate-900">{product.name} (x{quantity})</strong>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Tổng tiền thanh toán:</span>
-                    <strong className="text-emerald-700 text-sm">{formatVND(orderSuccess.total)}</strong>
-                  </div>
-                </div>
-                <p className="text-xs text-slate-500 italic">
-                  Dược sĩ nhà thuốc sẽ liên hệ xác nhận đơn hàng qua số điện thoại trong 15 phút.
-                </p>
-                <Button
-                  variant="primary"
-                  size="md"
-                  className="w-full"
-                  onClick={() => {
-                    setIsCheckoutModalOpen(false);
-                    setOrderSuccess(null);
-                    setFormError("");
-                  }}
-                >
-                  Đóng & Tiếp Tục Mua Sắm
-                </Button>
-              </div>
-            ) : (
-              <form onSubmit={handleConfirmOrder} className="space-y-4">
-                <div>
-                  <span className="text-[11px] font-bold text-brand-blue-700 uppercase tracking-wider">
-                    ĐẶT HÀNG NHANH
-                  </span>
-                  <h3 className="text-xl font-bold text-slate-900">Xác Nhận Đơn Thuốc</h3>
-                </div>
-
-                {/* Tóm tắt sản phẩm */}
-                <div className="p-3 bg-slate-50 rounded-2xl flex items-center justify-between text-xs">
-                  <div>
-                    <span className="font-bold text-slate-900 line-clamp-1">{product.name}</span>
-                    <span className="text-slate-500">Số lượng: x{quantity}</span>
-                  </div>
-                  <span className="font-bold text-emerald-700 text-sm shrink-0">
-                    {formatVND(currentPrice * quantity)}
-                  </span>
-                </div>
-
-                {/* Thông báo lỗi trực quan nếu có */}
-                {formError && (
-                  <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-2xl text-xs flex items-start gap-2.5">
-                    <AlertCircle className="w-4 h-4 shrink-0 text-rose-500 mt-0.5" />
-                    <span className="leading-relaxed font-semibold">{formError}</span>
-                  </div>
-                )}
-
-                <div className="space-y-3">
-                  <div>
-                    <label className="text-xs font-semibold text-slate-700 block mb-1">
-                      Họ và tên người nhận *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={checkoutName}
-                      onChange={(e) => {
-                        setCheckoutName(e.target.value);
-                        if (formError) setFormError("");
-                      }}
-                      placeholder="Ví dụ: Nguyễn Văn An"
-                      className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-blue-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-semibold text-slate-700 block mb-1">
-                      Số điện thoại nhận hàng *
-                    </label>
-                    <input
-                      type="tel"
-                      required
-                      value={checkoutPhone}
-                      onChange={(e) => {
-                        setCheckoutPhone(e.target.value);
-                        if (formError) setFormError("");
-                      }}
-                      placeholder="Ví dụ: 0987 654 321"
-                      className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-blue-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-semibold text-slate-700 block mb-1">
-                      Địa chỉ nhận hàng *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={checkoutAddress}
-                      onChange={(e) => {
-                        setCheckoutAddress(e.target.value);
-                        if (formError) setFormError("");
-                      }}
-                      placeholder="Số nhà, tên đường, phường/xã, quận/huyện..."
-                      className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-blue-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-semibold text-slate-700 block mb-1">
-                      Phương thức thanh toán
-                    </label>
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      <label className={`p-2.5 border rounded-xl flex items-center gap-2 cursor-pointer transition-colors ${checkoutPayment === 'COD' ? 'border-brand-blue-500 bg-blue-50/50 font-bold text-brand-blue-700' : 'border-slate-200 text-slate-600'}`}>
-                        <input
-                          type="radio"
-                          name="payment"
-                          value="COD"
-                          checked={checkoutPayment === 'COD'}
-                          onChange={() => setCheckoutPayment('COD')}
-                        />
-                        <span>Tiền mặt (COD)</span>
-                      </label>
-                      <label className={`p-2.5 border rounded-xl flex items-center gap-2 cursor-pointer transition-colors ${checkoutPayment === 'BANK_TRANSFER' ? 'border-brand-blue-500 bg-blue-50/50 font-bold text-brand-blue-700' : 'border-slate-200 text-slate-600'}`}>
-                        <input
-                          type="radio"
-                          name="payment"
-                          value="BANK_TRANSFER"
-                          checked={checkoutPayment === 'BANK_TRANSFER'}
-                          onChange={() => setCheckoutPayment('BANK_TRANSFER')}
-                        />
-                        <span>Chuyển khoản</span>
-                      </label>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-semibold text-slate-700 block mb-1">
-                      Ghi chú thêm (tùy chọn)
-                    </label>
-                    <input
-                      type="text"
-                      value={checkoutNote}
-                      onChange={(e) => setCheckoutNote(e.target.value)}
-                      placeholder="Giao giờ hành chính, gọi trước khi giao..."
-                      className="w-full text-xs px-3.5 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-blue-500"
-                    />
-                  </div>
-                </div>
-
-                <div className="pt-2">
-                  <Button
-                    type="submit"
-                    variant="primary"
-                    size="lg"
-                    className="w-full shadow-medical"
-                    disabled={submittingOrder}
-                  >
-                    {submittingOrder ? "Đang xử lý đơn hàng..." : `Xác Nhận Đặt Hàng • ${formatVND(currentPrice * quantity)}`}
-                  </Button>
-                </div>
-              </form>
-            )}
           </div>
         </div>
       )}

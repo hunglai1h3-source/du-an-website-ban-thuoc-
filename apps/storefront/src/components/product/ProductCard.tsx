@@ -11,6 +11,7 @@ import {
   Stethoscope,
   Heart,
   Eye,
+  Check,
 } from "lucide-react";
 
 interface ProductCardProps {
@@ -29,6 +30,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   className = "",
 }) => {
   const [isWishlisted, setIsWishlisted] = useState(false);
+  const [justAdded, setJustAdded] = useState(false);
 
   const discountPercent =
     product.salePrice && product.salePrice < product.price
@@ -49,7 +51,46 @@ export const ProductCard: React.FC<ProductCardProps> = ({
     if (product.isPrescription) {
       if (onOpenRxConsult) onOpenRxConsult(product);
     } else {
-      if (onAddToCart) onAddToCart(product);
+      if (onAddToCart) {
+        onAddToCart(product);
+      } else {
+        // Tự động lưu vào pharmatrust_cart trong localStorage nếu không truyền callback
+        try {
+          let cart: any[] = [];
+          const raw = localStorage.getItem("pharmatrust_cart");
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) cart = parsed;
+          }
+          const dbId =
+            product.dbId ||
+            (product.id && product.id.startsWith("pt-")
+              ? parseInt(product.id.replace("pt-", ""), 10)
+              : 1);
+          const existing = cart.findIndex((i: any) => i.id === product.id);
+          if (existing > -1) {
+            cart[existing].quantity += 1;
+          } else {
+            cart.push({
+              id: product.id,
+              dbId: dbId,
+              name: product.name,
+              price: product.salePrice || product.price,
+              salePrice: product.salePrice,
+              quantity: 1,
+              image: (product.images && product.images[0]) || "/images/medicines/panadol.jpg",
+              unit: product.packaging || "Hộp",
+              isPrescription: false,
+            });
+          }
+          localStorage.setItem("pharmatrust_cart", JSON.stringify(cart));
+          window.dispatchEvent(new Event("cart_updated"));
+          setJustAdded(true);
+          setTimeout(() => setJustAdded(false), 2000);
+        } catch (err) {
+          console.error("Lỗi thêm vào giỏ:", err);
+        }
+      }
     }
   };
 
@@ -195,11 +236,24 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           ) : (
             <button
               onClick={handleActionClick}
-              className="px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-[11px] sm:text-xs font-bold text-white bg-brand-blue-600 hover:bg-brand-blue-700 active:bg-brand-blue-800 shadow-xs transition-all duration-150 flex items-center gap-1 shrink-0 active:scale-95 cursor-pointer"
+              className={`px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-[11px] sm:text-xs font-bold shadow-xs transition-all duration-150 flex items-center gap-1 shrink-0 active:scale-95 cursor-pointer ${
+                justAdded
+                  ? "bg-emerald-600 text-white"
+                  : "text-white bg-brand-blue-600 hover:bg-brand-blue-700 active:bg-brand-blue-800"
+              }`}
               title="Thêm vào giỏ hàng"
             >
-              <ShoppingBag className="w-3.5 h-3.5 shrink-0" />
-              <span className="whitespace-nowrap">Chọn mua</span>
+              {justAdded ? (
+                <>
+                  <Check className="w-3.5 h-3.5 shrink-0" />
+                  <span className="whitespace-nowrap">Đã thêm!</span>
+                </>
+              ) : (
+                <>
+                  <ShoppingBag className="w-3.5 h-3.5 shrink-0" />
+                  <span className="whitespace-nowrap">Chọn mua</span>
+                </>
+              )}
             </button>
           )}
         </div>
