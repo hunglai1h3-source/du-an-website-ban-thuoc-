@@ -30,6 +30,21 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { PRODUCTS_DATA } from "@/data/products";
+import dynamic from "next/dynamic";
+import VietQrPaymentModal from "@/components/checkout/VietQrPaymentModal";
+
+const DeliveryRealMap = dynamic(
+  () => import("@/components/checkout/DeliveryRealMap"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="w-full h-72 rounded-2xl bg-slate-100 border border-slate-200 flex flex-col items-center justify-center text-slate-400 gap-2 animate-pulse">
+        <div className="w-8 h-8 rounded-full border-2 border-brand-blue-600 border-t-transparent animate-spin" />
+        <span className="text-xs font-semibold">Đang tải bản đồ định vị thực tế...</span>
+      </div>
+    ),
+  }
+);
 
 interface CartItem {
   id: string;
@@ -67,6 +82,8 @@ interface NearestWarehouseInfo {
   distance_km: number;
   estimated_delivery_time: string;
   navigation_url: string;
+  lat?: number;
+  lng?: number;
 }
 
 export default function CartPage() {
@@ -99,6 +116,13 @@ export default function CartPage() {
     message?: string;
   } | null>(null);
   const [isSimulatingPayment, setIsSimulatingPayment] = useState(false);
+  const [vietQrModal, setVietQrModal] = useState<{
+    isOpen: boolean;
+    orderCode: string;
+    amount: number;
+    customerName: string;
+    shippingAddress: string;
+  } | null>(null);
 
   // 2-tier Administrative Address & Geolocation state
   const [adminTree, setAdminTree] = useState<AdminProvince[]>([]);
@@ -395,6 +419,20 @@ export default function CartPage() {
         } catch (mErr) {
           console.warn("Lỗi khi kết nối cổng MoMo, chuyển về trang đơn hàng:", mErr);
         }
+      }
+
+      // Handle VietQR Bank Transfer Modal
+      if (paymentMethod === "BANK_TRANSFER") {
+        setItems([]);
+        localStorage.removeItem("pharmatrust_cart");
+        setVietQrModal({
+          isOpen: true,
+          orderCode: data.order_code,
+          amount: data.total_amount || grandTotal,
+          customerName: customerName.trim(),
+          shippingAddress: fullShippingAddress,
+        });
+        return;
       }
 
       // Standard Order created successfully (COD or fallback)
@@ -800,6 +838,19 @@ export default function CartPage() {
                     )}
                   </div>
 
+                  {/* Bản đồ thực tế OpenStreetMap / Leaflet tương tác */}
+                  <div className="pt-1">
+                    <DeliveryRealMap
+                      customerCoords={coords}
+                      nearestWarehouse={nearestWarehouse}
+                      onLocationSelect={(lat, lng) => {
+                        setCoords({ lat, lng });
+                      }}
+                      isLocating={isLocating}
+                      onGetGps={handleGetLocation}
+                    />
+                  </div>
+
                   {/* Kho phục vụ gần nhất & Ước tính giao hàng */}
                   {nearestWarehouse && (
                     <div className="p-3 bg-blue-50/70 border border-blue-200/80 rounded-xl space-y-1.5 text-xs text-slate-700">
@@ -884,7 +935,7 @@ export default function CartPage() {
                       <label
                         className={`flex items-center gap-2 p-2.5 rounded-xl border cursor-pointer transition-all ${
                           paymentMethod === "BANK_TRANSFER"
-                            ? "border-brand-blue-600 bg-brand-blue-50/50 text-brand-blue-900 font-bold"
+                            ? "border-brand-blue-600 bg-brand-blue-50/70 text-brand-blue-900 font-bold shadow-xs"
                             : "border-slate-200 hover:border-slate-300 text-slate-700"
                         }`}
                       >
@@ -896,8 +947,8 @@ export default function CartPage() {
                           onChange={() => setPaymentMethod("BANK_TRANSFER")}
                           className="sr-only"
                         />
-                        <CreditCard className="w-4 h-4 text-brand-blue-600 shrink-0" />
-                        <span className="text-xs">Chuyển khoản</span>
+                        <QrCode className="w-4 h-4 text-brand-blue-600 shrink-0" />
+                        <span className="text-xs">Chuyển khoản VietQR</span>
                       </label>
                     </div>
                   </div>
@@ -1119,6 +1170,36 @@ export default function CartPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* VietQR Bank Transfer Modal */}
+      {vietQrModal && (
+        <VietQrPaymentModal
+          isOpen={vietQrModal.isOpen}
+          orderCode={vietQrModal.orderCode}
+          amount={vietQrModal.amount}
+          customerName={vietQrModal.customerName}
+          onClose={() => {
+            setOrderSuccess({
+              order_code: vietQrModal.orderCode,
+              total: vietQrModal.amount,
+              customer_name: vietQrModal.customerName,
+              shipping_address: vietQrModal.shippingAddress,
+              payment_method: "BANK_TRANSFER",
+            });
+            setVietQrModal(null);
+          }}
+          onConfirmPaid={() => {
+            setOrderSuccess({
+              order_code: vietQrModal.orderCode,
+              total: vietQrModal.amount,
+              customer_name: vietQrModal.customerName,
+              shipping_address: vietQrModal.shippingAddress,
+              payment_method: "BANK_TRANSFER",
+            });
+            setVietQrModal(null);
+          }}
+        />
       )}
 
       <Footer />
