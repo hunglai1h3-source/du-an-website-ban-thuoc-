@@ -12,6 +12,8 @@ export interface LiquidMetalButtonProps {
   disabled?: boolean;
   children?: React.ReactNode;
   className?: string;
+  variant?: "mercury" | "medical";
+  successText?: string;
 }
 
 /**
@@ -30,6 +32,8 @@ export const LiquidMetalButton: React.FC<LiquidMetalButtonProps> = ({
   disabled = false,
   children = "Đăng nhập H4CARE",
   className = "",
+  variant = "mercury",
+  successText = "Đã đăng nhập",
 }) => {
   const containerRef = useRef<HTMLButtonElement>(null);
   const shouldReduceMotion = useReducedMotion();
@@ -234,18 +238,27 @@ export const LiquidMetalButton: React.FC<LiquidMetalButtonProps> = ({
               <stop offset="100%" stopColor="#0284c7" />
             </linearGradient>
 
+            {/* Settigation Signature Liquid Chrome / White Mercury Pill */}
+            <linearGradient id="liquidMercuryChrome" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="#dbeafe" />
+              <stop offset="20%" stopColor="#ffffff" />
+              <stop offset="50%" stopColor="#cbd5e1" />
+              <stop offset="80%" stopColor="#f8fafc" />
+              <stop offset="100%" stopColor="#ffffff" />
+            </linearGradient>
+
             {/* Success Emerald Flow Gradient */}
             <linearGradient id="liquidSuccess" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="#065f46" />
-              <stop offset="45%" stopColor="#059669" />
-              <stop offset="100%" stopColor="#10b981" />
+              <stop offset="0%" stopColor="#ecfdf5" />
+              <stop offset="50%" stopColor="#ffffff" />
+              <stop offset="100%" stopColor="#d1fae5" />
             </linearGradient>
 
             {/* Specular Chrome Highlight */}
             <linearGradient id="chromeHighlight" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="#ffffff" stopOpacity="0.45" />
-              <stop offset="35%" stopColor="#ffffff" stopOpacity="0.1" />
-              <stop offset="100%" stopColor="#000000" stopOpacity="0.3" />
+              <stop offset="0%" stopColor="#ffffff" stopOpacity="0.6" />
+              <stop offset="35%" stopColor="#ffffff" stopOpacity="0.15" />
+              <stop offset="100%" stopColor="#000000" stopOpacity="0.25" />
             </linearGradient>
           </defs>
 
@@ -256,7 +269,13 @@ export const LiquidMetalButton: React.FC<LiquidMetalButtonProps> = ({
             width={width - 4}
             height={height - 4}
             rx={radius}
-            fill={isSuccess ? "url(#liquidSuccess)" : "url(#liquidMercury)"}
+            fill={
+              isSuccess
+                ? "url(#liquidSuccess)"
+                : variant === "mercury"
+                ? "url(#liquidMercuryChrome)"
+                : "url(#liquidMercury)"
+            }
           />
 
           {/* LEFT CAPSULE POLE (Separates on pull) */}
@@ -265,7 +284,13 @@ export const LiquidMetalButton: React.FC<LiquidMetalButtonProps> = ({
             cy={centerY}
             rx={radius + 4}
             ry={radius - 2}
-            fill={isSuccess ? "url(#liquidSuccess)" : "url(#liquidMercury)"}
+            fill={
+              isSuccess
+                ? "url(#liquidSuccess)"
+                : variant === "mercury"
+                ? "url(#liquidMercuryChrome)"
+                : "url(#liquidMercury)"
+            }
           />
 
           {/* RIGHT CAPSULE POLE (Separates on pull) */}
@@ -274,7 +299,13 @@ export const LiquidMetalButton: React.FC<LiquidMetalButtonProps> = ({
             cy={centerY}
             rx={radius + 4}
             ry={radius - 2}
-            fill={isSuccess ? "url(#liquidSuccess)" : "url(#liquidMercury)"}
+            fill={
+              isSuccess
+                ? "url(#liquidSuccess)"
+                : variant === "mercury"
+                ? "url(#liquidMercuryChrome)"
+                : "url(#liquidMercury)"
+            }
           />
 
           {/* DYNAMIC CONNECTING LIQUID NECK */}
@@ -285,7 +316,13 @@ export const LiquidMetalButton: React.FC<LiquidMetalButtonProps> = ({
               width={Math.max(1, rightPoleX - leftPoleX - 12)}
               height={neckThickness}
               rx={neckThickness / 2}
-              fill={isSuccess ? "url(#liquidSuccess)" : "url(#liquidMercury)"}
+              fill={
+                isSuccess
+                  ? "url(#liquidSuccess)"
+                  : variant === "mercury"
+                  ? "url(#liquidMercuryChrome)"
+                  : "url(#liquidMercury)"
+              }
             />
           )}
 
@@ -296,13 +333,25 @@ export const LiquidMetalButton: React.FC<LiquidMetalButtonProps> = ({
                 cx={centerX - 10}
                 cy={centerY}
                 r="6"
-                fill={isSuccess ? "url(#liquidSuccess)" : "url(#liquidMercury)"}
+                fill={
+                  isSuccess
+                    ? "url(#liquidSuccess)"
+                    : variant === "mercury"
+                    ? "url(#liquidMercuryChrome)"
+                    : "url(#liquidMercury)"
+                }
               />
               <circle
                 cx={centerX + 10}
                 cy={centerY}
                 r="6"
-                fill={isSuccess ? "url(#liquidSuccess)" : "url(#liquidMercury)"}
+                fill={
+                  isSuccess
+                    ? "url(#liquidSuccess)"
+                    : variant === "mercury"
+                    ? "url(#liquidMercuryChrome)"
+                    : "url(#liquidMercury)"
+                }
               />
             </>
           )}
@@ -327,36 +376,42 @@ export const LiquidMetalButton: React.FC<LiquidMetalButtonProps> = ({
         />
 
         {/* Border Glint Ring */}
-        <div className="absolute inset-0 rounded-full border border-white/25 pointer-events-none" />
-        <div className="absolute inset-[1px] rounded-full border border-cyan-300/20 pointer-events-none" />
+        <div className="absolute inset-0 rounded-full border border-white/40 pointer-events-none" />
+        <div className="absolute inset-[1px] rounded-full border border-cyan-400/30 pointer-events-none" />
 
         {/* ================= CONTENT & STATES ================= */}
-        <div className="relative z-10 flex items-center justify-center gap-2.5 text-sm sm:text-base font-extrabold tracking-wide text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]">
+        <div
+          className={`relative z-10 flex items-center justify-center gap-2.5 text-sm sm:text-base font-extrabold tracking-tight ${
+            variant === "mercury" && !isLoading
+              ? "text-slate-900"
+              : "text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]"
+          }`}
+        >
           {isLoading ? (
             <motion.div
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="flex items-center gap-2 text-cyan-100"
+              className="flex items-center gap-2 text-slate-800"
             >
-              <Loader2 className="w-5 h-5 animate-spin text-cyan-300" />
+              <Loader2 className="w-5 h-5 animate-spin text-brand-blue-600" />
               <span>Đang kết nối bảo mật...</span>
             </motion.div>
           ) : isSuccess ? (
             <motion.div
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="flex items-center gap-2 text-emerald-100 font-black"
+              className="flex items-center gap-2 text-emerald-900 font-black"
             >
-              <div className="w-5 h-5 rounded-full bg-white text-emerald-600 flex items-center justify-center">
-                <Check className="w-3.5 h-3.5 stroke-[3]" />
+              <div className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center shadow-xs">
+                <Check className="w-3.5 h-3.5 stroke-[3.5]" />
               </div>
-              <span>Xác thực thành công</span>
+              <span>{successText}</span>
             </motion.div>
           ) : (
             <div className="flex items-center gap-2 transition-transform duration-200 group-hover:translate-x-0.5">
-              <Sparkles className="w-4 h-4 text-cyan-300 animate-pulse" />
+              <Sparkles className="w-4 h-4 text-cyan-600" />
               <span>{children}</span>
-              <ArrowRight className="w-4 h-4 text-cyan-200 transition-transform duration-200 group-hover:translate-x-1" />
+              <ArrowRight className="w-4 h-4 text-slate-700 transition-transform duration-200 group-hover:translate-x-1" />
             </div>
           )}
         </div>

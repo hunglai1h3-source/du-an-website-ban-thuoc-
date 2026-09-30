@@ -1,12 +1,13 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { useAuth } from "@/lib/auth/auth-context";
 import { H4CareLogo } from "@/components/branding/H4CareLogo";
-import { AuthBrandPanel } from "@/components/auth/AuthBrandPanel";
+import { SpatialLoginBackground } from "@/components/auth/SpatialLoginBackground";
+import { LiquidMetalButton } from "@/components/auth/LiquidMetalButton";
 import {
   ArrowLeft,
   Smartphone,
@@ -14,23 +15,52 @@ import {
   ShieldCheck,
   AlertCircle,
   CheckCircle2,
-  Loader2,
-  ArrowRight,
   KeyRound,
+  Sparkles,
 } from "lucide-react";
 
+/**
+ * H4CARE Bespoke Forgot Password Experience
+ * Harmonized with the Oceanic Light Sea Blue Spatial Theme & Liquid Metal Motion
+ */
 export default function ForgotPasswordPage() {
   const router = useRouter();
   const { sendPhoneOtp } = useAuth();
+  const shouldReduceMotion = useReducedMotion();
 
   const [identifier, setIdentifier] = useState<string>("0901234567");
   const [step, setStep] = useState<"input" | "otp">("input");
   const [otpValues, setOtpValues] = useState<string[]>(["8", "4", "2", "6", "9", "1"]);
   const [countdown, setCountdown] = useState<number>(60);
+  const [focusedField, setFocusedField] = useState<string | null>(null);
 
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [isSuccess, setIsSuccess] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Mouse Parallax (Desktop only)
+  const [mouseParallax, setMouseParallax] = useState({ x: 0, y: 0 });
+  const [isMobile, setIsMobile] = useState<boolean>(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768 || window.matchMedia("(hover: none)").matches);
+    };
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
+  const handleMouseMove = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      if (isMobile || shouldReduceMotion) return;
+      const { innerWidth, innerHeight } = window;
+      const normX = (e.clientX / innerWidth - 0.5) * 2;
+      const normY = (e.clientY / innerHeight - 0.5) * 2;
+      setMouseParallax({ x: normX, y: normY });
+    },
+    [isMobile, shouldReduceMotion]
+  );
 
   // Timer countdown
   useEffect(() => {
@@ -74,210 +104,263 @@ export default function ForgotPasswordPage() {
       setIsSuccess(true);
       setTimeout(() => {
         router.push(`/reset-password?target=${encodeURIComponent(identifier.trim())}`);
-      }, 700);
+      }, 750);
     }, 450);
   };
 
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: { staggerChildren: 0.08, delayChildren: 0.15 },
+    },
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 14 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: { type: "spring", stiffness: 280, damping: 24 },
+    },
+  };
+
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col justify-between selection:bg-brand-cyan-100 selection:text-brand-blue-900">
+    <div
+      onMouseMove={handleMouseMove}
+      className="min-h-screen relative flex flex-col justify-between overflow-x-hidden bg-[#ebf5fb] text-slate-800 selection:bg-sky-200 selection:text-sky-900"
+    >
+      <SpatialLoginBackground mouseParallax={mouseParallax} variant="light-sea" />
+
       {/* Top Header */}
-      <header className="w-full max-w-6xl mx-auto px-4 sm:px-6 py-4 sm:py-6 flex items-center justify-between">
-        <H4CareLogo size="md" withTagline={true} />
-        <Link
-          href="/login"
-          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:text-brand-blue-600 hover:border-brand-blue-300 hover:bg-slate-50 shadow-xs transition-all"
+      <header className="relative z-20 w-full max-w-6xl mx-auto px-4 sm:px-6 pt-5 sm:pt-7 flex items-center justify-between">
+        <motion.div
+          initial={{ opacity: 0, x: -16 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.7, ease: "easeOut" }}
+          className="flex items-center gap-3"
         >
-          <ArrowLeft className="w-3.5 h-3.5 text-brand-blue-600" />
-          <span>Về trang đăng nhập</span>
-        </Link>
+          <H4CareLogo variant="full" size="md" withTagline={false} />
+          <div className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/80 border border-sky-300/60 text-[10px] font-mono text-sky-800 backdrop-blur-md shadow-xs">
+            <span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-pulse" />
+            <span>RECOVERY v2.6 • ENCLAVE</span>
+          </div>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, x: 16 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.7, ease: "easeOut" }}
+          className="flex items-center gap-3"
+        >
+          <Link
+            href="/login"
+            className="group inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold text-slate-700 bg-white/80 border border-sky-200/80 hover:border-sky-400 hover:text-sky-700 hover:bg-white transition-all shadow-xs backdrop-blur-md"
+          >
+            <ArrowLeft className="w-3.5 h-3.5 text-sky-600 group-hover:-translate-x-0.5 transition-transform" />
+            <span>Về trang đăng nhập</span>
+          </Link>
+        </motion.div>
       </header>
 
       {/* Main Container */}
-      <main className="w-full max-w-6xl mx-auto px-4 sm:px-6 py-4 sm:py-8 flex items-center justify-center flex-1">
-        <div className="w-full grid grid-cols-1 lg:grid-cols-12 bg-white rounded-2xl border border-slate-200 shadow-depth-2 overflow-hidden">
-          
-          {/* Left Side: Medical Trust Brand Panel */}
-          <div className="hidden lg:block lg:col-span-5 relative">
-            <AuthBrandPanel />
-          </div>
+      <main className="relative z-10 w-full max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-10 flex items-center justify-center flex-1">
+        <motion.div
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+          className="w-full max-w-lg relative"
+          style={{
+            transform:
+              !isMobile && !shouldReduceMotion
+                ? `translate3d(${mouseParallax.x * 3}px, ${mouseParallax.y * 3}px, 0)`
+                : undefined,
+          }}
+        >
+          {/* Ambient Glow */}
+          <div className="absolute -inset-1 rounded-[32px] bg-gradient-to-r from-sky-400/25 via-cyan-400/20 to-blue-400/20 blur-2xl pointer-events-none opacity-80" />
 
-          {/* Right Side: Form */}
-          <div className="lg:col-span-7 p-6 sm:p-10 md:p-12 flex flex-col justify-center bg-white">
-            <div className="w-full max-w-md mx-auto">
-              
-              <div className="mb-6">
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-50 text-brand-blue-700 border border-sky-200/80 text-[11px] font-bold mb-3">
-                  <KeyRound className="w-3.5 h-3.5 text-brand-blue-600" />
-                  <span>Khôi phục tài khoản an toàn</span>
-                </div>
-                <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-                  Quên mật khẩu?
-                </h1>
-                <p className="text-xs sm:text-sm text-slate-600 mt-1 leading-relaxed">
-                  Nhập số điện thoại hoặc email đã đăng ký. Hệ thống sẽ gửi mã xác thực OTP bảo mật để đặt lại mật khẩu.
-                </p>
+          {/* Frosted Crystalline Sea-Glass Card */}
+          <div className="relative rounded-[28px] bg-white/85 backdrop-blur-2xl border border-white/90 p-6 sm:p-9 shadow-[0_25px_60px_-15px_rgba(2,132,199,0.16),0_0_40px_rgba(255,255,255,0.8)_inset] overflow-hidden">
+            <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-sky-400/60 to-transparent" />
+
+            {/* Header info */}
+            <motion.div variants={itemVariants} className="mb-6 text-center sm:text-left">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-50 border border-sky-200/80 text-sky-700 text-[11px] font-semibold mb-3 tracking-wide">
+                <KeyRound className="w-3.5 h-3.5 text-sky-600" />
+                <span>Khôi phục tài khoản bảo mật</span>
               </div>
+              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight bg-gradient-to-r from-slate-900 via-sky-950 to-blue-900 bg-clip-text text-transparent">
+                Quên mật khẩu?
+              </h1>
+              <p className="text-xs sm:text-sm text-slate-600 mt-1 leading-relaxed">
+                Nhập số điện thoại hoặc email đã đăng ký. Hệ thống sẽ gửi mã xác thực OTP bảo mật để đặt lại mật khẩu.
+              </p>
+            </motion.div>
 
-              {/* Alerts */}
-              <AnimatePresence>
-                {errorMessage && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -6 }}
-                    className="mb-5 p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-start gap-2.5 font-medium leading-relaxed"
-                  >
-                    <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
-                    <div className="flex-1">{errorMessage}</div>
-                  </motion.div>
-                )}
-
-                {isSuccess && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="mb-5 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-start gap-2.5 font-medium leading-relaxed"
-                  >
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                    <div className="flex-1">Mã xác thực chính xác! Đang chuyển hướng sang trang đặt lại mật khẩu...</div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              {step === "input" ? (
-                <form onSubmit={handleSendOtp} className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                      Số điện thoại hoặc Email
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="text"
-                        value={identifier}
-                        onChange={(e) => setIdentifier(e.target.value)}
-                        placeholder="Ví dụ: 0901 234 567 hoặc email..."
-                        required
-                        className="w-full px-3.5 py-2.5 pl-10 rounded-xl bg-white border border-slate-200 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-brand-blue-600 focus:ring-4 focus:ring-brand-blue-100 transition-all font-medium"
-                      />
-                      <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
-                        {identifier.includes("@") ? (
-                          <Mail className="w-4 h-4 text-brand-blue-600" />
-                        ) : (
-                          <Smartphone className="w-4 h-4 text-brand-blue-600" />
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="w-full py-3 px-4 rounded-xl bg-brand-blue-600 hover:bg-brand-blue-700 text-white font-bold text-sm shadow-depth-1 hover:shadow-depth-2 transition-all flex items-center justify-center gap-2 active:scale-[0.99] disabled:opacity-60 cursor-pointer"
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>Đang gửi mã OTP...</span>
-                      </>
-                    ) : (
-                      <>
-                        <span>Tiếp tục nhận mã OTP</span>
-                        <ArrowRight className="w-4 h-4" />
-                      </>
-                    )}
-                  </button>
-                </form>
-              ) : (
-                <form onSubmit={handleVerifyOtp} className="space-y-4">
-                  <div className="text-center mb-4">
-                    <span className="text-xs text-slate-500">Mã OTP 6 số đã gửi tới</span>
-                    <p className="text-sm font-bold text-slate-900">{identifier}</p>
-                  </div>
-
-                  <div className="flex justify-center gap-2">
-                    {otpValues.map((val, idx) => (
-                      <input
-                        key={idx}
-                        id={`otp-input-${idx}`}
-                        type="text"
-                        maxLength={1}
-                        value={val}
-                        onChange={(e) => {
-                          const newVals = [...otpValues];
-                          newVals[idx] = e.target.value.slice(-1);
-                          setOtpValues(newVals);
-                          if (e.target.value && idx < 5) {
-                            document.getElementById(`otp-input-${idx + 1}`)?.focus();
-                          }
-                        }}
-                        className="w-10 h-12 text-center text-lg font-bold rounded-xl border border-slate-200 text-slate-900 bg-white focus:outline-none focus:border-brand-blue-600 focus:ring-4 focus:ring-brand-blue-100 transition-all"
-                      />
-                    ))}
-                  </div>
-
-                  <div className="flex items-center justify-between text-xs text-slate-500 pt-2">
-                    <button
-                      type="button"
-                      onClick={() => setStep("input")}
-                      className="text-slate-600 hover:text-brand-blue-600 font-medium"
-                    >
-                      Đổi số / email
-                    </button>
-                    <span>
-                      {countdown > 0 ? (
-                        `Gửi lại sau ${countdown}s`
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setCountdown(60);
-                            sendPhoneOtp(identifier);
-                          }}
-                          className="text-brand-blue-600 font-bold hover:underline"
-                        >
-                          Gửi lại mã
-                        </button>
-                      )}
-                    </span>
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={isSubmitting || isSuccess}
-                    className="w-full py-3 px-4 rounded-xl bg-brand-blue-600 hover:bg-brand-blue-700 text-white font-bold text-sm shadow-depth-1 hover:shadow-depth-2 transition-all flex items-center justify-center gap-2 active:scale-[0.99] disabled:opacity-60 cursor-pointer"
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>Đang xác thực mã...</span>
-                      </>
-                    ) : (
-                      <>
-                        <span>Xác nhận & Đặt lại mật khẩu</span>
-                        <ArrowRight className="w-4 h-4" />
-                      </>
-                    )}
-                  </button>
-                </form>
+            {/* Alerts */}
+            <AnimatePresence mode="wait">
+              {errorMessage && (
+                <motion.div
+                  key="error-box"
+                  initial={{ opacity: 0, y: -8, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -8, scale: 0.98 }}
+                  className="mb-5 p-3.5 rounded-2xl bg-red-50/95 border border-red-200 text-red-700 text-xs flex items-start gap-2.5 font-medium leading-relaxed backdrop-blur-md shadow-xs"
+                >
+                  <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                  <div className="flex-1">{errorMessage}</div>
+                </motion.div>
               )}
 
-              <div className="mt-6 text-center text-xs text-slate-600">
-                Nhớ mật khẩu tài khoản?{" "}
-                <Link
-                  href="/login"
-                  className="font-bold text-brand-blue-600 hover:text-brand-blue-800 hover:underline"
+              {isSuccess && (
+                <motion.div
+                  key="success-box"
+                  initial={{ opacity: 0, y: -8, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -8, scale: 0.98 }}
+                  className="mb-5 p-3.5 rounded-2xl bg-emerald-50/95 border border-emerald-200 text-emerald-800 text-xs flex items-start gap-2.5 font-medium leading-relaxed backdrop-blur-md shadow-xs"
                 >
-                  Quay lại đăng nhập
-                </Link>
-              </div>
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                  <div className="flex-1">Mã xác thực chính xác! Đang chuyển hướng sang trang đặt lại mật khẩu...</div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
-            </div>
+            {step === "input" ? (
+              <form onSubmit={handleSendOtp} className="space-y-4">
+                <motion.div variants={itemVariants}>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center justify-between">
+                    <span>Số điện thoại hoặc Email</span>
+                    <span className="text-[10px] text-sky-600 font-mono">Xác thực OTP</span>
+                  </label>
+                  <div
+                    className={`relative rounded-2xl bg-white/90 border transition-all duration-200 overflow-hidden ${
+                      focusedField === "identifier"
+                        ? "border-sky-500 ring-2 ring-sky-400/20 shadow-[0_0_20px_rgba(14,165,233,0.18)]"
+                        : "border-sky-200/80 hover:border-sky-300"
+                    }`}
+                  >
+                    <input
+                      type="text"
+                      value={identifier}
+                      onFocus={() => setFocusedField("identifier")}
+                      onBlur={() => setFocusedField(null)}
+                      onChange={(e) => setIdentifier(e.target.value)}
+                      placeholder="Ví dụ: 0901234567 hoặc email..."
+                      required
+                      className="w-full px-4 py-3 pl-11 bg-transparent text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none font-medium"
+                    />
+                    <div
+                      className={`absolute left-3.5 top-1/2 -translate-y-1/2 transition-colors duration-200 pointer-events-none ${
+                        focusedField === "identifier" ? "text-sky-600" : "text-slate-400"
+                      }`}
+                    >
+                      {identifier.includes("@") ? (
+                        <Mail className="w-4 h-4" />
+                      ) : (
+                        <Smartphone className="w-4 h-4" />
+                      )}
+                    </div>
+                  </div>
+                </motion.div>
+
+                <motion.div variants={itemVariants} className="pt-2">
+                  <LiquidMetalButton
+                    type="submit"
+                    variant="mercury"
+                    isLoading={isSubmitting}
+                    disabled={isSubmitting}
+                  >
+                    Tiếp tục nhận mã OTP
+                  </LiquidMetalButton>
+                </motion.div>
+              </form>
+            ) : (
+              <form onSubmit={handleVerifyOtp} className="space-y-4">
+                <motion.div variants={itemVariants} className="text-center mb-3">
+                  <span className="text-xs text-slate-500">Mã OTP 6 số đã gửi tới</span>
+                  <p className="text-sm font-bold text-sky-700">{identifier}</p>
+                </motion.div>
+
+                {/* 6-Cell OTP Input */}
+                <motion.div variants={itemVariants} className="flex justify-center gap-2">
+                  {otpValues.map((val, idx) => (
+                    <input
+                      key={idx}
+                      id={`forgot-otp-${idx}`}
+                      type="text"
+                      maxLength={1}
+                      value={val}
+                      onChange={(e) => {
+                        const newVals = [...otpValues];
+                        newVals[idx] = e.target.value.slice(-1);
+                        setOtpValues(newVals);
+                        if (e.target.value && idx < 5) {
+                          document.getElementById(`forgot-otp-${idx + 1}`)?.focus();
+                        }
+                      }}
+                      className="w-10 sm:w-12 h-12 text-center text-lg font-bold rounded-xl border border-sky-200/80 bg-white/95 text-slate-900 focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-400/20 focus:shadow-[0_0_15px_rgba(14,165,233,0.25)] transition-all font-mono"
+                    />
+                  ))}
+                </motion.div>
+
+                <motion.div variants={itemVariants} className="flex items-center justify-between text-xs text-slate-500 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setStep("input")}
+                    className="text-slate-600 hover:text-sky-700 font-medium transition-colors"
+                  >
+                    ← Đổi số / email
+                  </button>
+                  <span>
+                    {countdown > 0 ? (
+                      `Gửi lại sau ${countdown}s`
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCountdown(60);
+                          sendPhoneOtp(identifier);
+                        }}
+                        className="text-sky-600 font-bold hover:underline"
+                      >
+                        Gửi lại mã
+                      </button>
+                    )}
+                  </span>
+                </motion.div>
+
+                <motion.div variants={itemVariants} className="pt-2">
+                  <LiquidMetalButton
+                    type="submit"
+                    variant="mercury"
+                    isLoading={isSubmitting}
+                    isSuccess={isSuccess}
+                    disabled={isSubmitting || isSuccess}
+                  >
+                    Xác nhận & Đặt lại mật khẩu
+                  </LiquidMetalButton>
+                </motion.div>
+              </form>
+            )}
+
+            <motion.div variants={itemVariants} className="mt-6 text-center text-xs text-slate-600">
+              Nhớ mật khẩu tài khoản?{" "}
+              <Link
+                href="/login"
+                className="font-bold text-sky-600 hover:text-sky-800 hover:underline transition-colors"
+              >
+                Quay lại đăng nhập
+              </Link>
+            </motion.div>
+
           </div>
-        </div>
+        </motion.div>
       </main>
 
-      <footer className="w-full text-center py-4 text-[11px] text-slate-400 select-none">
-        <span>Hệ thống Quản lý Dữ liệu Thuốc & Bán lẻ Dược phẩm PharmaTrust • Định hướng chuẩn GPP & GSP</span>
+      <footer className="relative z-20 w-full text-center py-4 text-[11px] text-slate-500 select-none">
+        <span>Hệ thống Quản lý Dữ liệu Thuốc & Bán lẻ Dược phẩm H4CARE • Đạt chuẩn GPP & GSP Bộ Y Tế</span>
       </footer>
     </div>
   );

@@ -1,4 +1,4 @@
-import { AlertCircle, ArrowRight, Database, ShieldCheck, Sparkles, Lock, Mail, Eye, EyeOff } from 'lucide-react'
+import { AlertCircle, ArrowRight, ShieldCheck, Sparkles, Lock, Mail, Eye, EyeOff, ArrowLeft } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../services/auth'
@@ -42,45 +42,85 @@ export function LoginPage() {
 
   return (
     <div className="login-page">
-      <section className="login-hero">
-        <div className="login-brand">
-          <ShieldCheck /> PharmaTrust <span>Data Hub</span>
-        </div>
-        <div className="hero-copy">
-          <div className="eyebrow"><Sparkles size={15} /> HỆ THỐNG DỮ LIỆU DƯỢC PHẨM CHUẨN Y TẾ</div>
-          <h1>Dữ liệu thuốc đáng tin cậy bắt đầu từ <em>bằng chứng rõ ràng.</em></h1>
-          <p>Thu thập, chuẩn hóa và đối chiếu hồ sơ dữ liệu theo từng nguồn uy tín. Định hướng quy chuẩn dược thư và hỗ trợ kiểm soát chất lượng dữ liệu thuốc đa kênh.</p>
-          <div className="hero-points">
-            <div>
-              <Database />
-              <div>
-                <strong>Nguồn gốc minh bạch</strong>
-                <small>Lưu vết đối chiếu từ Pharmacity & Long Châu</small>
-              </div>
-            </div>
-            <div>
-              <ShieldCheck />
-              <div>
-                <strong>Quy tắc kiểm duyệt chặt chẽ</strong>
-                <small>Bảo đảm độ tin cậy trước khi duyệt bán trên Storefront</small>
-              </div>
-            </div>
+      {/* Top Floating Glass Bar */}
+      <header
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          maxWidth: '1200px',
+          margin: '0 auto',
+          padding: '20px 24px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          zIndex: 20,
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 800, fontSize: '18px', color: '#0369a1' }}>
+          <div
+            style={{
+              width: '32px',
+              height: '32px',
+              borderRadius: '10px',
+              background: 'linear-gradient(135deg, #0284c7, #0052cc)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'white',
+              boxShadow: '0 4px 12px rgba(2, 132, 199, 0.3)',
+            }}
+          >
+            <ShieldCheck size={18} />
           </div>
+          <span>H4CARE <span style={{ color: '#0f172a', fontWeight: 700 }}>Data Hub</span></span>
         </div>
-        <small className="hero-footer">Nền tảng đánh giá hồ sơ dữ liệu thuốc • Định hướng chuẩn GPP & GSP</small>
-      </section>
 
+        <a
+          href="http://localhost:3000"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '7px 14px',
+            borderRadius: '9999px',
+            fontSize: '12px',
+            fontWeight: 700,
+            color: '#334155',
+            background: 'rgba(255, 255, 255, 0.85)',
+            border: '1px solid rgba(186, 230, 253, 0.8)',
+            textDecoration: 'none',
+            backdropFilter: 'blur(8px)',
+            transition: 'all 0.15s ease',
+            boxShadow: '0 2px 6px rgba(0,0,0,0.04)',
+          }}
+        >
+          <ArrowLeft size={14} style={{ color: '#0284c7' }} />
+          <span>Về Web Bán Hàng</span>
+        </a>
+      </header>
+
+      {/* Main Login Panel */}
       <section className="login-panel">
         <form className="login-form" onSubmit={submit}>
-          <div className="mobile-login-logo"><ShieldCheck /> PharmaTrust Data Hub</div>
-          <span className="overline">CỔNG QUẢN TRỊ DỮ LIỆU</span>
-          <h2>Đăng nhập quản trị</h2>
-          <p>Nhập tài khoản Quản trị viên hoặc Kiểm duyệt viên để tiếp tục làm việc.</p>
+          <div className="overline">
+            <ShieldCheck size={13} />
+            <span>CỔNG QUẢN TRỊ DỮ LIỆU • H4CARE</span>
+          </div>
 
-          {error && <div className="alert alert-error"><AlertCircle size={17} />{error}</div>}
+          <h2>Đăng nhập quản trị</h2>
+          <p>Nhập tài khoản Quản trị viên hoặc Dược sĩ để quản trị dữ liệu thuốc và vận hành hệ thống.</p>
+
+          {error && (
+            <div className="alert alert-error" style={{ borderRadius: '12px', marginBottom: '16px' }}>
+              <AlertCircle size={17} />
+              <span>{error}</span>
+            </div>
+          )}
 
           <label>
-            Email hoặc Số điện thoại
+            <span>Email hoặc Số điện thoại</span>
             <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
               <input
                 type="text"
@@ -88,14 +128,14 @@ export function LoginPage() {
                 onChange={e => setEmail(e.target.value)}
                 placeholder="admin@pharmatrust.vn"
                 required
-                style={{ width: '100%', paddingLeft: '36px' }}
+                style={{ width: '100%', paddingLeft: '38px' }}
               />
-              <Mail size={16} style={{ position: 'absolute', left: '12px', color: '#64748b' }} />
+              <Mail size={16} style={{ position: 'absolute', left: '12px', color: '#0284c7' }} />
             </div>
           </label>
 
           <label>
-            Mật khẩu
+            <span>Mật khẩu</span>
             <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
               <input
                 type={showPassword ? 'text' : 'password'}
@@ -103,13 +143,24 @@ export function LoginPage() {
                 onChange={e => setPassword(e.target.value)}
                 placeholder="••••••••"
                 required
-                style={{ width: '100%', paddingLeft: '36px', paddingRight: '36px' }}
+                style={{ width: '100%', paddingLeft: '38px', paddingRight: '38px' }}
               />
-              <Lock size={16} style={{ position: 'absolute', left: '12px', color: '#64748b' }} />
+              <Lock size={16} style={{ position: 'absolute', left: '12px', color: '#0284c7' }} />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                style={{ position: 'absolute', right: '10px', background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', padding: '4px' }}
+                style={{
+                  position: 'absolute',
+                  right: '10px',
+                  background: 'none',
+                  border: 'none',
+                  color: '#64748b',
+                  cursor: 'pointer',
+                  padding: '4px',
+                  display: 'flex',
+                  alignItems: 'center',
+                }}
+                aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
               >
                 {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
@@ -117,18 +168,29 @@ export function LoginPage() {
           </label>
 
           <button className="primary-button login-button" disabled={busy}>
-            {busy ? 'Đang xác thực thông tin…' : 'Đăng nhập Quản trị viên'}
-            <ArrowRight size={18} />
+            <span>{busy ? 'Đang xác thực thông tin…' : 'Đăng nhập Quản trị viên'}</span>
+            <ArrowRight size={17} />
           </button>
           
           <button
             type="button"
             className="secondary-button"
-            style={{ width: '100%', marginTop: '0.65rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', cursor: 'pointer', padding: '10px 14px' }}
+            style={{
+              width: '100%',
+              marginTop: '10px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
+              cursor: 'pointer',
+              padding: '11px 16px',
+              fontSize: '12px',
+            }}
             disabled={busy}
             onClick={quickAdminLogin}
           >
-            <ShieldCheck size={16} /> 1-Click: Điền & Đăng nhập nhanh Admin
+            <Sparkles size={15} style={{ color: '#0284c7' }} />
+            <span>1-Click: Điền & Đăng nhập nhanh Admin</span>
           </button>
 
           <div
@@ -145,8 +207,19 @@ export function LoginPage() {
             <code>Admin@123456</code>
           </div>
 
-          <div style={{ marginTop: '1.25rem', textAlign: 'center' }}>
-            <a href="http://localhost:3000" style={{ color: '#0052cc', fontSize: '0.85rem', fontWeight: 600, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+          <div style={{ marginTop: '20px', textAlign: 'center' }}>
+            <a
+              href="http://localhost:3000"
+              style={{
+                color: '#0284c7',
+                fontSize: '12px',
+                fontWeight: 700,
+                textDecoration: 'none',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+              }}
+            >
               ← Quay lại Website Khách Hàng (Storefront :3000)
             </a>
           </div>

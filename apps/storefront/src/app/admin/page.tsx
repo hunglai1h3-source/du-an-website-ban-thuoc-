@@ -26,6 +26,7 @@ import { useAuth } from "@/lib/auth/auth-context";
 import { getAdminAuthQuery, redirectToAdminPortal } from "@/lib/auth/admin-redirect";
 import { H4CareLogo } from "@/components/branding/H4CareLogo";
 import { FptPolyBadge } from "@/components/branding/FptPolyBadge";
+import { SpatialLoginBackground } from "@/components/auth/SpatialLoginBackground";
 
 export default function AdminPortalPage() {
   const router = useRouter();
@@ -121,66 +122,78 @@ export default function AdminPortalPage() {
   // 2. Unauthenticated or Non-Admin Warning State
   if (!isAuthenticated || !user?.isAdmin) {
     return (
-      <div className="min-h-screen flex flex-col bg-slate-50">
-        <header className="h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between">
-          <H4CareLogo size="sm" />
+      <div className="min-h-screen relative flex flex-col justify-between overflow-x-hidden bg-[#ebf5fb] text-slate-800 selection:bg-sky-200 selection:text-sky-900">
+        <SpatialLoginBackground variant="light-sea" />
+
+        <header className="relative z-20 w-full max-w-6xl mx-auto px-4 sm:px-6 pt-5 sm:pt-7 flex items-center justify-between">
+          <H4CareLogo variant="full" size="md" withTagline={false} />
           <Link
             href="/"
-            className="flex items-center gap-1.5 text-xs font-bold text-slate-600 hover:text-brand-blue-600 transition-colors"
+            className="group inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold text-slate-700 bg-white/80 border border-sky-200/80 hover:border-sky-400 hover:text-sky-700 hover:bg-white transition-all shadow-xs backdrop-blur-md"
           >
-            <ArrowLeft className="w-4 h-4" />
+            <ArrowLeft className="w-3.5 h-3.5 text-sky-600 group-hover:-translate-x-0.5 transition-transform" />
             <span>Về Web Bán Hàng</span>
           </Link>
         </header>
 
-        <main className="flex-1 flex items-center justify-center p-4">
-          <div className="max-w-md w-full bg-white rounded-2xl p-8 border border-slate-200 shadow-xl text-center space-y-5">
-            <div className="w-16 h-16 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto border border-amber-200">
-              <Lock className="w-8 h-8" />
-            </div>
+        <main className="relative z-10 flex-1 flex items-center justify-center p-4 py-8">
+          <div className="max-w-md w-full relative">
+            <div className="absolute -inset-1 rounded-[32px] bg-gradient-to-r from-sky-400/25 via-cyan-400/20 to-blue-400/20 blur-2xl pointer-events-none opacity-80" />
 
-            <div>
-              <span className="inline-block px-3 py-1 rounded-full bg-amber-50 text-amber-700 text-[11px] font-bold border border-amber-200 mb-2">
-                Khu vực Quản trị Nội bộ
-              </span>
-              <h1 className="text-xl font-black text-slate-900 tracking-tight">
-                Yêu Cầu Quyền Quản Trị Viên
-              </h1>
-              <p className="text-xs text-slate-500 mt-2 leading-relaxed">
-                Khu vực này dành riêng cho Quản trị viên và Dược sĩ phụ trách kiểm duyệt dữ liệu & vận hành hệ thống PharmaTrust.
-              </p>
-            </div>
+            <div className="relative rounded-[28px] bg-white/85 backdrop-blur-2xl border border-white/90 p-6 sm:p-8 shadow-[0_25px_60px_-15px_rgba(2,132,199,0.16),0_0_40px_rgba(255,255,255,0.8)_inset] text-center space-y-5 overflow-hidden">
+              <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-sky-400/60 to-transparent" />
 
-            {/* Quick Demo Credentials Reminder */}
-            <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 text-left text-xs space-y-1">
-              <div className="flex items-center justify-between text-slate-500 font-medium">
-                <span>Tài khoản Admin:</span>
-                <span className="font-mono text-slate-800 font-bold">admin@pharmatrust.vn</span>
+              <div className="w-16 h-16 rounded-2xl bg-amber-50/90 text-amber-600 flex items-center justify-center mx-auto border border-amber-200/80 shadow-xs">
+                <Lock className="w-8 h-8" />
               </div>
-              <div className="flex items-center justify-between text-slate-500 font-medium">
-                <span>Mật khẩu:</span>
-                <span className="font-mono text-slate-800 font-bold">Admin@123456</span>
+
+              <div>
+                <span className="inline-block px-3 py-1 rounded-full bg-amber-50 text-amber-700 text-[11px] font-bold border border-amber-200/80 mb-2">
+                  Khu vực Quản trị Nội bộ
+                </span>
+                <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+                  Yêu Cầu Quyền Quản Trị Viên
+                </h1>
+                <p className="text-xs text-slate-600 mt-2 leading-relaxed">
+                  Khu vực này dành riêng cho Quản trị viên và Dược sĩ phụ trách kiểm duyệt dữ liệu & vận hành hệ thống H4CARE PharmaTrust.
+                </p>
               </div>
-            </div>
 
-            <div className="space-y-2 pt-2">
-              <Link
-                href="/login?redirect=/admin"
-                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-brand-blue-600 hover:bg-brand-blue-700 active:bg-brand-blue-800 text-white font-bold text-xs shadow-xs transition-colors"
-              >
-                <span>Đăng Nhập Tài Khoản Quản Trị</span>
-                <ChevronRight className="w-4 h-4" />
-              </Link>
+              {/* Quick Demo Credentials Reminder */}
+              <div className="p-3.5 bg-sky-50/70 rounded-2xl border border-sky-200/80 text-left text-xs space-y-1.5 backdrop-blur-xs">
+                <div className="flex items-center justify-between text-slate-600 font-medium">
+                  <span>Tài khoản Admin:</span>
+                  <span className="font-mono text-sky-800 font-bold">admin@pharmatrust.vn</span>
+                </div>
+                <div className="flex items-center justify-between text-slate-600 font-medium">
+                  <span>Mật khẩu:</span>
+                  <span className="font-mono text-sky-800 font-bold">Admin@123456</span>
+                </div>
+              </div>
 
-              <Link
-                href="/"
-                className="w-full block py-2.5 rounded-xl text-slate-600 hover:bg-slate-100 text-xs font-semibold transition-colors"
-              >
-                Quay lại Mua sắm
-              </Link>
+              <div className="space-y-2 pt-2">
+                <Link
+                  href="/login?redirect=/admin"
+                  className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white font-bold text-xs shadow-md hover:shadow-lg transition-all"
+                >
+                  <span>Đăng Nhập Tài Khoản Quản Trị</span>
+                  <ChevronRight className="w-4 h-4" />
+                </Link>
+
+                <Link
+                  href="/"
+                  className="w-full block py-2.5 rounded-xl text-slate-600 hover:text-slate-900 text-xs font-semibold transition-colors"
+                >
+                  Quay lại Mua sắm
+                </Link>
+              </div>
             </div>
           </div>
         </main>
+
+        <footer className="relative z-20 w-full text-center py-4 text-[11px] text-slate-500 select-none">
+          <span>Hệ thống Quản lý Dữ liệu Thuốc & Bán lẻ Dược phẩm H4CARE • Đạt chuẩn GPP & GSP Bộ Y Tế</span>
+        </footer>
       </div>
     );
   }

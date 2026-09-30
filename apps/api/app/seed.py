@@ -110,8 +110,36 @@ def seed_demo_products(db):
     if db.scalar(select(CanonicalProduct.id).where(CanonicalProduct.is_demo.is_(True))):
         return
     official_source = db.scalar(select(DataSource).where(DataSource.code == "DAV_DEMO"))
-    manufacturer_source = db.scalar(select(DataSource).where(DataSource.code == "MFR_DEMO"))
-    retailer_source = db.scalar(select(DataSource).where(DataSource.code == "RETAIL_DEMO"))
+    if not official_source:
+        official_source = DataSource(
+            code="DAV_DEMO",
+            name="Cục Quản Lý Dược (Demo)",
+            source_type=SourceType.REGULATORY,
+            authority_level=5,
+            authority_weight=1.0,
+            enabled=True,
+        )
+        manufacturer_source = DataSource(
+            code="MFR_DEMO",
+            name="Nhà sản xuất (Demo)",
+            source_type=SourceType.MANUFACTURER,
+            authority_level=4,
+            authority_weight=0.9,
+            enabled=True,
+        )
+        retailer_source = DataSource(
+            code="RETAIL_DEMO",
+            name="Nhà thuốc (Demo)",
+            source_type=SourceType.RETAILER,
+            authority_level=2,
+            authority_weight=0.65,
+            enabled=True,
+        )
+        db.add_all([official_source, manufacturer_source, retailer_source])
+        db.flush()
+    else:
+        manufacturer_source = db.scalar(select(DataSource).where(DataSource.code == "MFR_DEMO"))
+        retailer_source = db.scalar(select(DataSource).where(DataSource.code == "RETAIL_DEMO"))
     ingredient = Ingredient(normalized_name="Hoạt chất minh họa A", alternative_names=["Demo active A"])
     db.add(ingredient)
     db.flush()
