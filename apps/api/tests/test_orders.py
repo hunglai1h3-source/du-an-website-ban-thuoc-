@@ -133,6 +133,12 @@ class TestOrdersSystem(unittest.TestCase):
             "customer_email": "an.nguyen@example.com",
             "shipping_address": "Số 123 Đường Cầu Giấy, Hà Nội",
             "shipping_city": "Hà Nội",
+            "province_code": "01",
+            "district_code": "009",
+            "ward_code": "00142",
+            "lat": 21.0362,
+            "lng": 105.7906,
+            "is_verified": True,
             "payment_method": "COD",
             "note": "Giao giờ hành chính",
             "items": [

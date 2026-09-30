@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.api.deps import get_current_user, require_roles
 from app.db.session import get_db
 from app.models import (
+    AdministrativeUnit,
     CanonicalProduct,
     FulfillmentItem,
     Order,
@@ -23,6 +24,7 @@ from app.models import (
 from app.models.enums import PublishStatus, RxOtcStatus, UserRole
 from app.services.alert_notifier import dispatch_alert
 from app.services.fulfillment_service import FulfillmentRoutingService
+from app.services.geo_service import GeoService
 
 router = APIRouter(tags=["Đơn Hàng & Mua Sắm"])
 store_order_router = APIRouter(prefix="/store/orders", tags=["Storefront Khách Hàng - Đơn Hàng"])
@@ -101,9 +103,19 @@ class CheckoutRequest(BaseModel):
     customer_email: Optional[str] = None
     shipping_address: str = Field(..., min_length=2, max_length=500)
     shipping_city: Optional[str] = "Toàn quốc"
-    payment_method: str = "COD"  # COD | BANK_TRANSFER
+    payment_method: str = "COD"  # COD | BANK_TRANSFER | MOMO
     note: Optional[str] = None
     items: List[CheckoutItem] = Field(..., min_length=1)
+
+    # Cấu trúc địa chỉ giao hàng xác minh
+    fulfillment_type: Optional[str] = "DELIVERY"  # DELIVERY | STORE_PICKUP
+    province_code: Optional[str] = None
+    district_code: Optional[str] = None
+    ward_code: Optional[str] = None
+    street_address: Optional[str] = None
+    lat: Optional[float] = None
+    lng: Optional[float] = None
+    is_verified: Optional[bool] = False
 
 
 class UpdateOrderStatusRequest(BaseModel):
@@ -125,6 +137,7 @@ def checkout_order(payload: CheckoutRequest, db: Session = Depends(get_db)):
     """
     Tạo đơn hàng mới từ Storefront Web Khách Hàng.
     Tính giá 100% tại máy chủ (Server-side Pricing), loại bỏ hoàn toàn thuốc kê đơn Rx và chặn can thiệp giá.
+    Xác minh nghiêm ngặt địa chỉ giao hàng và tọa độ bản đồ.
     """
     name = payload.customer_name.strip()
     phone = payload.customer_phone.strip()
@@ -132,6 +145,62 @@ def checkout_order(payload: CheckoutRequest, db: Session = Depends(get_db)):
 
     if not name or not phone or not address:
         raise HTTPException(status_code=400, detail="Vui lòng điền đầy đủ họ tên, số điện thoại và địa chỉ giao hàng.")
+
+    # Xác thực địa chỉ giao hàng đối với hình thức Giao Tận Nơi
+    if (payload.fulfillment_type or "DELIVERY").upper() == "DELIVERY":
+        if not payload.is_verified:
+            raise HTTPException(
+                status_code=400,
+                detail="Địa chỉ giao hàng chưa được xác minh vị trí. Vui lòng bấm 'Xác nhận địa chỉ này' trước khi đặt hàng.",
+            )
+
+        if payload.lat is None or payload.lng is None:
+            raise HTTPException(
+                status_code=400,
+                detail="Thiếu tọa độ định vị GPS giao hàng. Vui lòng chọn và xác nhận vị trí trên bản đồ.",
+            )
+
+        if not payload.province_code or not payload.district_code or not payload.ward_code:
+            raise HTTPException(
+                status_code=400,
+                detail="Vui lòng chọn đầy đủ 3 cấp hành chính: Tỉnh/Thành phố, Quận/Huyện và Phường/Xã.",
+            )
+
+        # Kiểm tra tính khớp giữa Tỉnh/Thành và tọa độ GPS
+        is_coord_valid, coord_err = GeoService.validate_province_coordinates(
+            province_code=payload.province_code,
+            lat=payload.lat,
+            lng=payload.lng,
+        )
+        if not is_coord_valid:
+            raise HTTPException(status_code=400, detail=coord_err)
+
+        # Kiểm tra tính tồn tại trong DB của các cấp hành chính
+        prov = db.scalar(
+            select(AdministrativeUnit).where(
+                AdministrativeUnit.code == payload.province_code,
+                AdministrativeUnit.level == "PROVINCE",
+            )
+        )
+        dist = db.scalar(
+            select(AdministrativeUnit).where(
+                AdministrativeUnit.code == payload.district_code,
+                AdministrativeUnit.parent_code == payload.province_code,
+                AdministrativeUnit.level == "DISTRICT",
+            )
+        )
+        ward = db.scalar(
+            select(AdministrativeUnit).where(
+                AdministrativeUnit.code == payload.ward_code,
+                AdministrativeUnit.parent_code == payload.district_code,
+                AdministrativeUnit.level == "WARD",
+            )
+        )
+        if not prov or not dist or not ward:
+            raise HTTPException(
+                status_code=400,
+                detail="Cấp hành chính không hợp lệ hoặc Phường/Quận không thuộc Tỉnh/Thành phố đã chọn.",
+            )
 
     # Tìm thông tin sản phẩm
     product_ids = [it.product_id for it in payload.items]
@@ -207,12 +276,18 @@ def checkout_order(payload: CheckoutRequest, db: Session = Depends(get_db)):
         customer_email=payload.customer_email.strip() if payload.customer_email else None,
         shipping_address=address,
         shipping_city=payload.shipping_city or "Toàn quốc",
+        province_code=payload.province_code,
+        district_code=payload.district_code,
+        ward_code=payload.ward_code,
+        lat=payload.lat,
+        lng=payload.lng,
+        is_verified=bool(payload.is_verified),
         payment_method=payload.payment_method.upper(),
         payment_status="PENDING",
         order_status="PENDING",
         total_amount=total_amount,
         shipping_fee=Decimal("0.0"),
-        note=payload.note,
+        note=payload.note.strip() if payload.note else None,
         items=order_items_to_add,
     )
     db.add(order)
@@ -441,6 +516,12 @@ def get_admin_order_detail(
         "order_status": order.order_status,
         "total_amount": float(order.total_amount),
         "note": order.note,
+        "is_verified": bool(order.is_verified) if order.is_verified is not None else False,
+        "lat": order.lat,
+        "lng": order.lng,
+        "province_code": order.province_code,
+        "district_code": order.district_code,
+        "ward_code": order.ward_code,
         "created_at": order.created_at.isoformat() if order.created_at else None,
         "items": [
             {

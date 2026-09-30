@@ -20,6 +20,7 @@ DISTRICT_DEFAULT_COORDINATES: dict[str, tuple[float, float]] = {
     "760": (10.7756, 106.7004),  # Quận 1
     "761": (10.8672, 106.6413),  # Quận 12
     "765": (10.8038, 106.7118),  # Bình Thạnh
+    "766": (10.7992, 106.6534),  # Tân Bình
     "769": (10.8494, 106.7537),  # TP Thủ Đức
     "770": (10.7844, 106.6844),  # Quận 3
     "771": (10.7672, 106.6669),  # Quận 10
@@ -29,6 +30,19 @@ DISTRICT_DEFAULT_COORDINATES: dict[str, tuple[float, float]] = {
     "004": (21.0181, 105.8267),  # Đống Đa
     "005": (21.0090, 105.8548),  # Hai Bà Trưng
     "009": (21.0362, 105.7906),  # Cầu Giấy
+}
+
+PROVINCE_BOUNDING_BOXES: dict[str, dict[str, Any]] = {
+    # Hà Nội (01)
+    "01": {"min_lat": 20.50, "max_lat": 21.45, "min_lng": 105.25, "max_lng": 106.10, "name": "TP. Hà Nội"},
+    # TP. Hồ Chí Minh (79)
+    "79": {"min_lat": 10.35, "max_lat": 11.20, "min_lng": 106.30, "max_lng": 107.10, "name": "TP. Hồ Chí Minh"},
+    # Đà Nẵng (48)
+    "48": {"min_lat": 15.85, "max_lat": 16.30, "min_lng": 107.85, "max_lng": 108.40, "name": "TP. Đà Nẵng"},
+    # Cần Thơ (92)
+    "92": {"min_lat": 9.85, "max_lat": 10.40, "min_lng": 105.30, "max_lng": 105.95, "name": "TP. Cần Thơ"},
+    # Hải Phòng (31)
+    "31": {"min_lat": 20.50, "max_lat": 21.05, "min_lng": 106.45, "max_lng": 107.20, "name": "TP. Hải Phòng"},
 }
 
 
@@ -92,6 +106,34 @@ class GeoService:
 
         # Tọa độ mặc định: Trung tâm TP. Hồ Chí Minh
         return 10.7769, 106.7009, "FALLBACK_DEFAULT"
+
+    @classmethod
+    def validate_province_coordinates(
+        cls,
+        province_code: Optional[str],
+        lat: Optional[float],
+        lng: Optional[float],
+    ) -> tuple[bool, str]:
+        """
+        Kiểm tra tính hợp lệ của tọa độ GPS đối với Tỉnh/Thành phố được chọn.
+        Chặn giả mạo: chọn Hà Nội nhưng tọa độ ở TP.HCM hoặc ngược lại.
+        """
+        if lat is None or lng is None:
+            return False, "Thiếu tọa độ địa lý (vĩ độ, kinh độ)."
+
+        # Kiểm tra trong lãnh thổ Việt Nam
+        if not (8.0 <= lat <= 24.0 and 102.0 <= lng <= 110.0):
+            return False, f"Tọa độ ({lat:.4f}, {lng:.4f}) nằm ngoài lãnh thổ giao hàng Việt Nam."
+
+        if province_code and province_code in PROVINCE_BOUNDING_BOXES:
+            box = PROVINCE_BOUNDING_BOXES[province_code]
+            if not (box["min_lat"] <= lat <= box["max_lat"] and box["min_lng"] <= lng <= box["max_lng"]):
+                return (
+                    False,
+                    f"Tọa độ ({lat:.4f}, {lng:.4f}) không khớp với phạm vi địa lý của {box['name']}. Vui lòng chọn hoặc ghim đúng vị trí trên bản đồ.",
+                )
+
+        return True, "Hợp lệ"
 
     @classmethod
     def find_nearest_warehouses(

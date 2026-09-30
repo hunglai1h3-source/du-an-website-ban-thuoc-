@@ -7,6 +7,7 @@ interface MobileStickyCheckoutBarProps {
   totalAmount: number;
   totalItems: number;
   isSubmitting: boolean;
+  isAddressVerified?: boolean;
   onSubmit: (e: React.FormEvent) => void;
   onScrollToSummary?: () => void;
 }
@@ -15,6 +16,7 @@ export default function MobileStickyCheckoutBar({
   totalAmount,
   totalItems,
   isSubmitting,
+  isAddressVerified = true,
   onSubmit,
   onScrollToSummary,
 }: MobileStickyCheckoutBarProps) {
@@ -46,14 +48,20 @@ export default function MobileStickyCheckoutBar({
         <button
           type="button"
           onClick={onSubmit}
-          disabled={isSubmitting}
-          className="px-6 py-2.5 rounded-xl bg-brand-blue-600 hover:bg-brand-blue-700 active:bg-brand-blue-800 text-white font-bold text-sm shadow-xs transition-all disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center gap-1.5 shrink-0 cursor-pointer"
+          disabled={isSubmitting || !isAddressVerified}
+          className={`px-5 py-2.5 rounded-xl text-white font-bold text-sm shadow-xs transition-all disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center gap-1.5 shrink-0 cursor-pointer ${
+            !isAddressVerified
+              ? "bg-amber-600 hover:bg-amber-700"
+              : "bg-brand-blue-600 hover:bg-brand-blue-700 active:bg-brand-blue-800"
+          }`}
         >
           {isSubmitting ? (
             <>
               <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               <span>Đang xử lý...</span>
             </>
+          ) : !isAddressVerified ? (
+            <span>Chưa xác nhận vị trí</span>
           ) : (
             <>
               <CheckCircle2 className="w-4 h-4" />

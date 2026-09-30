@@ -15,6 +15,7 @@ import FulfillmentSelector, {
 import ShippingAddressForm, {
   AdminProvince,
   NearestWarehouseInfo,
+  StructuredAddress,
 } from "@/components/checkout/ShippingAddressForm";
 import PaymentMethodSelector, {
   PaymentMethod,
@@ -43,9 +44,12 @@ export default function CartPage() {
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
+  const [selectedWardCode, setSelectedWardCode] = useState("");
   const [wardName, setWardName] = useState("");
   const [streetAddress, setStreetAddress] = useState("");
   const [orderNote, setOrderNote] = useState("");
+  const [isAddressVerified, setIsAddressVerified] = useState(false);
+  const [verifiedAddress, setVerifiedAddress] = useState<StructuredAddress | null>(null);
 
   // Invoice state
   const [needInvoice, setNeedInvoice] = useState(false);
@@ -299,16 +303,16 @@ export default function CartPage() {
       fullShippingAddress = `Nhận tại: ${selectedStoreObj.name} (${selectedStoreObj.address})`;
       cityName = selectedStoreObj.city === "79" ? "TP. Hồ Chí Minh" : "Hà Nội";
     } else {
-      if (!streetAddress.trim()) {
-        setErrorMessage("Vui lòng nhập số nhà, tên đường cụ thể để giao thuốc chính xác.");
+      if (!isAddressVerified || !verifiedAddress) {
+        setErrorMessage("Vui lòng hoàn thành xác nhận địa chỉ giao thuốc và vị trí trên bản đồ trước khi đặt hàng.");
         return;
       }
-      const currProv = adminTree.find((p) => p.code === selectedProvinceCode);
-      const currDist = currProv?.districts?.find((d) => d.code === selectedDistrictCode);
-      cityName = currProv ? currProv.full_name : "TP. Hồ Chí Minh";
-      const distName = currDist ? currDist.full_name : "";
-      const wardPart = wardName.trim() ? `${wardName.trim()}, ` : "";
-      fullShippingAddress = `${streetAddress.trim()}, ${wardPart}${distName ? distName + ", " : ""}${cityName}`;
+      if (!verifiedAddress.lat || !verifiedAddress.lng) {
+        setErrorMessage("Vui lòng chọn vị trí tọa độ hợp lệ trên bản đồ.");
+        return;
+      }
+      fullShippingAddress = verifiedAddress.fullAddress;
+      cityName = verifiedAddress.provinceName;
     }
 
     setIsSubmitting(true);
@@ -335,6 +339,14 @@ export default function CartPage() {
         payment_method: paymentMethod,
         note: orderNote.trim() || undefined,
         items: checkoutItems,
+        fulfillment_type: fulfillmentType,
+        province_code: fulfillmentType === "DELIVERY" ? verifiedAddress?.provinceCode : undefined,
+        district_code: fulfillmentType === "DELIVERY" ? verifiedAddress?.districtCode : undefined,
+        ward_code: fulfillmentType === "DELIVERY" ? verifiedAddress?.wardCode : undefined,
+        street_address: fulfillmentType === "DELIVERY" ? verifiedAddress?.streetAddress : undefined,
+        lat: fulfillmentType === "DELIVERY" ? verifiedAddress?.lat : undefined,
+        lng: fulfillmentType === "DELIVERY" ? verifiedAddress?.lng : undefined,
+        is_verified: fulfillmentType === "DELIVERY" ? isAddressVerified : true,
       };
 
       const res = await fetch("/api/v1/store/orders/checkout", {
@@ -531,6 +543,8 @@ export default function CartPage() {
                 setSelectedProvinceCode={setSelectedProvinceCode}
                 selectedDistrictCode={selectedDistrictCode}
                 setSelectedDistrictCode={setSelectedDistrictCode}
+                selectedWardCode={selectedWardCode}
+                setSelectedWardCode={setSelectedWardCode}
                 wardName={wardName}
                 setWardName={setWardName}
                 streetAddress={streetAddress}
@@ -549,6 +563,10 @@ export default function CartPage() {
                 nearestWarehouse={nearestWarehouse}
                 isLocating={isLocating}
                 onGetLocation={handleGetLocation}
+                isVerified={isAddressVerified}
+                setIsVerified={setIsAddressVerified}
+                verifiedAddress={verifiedAddress}
+                setVerifiedAddress={setVerifiedAddress}
               />
 
               {/* 4. Payment Method Selector */}
@@ -577,6 +595,7 @@ export default function CartPage() {
                 onRemoveVoucher={handleRemoveVoucher}
                 voucherError={voucherError}
                 isSubmitting={isSubmitting}
+                isAddressVerified={fulfillmentType === "STORE_PICKUP" || isAddressVerified}
                 onSubmitOrder={handleCheckout}
               />
             </div>
@@ -590,6 +609,7 @@ export default function CartPage() {
           totalAmount={grandTotal}
           totalItems={totalCount}
           isSubmitting={isSubmitting}
+          isAddressVerified={fulfillmentType === "STORE_PICKUP" || isAddressVerified}
           onSubmit={handleCheckout}
           onScrollToSummary={() => {
             summaryRef.current?.scrollIntoView({ behavior: "smooth" });

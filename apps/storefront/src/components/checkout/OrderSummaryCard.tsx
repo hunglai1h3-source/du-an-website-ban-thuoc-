@@ -10,6 +10,7 @@ import {
   Sparkles,
   RefreshCw,
   Lock,
+  AlertCircle,
 } from "lucide-react";
 import { FulfillmentType } from "./FulfillmentSelector";
 
@@ -27,6 +28,7 @@ interface OrderSummaryCardProps {
   onRemoveVoucher: () => void;
   voucherError: string;
   isSubmitting: boolean;
+  isAddressVerified?: boolean;
   onSubmitOrder: (e: React.FormEvent) => void;
 }
 
@@ -44,6 +46,7 @@ export default function OrderSummaryCard({
   onRemoveVoucher,
   voucherError,
   isSubmitting,
+  isAddressVerified = true,
   onSubmitOrder,
 }: OrderSummaryCardProps) {
   const freeshipThreshold = 200000;
@@ -52,6 +55,7 @@ export default function OrderSummaryCard({
 
   const effectiveShippingFee = fulfillmentType === "STORE_PICKUP" ? 0 : shippingFee;
   const finalTotal = Math.max(0, subtotal + effectiveShippingFee - discount);
+  const isDeliveryUnverified = fulfillmentType === "DELIVERY" && !isAddressVerified;
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs sticky top-20">
@@ -184,11 +188,24 @@ export default function OrderSummaryCard({
           </div>
         </div>
 
+        {/* Unverified Address Warning */}
+        {isDeliveryUnverified && (
+          <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-start gap-2.5">
+            <AlertCircle className="w-4 h-4 shrink-0 text-amber-600 mt-0.5" />
+            <div className="space-y-0.5">
+              <p className="font-semibold text-amber-950">Chưa xác nhận địa chỉ giao thuốc</p>
+              <p className="text-[11px] text-amber-800 leading-normal">
+                Vui lòng chọn xong 3 cấp hành chính, kiểm tra ghim bản đồ và bấm <strong>"Xác nhận địa chỉ này"</strong> để kích hoạt nút đặt hàng.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Main CTA: Place Order Button */}
         <button
           type="button"
           onClick={onSubmitOrder}
-          disabled={isSubmitting || totalItems === 0}
+          disabled={isSubmitting || totalItems === 0 || isDeliveryUnverified}
           className="w-full py-3.5 px-4 rounded-xl bg-brand-blue-600 hover:bg-brand-blue-700 active:bg-brand-blue-800 text-white font-bold text-sm sm:text-base shadow-sm hover:shadow transition-all disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center gap-2 cursor-pointer"
         >
           {isSubmitting ? (
