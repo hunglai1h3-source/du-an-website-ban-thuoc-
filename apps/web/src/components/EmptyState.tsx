@@ -1,12 +1,29 @@
-import { Inbox } from 'lucide-react'
+import React from 'react'
+import { Inbox, type LucideIcon } from 'lucide-react'
 
-export function EmptyState({ title, description }: { title: string; description: string }) {
+export interface EmptyStateProps {
+  title: string
+  description?: string
+  icon?: LucideIcon | React.ComponentType<{ size?: number; className?: string }>
+  action?: React.ReactNode
+  className?: string
+}
+
+export function EmptyState({
+  title,
+  description,
+  icon: Icon = Inbox,
+  action,
+  className = '',
+}: EmptyStateProps) {
   return (
-    <div className="empty-state">
-      <Inbox size={34} />
-      <strong>{title}</strong>
-      <p>{description}</p>
+    <div className={`admin-empty-state empty-state ${className}`.trim()}>
+      <div className="empty-state-icon-wrap">
+        <Icon size={34} className="empty-state-icon" />
+      </div>
+      <strong className="empty-state-title">{title}</strong>
+      {description && <p className="empty-state-description">{description}</p>}
+      {action && <div className="empty-state-action">{action}</div>}
     </div>
   )
 }
-
