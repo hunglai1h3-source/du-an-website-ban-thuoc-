@@ -14,6 +14,9 @@ import {
   XCircle,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { AdminPageHeader } from '../components/AdminPageHeader'
+import { FilterBar } from '../components/FilterBar'
+import { StatusBadge } from '../components/StatusBadge'
 import { api } from '../services/api'
 
 interface OrderSummary {
@@ -202,20 +205,18 @@ export function OrdersPage() {
 
   return (
     <div className="page orders-page">
-      <div className="page-heading">
-        <div>
-          <span className="overline">BÁN HÀNG TRỰC TUYẾN</span>
-          <h1>Quản Lý Đơn Hàng</h1>
-          <p>
-            Theo dõi, xác nhận và cập nhật tiến độ giao hàng cho các đơn thuốc được khách đặt từ website.
-          </p>
-        </div>
-        <div className="heading-actions">
-          <button type="button" onClick={loadOrders} disabled={loading} className="secondary-button">
-            <RefreshCw size={15} className={loading ? 'spinner' : ''} /> Làm mới
+      <AdminPageHeader
+        title="Quản lý đơn hàng"
+        eyebrow="HỒ SƠ & BÁN HÀNG • Vận hành đơn thuốc"
+        subtitle="Theo dõi, xác nhận và cập nhật tiến độ giao hàng cho các đơn thuốc được khách đặt từ website H4CARE."
+        badge={orders.length > 0 ? <span className="stat-card-badge">{orders.length} đơn</span> : undefined}
+        actions={
+          <button type="button" onClick={loadOrders} disabled={loading} className="admin-button button-secondary">
+            <RefreshCw size={14} className={loading ? 'spinner' : ''} />
+            <span>Làm mới dữ liệu</span>
           </button>
-        </div>
-      </div>
+        }
+      />
 
       {notification && (
         <div className={`alert ${notification.type === 'success' ? 'alert-success' : 'alert-error'}`} style={{ marginBottom: 20 }}>
@@ -227,45 +228,32 @@ export function OrdersPage() {
         </div>
       )}
 
-      {/* THANH LỌC VÀ TÌM KIẾM */}
-      <div className="panel" style={{ padding: 16, marginBottom: 20 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
-          {/* Bộ lọc trạng thái */}
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {['ALL', 'PENDING', 'CONFIRMED', 'SHIPPING', 'COMPLETED', 'CANCELLED'].map((st) => (
-              <button
-                key={st}
-                type="button"
-                className={`secondary-button ${selectedStatus === st ? 'active' : ''}`}
-                onClick={() => setSelectedStatus(st)}
-                style={{
-                  fontSize: 12,
-                  padding: '6px 12px',
-                  background: selectedStatus === st ? '#2563eb' : undefined,
-                  color: selectedStatus === st ? '#fff' : undefined,
-                  borderColor: selectedStatus === st ? '#2563eb' : undefined,
-                }}
-              >
-                {st === 'ALL' ? 'Tất cả trạng thái' : STATUS_LABELS[st]?.label || st}
-              </button>
-            ))}
-          </div>
-
-          {/* Ô tìm kiếm */}
-          <form onSubmit={handleSearchSubmit} style={{ display: 'flex', gap: 8 }}>
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Tìm theo mã đơn, tên, SĐT..."
-              style={{ padding: '6px 12px', fontSize: 13, border: '1px solid #cbd5e1', borderRadius: 6, minWidth: 240 }}
-            />
-            <button type="submit" className="primary-button" style={{ padding: '6px 14px', fontSize: 13 }}>
-              <Search size={14} /> Tìm
+      {/* Standardized FilterBar */}
+      <FilterBar
+        searchValue={searchQuery}
+        onSearchChange={(val) => {
+          setSearchQuery(val)
+        }}
+        searchPlaceholder="Tìm theo mã đơn, tên khách, SĐT..."
+        totalCount={orders.length}
+        unitLabel="đơn hàng"
+        onRefresh={loadOrders}
+        isRefreshing={loading}
+      >
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {['ALL', 'PENDING', 'CONFIRMED', 'SHIPPING', 'COMPLETED', 'CANCELLED'].map((st) => (
+            <button
+              key={st}
+              type="button"
+              className={`admin-button ${selectedStatus === st ? 'button-primary' : 'button-secondary'}`}
+              onClick={() => setSelectedStatus(st)}
+              style={{ fontSize: 12, padding: '5px 10px' }}
+            >
+              {st === 'ALL' ? 'Tất cả trạng thái' : STATUS_LABELS[st]?.label || st}
             </button>
-          </form>
+          ))}
         </div>
-      </div>
+      </FilterBar>
 
       {/* BẢNG DANH SÁCH ĐƠN HÀNG */}
       <div className="panel" style={{ padding: 0, overflow: 'hidden' }}>

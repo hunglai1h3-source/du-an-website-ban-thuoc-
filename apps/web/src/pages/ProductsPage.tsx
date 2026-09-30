@@ -15,6 +15,8 @@ import {
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { AdminPageHeader } from '../components/AdminPageHeader'
+import { FilterBar } from '../components/FilterBar'
 import { EmptyState } from '../components/EmptyState'
 import { StatusBadge } from '../components/StatusBadge'
 import { API_URL, api, tokenStore } from '../services/api'
@@ -94,61 +96,44 @@ export function ProductsPage() {
   return (
     <div className="page" style={{ position: 'relative' }}>
       {/* 1. Page Heading */}
-      <div className="page-heading">
-        <div>
-          <span className="overline">QUẢN TRỊ DƯỢC PHẨM & KHO VẬN</span>
-          <h1>Quản Lý Danh Mục Thuốc</h1>
-          <p>
-            Bảng kê danh mục sản phẩm y tế, quản lý phân loại kê đơn (Rx/OTC), giá bán niêm yết và tồn kho thực tế đa chi nhánh.
-          </p>
-        </div>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <button className="secondary-button" onClick={downloadCsv} title="Xuất toàn bộ danh mục dạng CSV">
-            <Download size={15} /> Xuất CSV
-          </button>
-          <button className="primary-button" onClick={downloadXlsx} title="Xuất báo cáo dược chuẩn Excel">
-            <FileSpreadsheet size={15} /> Xuất Excel (.xlsx)
-          </button>
-        </div>
-      </div>
-
-      {/* 2. Sticky Filter Toolbar */}
-      <div
-        className="toolbar"
-        style={{
-          position: 'sticky',
-          top: '0px',
-          zIndex: 20,
-          background: 'var(--color-surface, #ffffff)',
-          padding: '12px 16px',
-          borderRadius: '12px',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-          border: '1px solid var(--color-border, #e2e8f0)',
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: '12px',
-          alignItems: 'center',
-          marginBottom: '16px',
-        }}
-      >
-        <div className="search-box" style={{ flex: '1 1 260px' }}>
-          <Search size={16} />
-          <input
-            placeholder="Tìm theo tên thuốc, số đăng ký, hoạt chất…"
-            value={searchInput}
-            onChange={e => setSearchInput(e.target.value)}
-          />
-          {searchInput && (
-            <button
-              onClick={() => setSearchInput('')}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '13px', color: '#94a3b8' }}
-            >
-              ✕
+      <AdminPageHeader
+        title="Hồ sơ thuốc & Duyệt bán"
+        eyebrow="HỒ SƠ & BÁN HÀNG • Danh mục thuốc chuẩn hóa"
+        subtitle="Bảng kê danh mục sản phẩm y tế, quản lý phân loại kê đơn (Rx/OTC), giá bán niêm yết và tồn kho thực tế đa chi nhánh."
+        badge={data?.total !== undefined ? <span className="stat-card-badge">{data.total.toLocaleString('vi-VN')} thuốc</span> : undefined}
+        actions={
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button className="admin-button button-secondary" onClick={downloadCsv} title="Xuất toàn bộ danh mục dạng CSV">
+              <Download size={14} /> Xuất CSV
             </button>
-          )}
-        </div>
+            <button className="admin-button button-primary" onClick={downloadXlsx} title="Xuất báo cáo dược chuẩn Excel">
+              <FileSpreadsheet size={14} /> Xuất Excel (.xlsx)
+            </button>
+          </div>
+        }
+      />
 
-        {/* Phân loại Rx / OTC */}
+      {/* 2. Standardized FilterBar */}
+      <FilterBar
+        searchValue={searchInput}
+        onSearchChange={setSearchInput}
+        searchPlaceholder="Tìm theo tên thuốc, số đăng ký, hoạt chất…"
+        totalCount={data?.total}
+        filteredCount={displayedItems.length}
+        unitLabel="thuốc"
+        onRefresh={() => {
+          setLoading(true)
+          const query = new URLSearchParams({ page: String(page), page_size: String(pageSize) })
+          if (debouncedSearch) query.set('search', debouncedSearch)
+          if (rxOtcStatus) query.set('rx_otc_status', rxOtcStatus)
+          if (publishStatus) query.set('publish_status', publishStatus)
+          api<ProductPage>(`/products?${query}`)
+            .then(res => { setData(res); setError('') })
+            .catch(err => setError(err.message))
+            .finally(() => setLoading(false))
+        }}
+        isRefreshing={loading}
+      >
         <select
           value={rxOtcStatus}
           onChange={e => {
@@ -162,7 +147,6 @@ export function ProductsPage() {
           <option value="PRESCRIPTION">Thuốc kê đơn (Rx)</option>
         </select>
 
-        {/* Trạng thái duyệt bán */}
         <select
           value={publishStatus}
           onChange={e => {
@@ -172,13 +156,12 @@ export function ProductsPage() {
           style={{ minWidth: '160px' }}
         >
           <option value="">Tất cả trạng thái bán</option>
-          <option value="PUBLISHED">Đang mở bán (Published)</option>
-          <option value="DRAFT">Bản nháp (Draft)</option>
-          <option value="REVIEW_REQUIRED">Chờ duyệt (Review)</option>
-          <option value="BLOCKED">Tạm khóa (Blocked)</option>
+          <option value="PUBLISHED">Đang mở bán</option>
+          <option value="DRAFT">Bản nháp</option>
+          <option value="REVIEW_REQUIRED">Chờ duyệt</option>
+          <option value="BLOCKED">Tạm khóa</option>
         </select>
 
-        {/* Lọc Tồn kho */}
         <select
           value={stockFilter}
           onChange={e => setStockFilter(e.target.value as any)}
@@ -190,23 +173,22 @@ export function ProductsPage() {
           <option value="NEAR_EXPIRY">Có lô cận hạn (&lt;90 ngày)</option>
         </select>
 
-        {/* Kích thước trang */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#64748b' }}>
-          <span>Hiển thị:</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#64748b' }}>
+          <span>Trang:</span>
           <select
             value={pageSize}
             onChange={e => {
               setPageSize(Number(e.target.value))
               setPage(1)
             }}
-            style={{ width: '80px', padding: '6px 8px' }}
+            style={{ width: '85px', padding: '6px 8px' }}
           >
             <option value="10">10 dòng</option>
             <option value="25">25 dòng</option>
             <option value="50">50 dòng</option>
           </select>
         </div>
-      </div>
+      </FilterBar>
 
       {error && <div className="alert alert-error" style={{ marginBottom: '16px' }}>{error}</div>}
 

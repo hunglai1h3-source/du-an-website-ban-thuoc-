@@ -12,12 +12,16 @@ import {
   Layers,
   MapPin,
   Package,
+  RefreshCw,
   Search,
   ShieldAlert,
   ShieldCheck,
   X,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { AdminPageHeader } from '../components/AdminPageHeader'
+import { FilterBar } from '../components/FilterBar'
+import { StatusBadge } from '../components/StatusBadge'
 import { EmptyState } from '../components/EmptyState'
 import { api } from '../services/api'
 import type { InventoryBatchItem, StockMovementItem, WarehouseItem } from '../types'
@@ -115,45 +119,29 @@ export function BatchesPage() {
   return (
     <div className="page">
       {/* 1. Page Header */}
-      <div className="page-heading">
-        <div>
-          <span className="overline">QUẢN LÝ LÔ HÀNG & NGUYÊN TẮC FEFO</span>
-          <h1>Quản Lý Lô Thuốc & Hạn Dùng</h1>
-          <p>
-            Theo dõi chi tiết số lô sản xuất, hạn sử dụng, cảnh báo cận hạn theo mã màu trực quan và thực thi nguyên tắc First-Expired First-Out.
-          </p>
-        </div>
-      </div>
-
-      {/* 2. Filter Toolbar */}
-      <div
-        className="toolbar"
-        style={{
-          background: '#ffffff',
-          padding: '12px 16px',
-          borderRadius: '12px',
-          border: '1px solid #e2e8f0',
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: '12px',
-          alignItems: 'center',
-          marginBottom: '16px',
-        }}
-      >
-        <form onSubmit={handleSearchSubmit} style={{ display: 'flex', gap: '8px', flex: '1 1 260px' }}>
-          <div className="search-box" style={{ flex: 1 }}>
-            <Search size={16} />
-            <input
-              placeholder="Tìm theo số lô hoặc tên sản phẩm…"
-              value={searchInput}
-              onChange={e => setSearchInput(e.target.value)}
-            />
-          </div>
-          <button type="submit" className="secondary-button" style={{ padding: '6px 14px' }}>
-            Tìm
+      <AdminPageHeader
+        title="Lô thuốc & Hạn dùng"
+        eyebrow="KHO VẬN & LÔ HẠN DÙNG • Quản trị chuẩn FEFO"
+        subtitle="Theo dõi chi tiết số lô sản xuất, hạn sử dụng, cảnh báo cận hạn theo mã màu trực quan và thực thi nguyên tắc First-Expired First-Out."
+        badge={batches.length > 0 ? <span className="stat-card-badge">{batches.length} lô</span> : undefined}
+        actions={
+          <button type="button" onClick={loadBatches} disabled={loading} className="admin-button button-secondary">
+            <RefreshCw size={14} className={loading ? 'spin' : ''} />
+            <span>Làm mới danh sách</span>
           </button>
-        </form>
+        }
+      />
 
+      {/* 2. Standardized FilterBar */}
+      <FilterBar
+        searchValue={searchInput}
+        onSearchChange={setSearchInput}
+        searchPlaceholder="Tìm theo số lô hoặc tên sản phẩm…"
+        totalCount={batches.length}
+        unitLabel="lô thuốc"
+        onRefresh={loadBatches}
+        isRefreshing={loading}
+      >
         <select
           value={warehouseFilter}
           onChange={e => setWarehouseFilter(e.target.value)}
@@ -184,13 +172,13 @@ export function BatchesPage() {
             display: 'flex',
             alignItems: 'center',
             gap: '6px',
-            fontSize: '13px',
-            fontWeight: 600,
+            fontSize: '12px',
+            fontWeight: 650,
             color: nearExpiryOnly ? '#b45309' : '#475569',
             background: nearExpiryOnly ? '#fef3c7' : '#f8fafc',
             border: `1px solid ${nearExpiryOnly ? '#fcd34d' : '#e2e8f0'}`,
-            padding: '7px 12px',
-            borderRadius: '8px',
+            padding: '6px 10px',
+            borderRadius: '7px',
             cursor: 'pointer',
           }}
         >
@@ -201,7 +189,7 @@ export function BatchesPage() {
           />
           ⚠️ Chỉ xem lô cận hạn (&lt;90 ngày)
         </label>
-      </div>
+      </FilterBar>
 
       {error && <div className="alert alert-error" style={{ marginBottom: '16px' }}>{error}</div>}
 
