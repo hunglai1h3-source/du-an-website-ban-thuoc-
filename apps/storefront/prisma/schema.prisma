@@ -1,5 +1,5 @@
 // Prisma Schema for H4CARE Storefront Prescription Module
-// Phase 2: Prescription Storage + Database
+// Phase 3: Document Processing + OCR Pipeline
 
 generator client {
   provider = "prisma-client-js"
@@ -11,22 +11,58 @@ datasource db {
 }
 
 model Prescription {
-  id               String   @id @default(uuid())
-  userId           String?  // Nullable khi khách hàng chưa đăng nhập tài khoản
-  sessionId        String?  // Mã phiên duyệt để đối soát nếu người dùng là khách vãng lai
-  originalFileName String   // Tên file gốc người dùng tải lên (chỉ dùng hiển thị/metadata)
-  storedFileName   String   // Tên file an toàn do máy chủ sinh: <uuid>.<ext>
-  storageKey       String   // Khóa định danh lưu trữ (ví dụ: prescriptions/2026/09/<uuid>.<ext>)
-  filePath         String   // Đường dẫn vật lý private trên server (tuyệt đối không public)
-  mimeType         String   // image/jpeg, image/png, application/pdf
-  fileExtension    String   // .jpg, .jpeg, .png, .pdf
-  fileSize         Int      // Kích thước tệp (bytes)
-  status           String   @default("STORED") // UPLOADED, STORED, PROCESSING, NEEDS_REVIEW, COMPLETED, FAILED
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id               String                 @id @default(uuid())
+  userId           String?                // Nullable khi khách hàng chưa đăng nhập tài khoản
+  sessionId        String?                // Mã phiên duyệt để đối soát nếu người dùng là khách vãng lai
+  originalFileName String                 // Tên file gốc người dùng tải lên (chỉ dùng hiển thị/metadata)
+  storedFileName   String                 // Tên file an toàn do máy chủ sinh: <uuid>.<ext>
+  storageKey       String                 // Khóa định danh lưu trữ (ví dụ: prescriptions/2026/09/<uuid>.<ext>)
+  filePath         String                 // Đường dẫn vật lý private trên server (tuyệt đối không public)
+  mimeType         String                 // image/jpeg, image/png, application/pdf
+  fileExtension    String                 // .jpg, .jpeg, .png, .pdf
+  fileSize         Int                    // Kích thước tệp (bytes)
+  status           String                 @default("STORED") // UPLOADED, STORED, PROCESSING, OCR_COMPLETED, OCR_FAILED...
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+  ocrResult        PrescriptionOcrResult?
 
   @@index([sessionId])
   @@index([userId])
   @@index([status])
   @@map("prescriptions")
+}
+
+model PrescriptionOcrResult {
+  id                String                @id @default(uuid())
+  prescriptionId    String                @unique
+  prescription      Prescription          @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+  provider          String                // "tesseract" | "google_vision" | "mock"
+  status            String                // "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED"
+  fullText          String                // Toàn bộ văn bản thô trích xuất từ tài liệu
+  pageCount         Int                   @default(1)
+  averageConfidence Float?                // Độ tin cậy trung bình thực tế (0.0 - 1.0) hoặc null
+  processingTimeMs  Int?                  // Thời gian hoàn tất OCR (ms)
+  attemptCount      Int                   @default(1)
+  errorMessage      String?
+  errorCode         String?
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+  pages             PrescriptionOcrPage[]
+
+  @@index([prescriptionId])
+  @@index([status])
+  @@map("prescription_ocr_results")
+}
+
+model PrescriptionOcrPage {
+  id          String                @id @default(uuid())
+  ocrResultId String
+  ocrResult   PrescriptionOcrResult @relation(fields: [ocrResultId], references: [id], onDelete: Cascade)
+  pageNumber  Int
+  text        String
+  confidence  Float?
+  createdAt   DateTime              @default(now())
+
+  @@index([ocrResultId])
+  @@map("prescription_ocr_pages")
 }
