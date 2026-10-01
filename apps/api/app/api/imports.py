@@ -30,6 +30,8 @@ async def upload_file(
     file: UploadFile = File(...),
     source_id: int = Form(...),
     is_demo: bool = Form(False),
+    force_update: bool = Form(False),
+    auto_approve: bool = Form(True),
     user: User = Depends(require_roles(UserRole.ADMIN, UserRole.DATA_REVIEWER)),
     db: Session = Depends(get_db),
 ):
@@ -42,7 +44,15 @@ async def upload_file(
         raise HTTPException(status_code=415, detail=f"MIME type {file.content_type} chưa được hỗ trợ")
     content = await file.read()
     try:
-        result = import_rows(db, source.id, file.filename or "upload.bin", content, is_demo=is_demo)
+        result = import_rows(
+            db,
+            source.id,
+            file.filename or "upload.bin",
+            content,
+            is_demo=is_demo,
+            force_update=force_update,
+            auto_approve=auto_approve,
+        )
     except (ImportValidationError, UnicodeDecodeError, ValueError) as exc:
         db.rollback()
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -53,8 +63,16 @@ async def upload_file(
         source.id,
         user,
         request,
-        after={"filename": file.filename, **result, "is_demo": is_demo},
+        after={
+            "filename": file.filename,
+            "created": result.get("created"),
+            "updated": result.get("updated"),
+            "skipped": result.get("skipped"),
+            "total_rows": result.get("total_rows"),
+            "is_demo": is_demo,
+            "force_update": force_update,
+            "auto_approve": auto_approve,
+        },
     )
     db.commit()
-    return {"message": "Đã nhập tệp", **result}
-
+    return {"message": "Đã nhập tệp và nhận diện thuốc thành công", **result}

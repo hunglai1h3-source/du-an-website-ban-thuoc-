@@ -89,11 +89,12 @@ class FulfillmentRoutingService:
             price_row = db.query(PriceObservation.observed_price).filter(PriceObservation.product_id == product_id).first()
             base_p = Decimal(str(price_row[0])) if (price_row and price_row[0]) else Decimal("50000.0")
 
+            clean_code = str(prod.registration_number).strip().replace(" ", "-") if (prod and prod.registration_number) else f"{product_id:04d}"
             sku = ProductSku(
                 canonical_product_id=product_id,
-                sku_code=f"SKU-{prod.registration_number or product_id:04d}-BOX",
+                sku_code=f"SKU-{clean_code}-BOX",
                 barcode=f"893{product_id:09d}",
-                uom=prod.dosage_form or "Hộp",
+                uom=(prod.dosage_form if prod else None) or "Hộp",
                 conversion_rate=1,
                 base_price=base_p,
                 is_default=True,

@@ -27,6 +27,7 @@ from app.models.enums import (
     ConflictStatus,
     ProcessingStatus,
     PublishStatus,
+    RegulatoryStatus,
     ReviewDecisionType,
     RxOtcStatus,
     UserRole,
@@ -279,6 +280,258 @@ def decide_candidate_match(
     db.commit()
     db.refresh(candidate)
     return candidate
+
+
+@router.post("/candidates/{candidate_id}/approve")
+def approve_candidate(
+    candidate_id: int,
+    request: Request,
+    user: User = Depends(require_roles(UserRole.ADMIN, UserRole.DATA_REVIEWER)),
+    db: Session = Depends(get_db),
+):
+    from app.models import Ingredient, Warehouse
+    from app.services.fulfillment_service import FulfillmentRoutingService
+    from app.services.importer import parse_rx_otc
+    from app.services.normalization import normalize_for_match
+
+    candidate = db.get(ProductCandidate, candidate_id)
+    if not candidate:
+        raise HTTPException(status_code=404, detail="Không tìm thấy candidate")
+
+    prod = None
+    if candidate.canonical_product_id:
+        prod = db.get(CanonicalProduct, candidate.canonical_product_id)
+        if prod:
+            prod.publish_status = PublishStatus.PUBLISHED
+
+    if not prod:
+        if candidate.registration_number_text:
+            prod = db.scalar(
+                select(CanonicalProduct).where(
+                    func.lower(CanonicalProduct.registration_number) == candidate.registration_number_text.lower()
+                )
+            )
+        if not prod:
+            prod = db.scalar(
+                select(CanonicalProduct).where(
+                    func.lower(CanonicalProduct.canonical_name) == candidate.observed_name.lower()
+                )
+            )
+        if not prod:
+            prod = CanonicalProduct(
+                canonical_name=candidate.observed_name,
+                registration_number=candidate.registration_number_text,
+                dosage_form=candidate.dosage_form_text,
+                package_description=candidate.package_text,
+                manufacturer=candidate.manufacturer_text,
+                image_url=candidate.image_url,
+                description=candidate.description,
+                usage_instructions=candidate.usage_instructions,
+                indications=candidate.indications,
+                contraindications=candidate.contraindications,
+                side_effects=candidate.side_effects,
+                storage_conditions=candidate.storage_conditions,
+                regulatory_status=RegulatoryStatus.ACTIVE,
+                rx_otc_status=parse_rx_otc(candidate.rx_otc_text),
+                publish_status=PublishStatus.PUBLISHED,
+                overall_score=85,
+                confidence_label=ConfidenceLabel.HIGH_OFFICIAL_MATCH,
+                is_demo=False,
+            )
+            db.add(prod)
+            db.flush()
+
+            for ing in (candidate.ingredients_json or []):
+                ing_name = ing.get("name") if isinstance(ing, dict) else str(ing)
+                if ing_name:
+                    norm_ing = normalize_for_match(ing_name)
+                    ing_entity = db.scalar(select(Ingredient).where(Ingredient.normalized_name == norm_ing))
+                    if not ing_entity:
+                        ing_entity = Ingredient(normalized_name=norm_ing, alternative_names=[ing_name])
+                        db.add(ing_entity)
+                        db.flush()
+                    db.add(
+                        ProductIngredient(
+                            product_id=prod.id,
+                            ingredient_id=ing_entity.id,
+                            strength_value=ing.get("strength_value") if isinstance(ing, dict) else None,
+                            strength_unit=ing.get("strength_unit") if isinstance(ing, dict) else None,
+                            original_strength_text=ing.get("original_strength_text") if isinstance(ing, dict) else None,
+                        )
+                    )
+
+            sku = FulfillmentRoutingService.get_or_create_default_sku(db, prod.id)
+            default_wh = db.query(Warehouse).first()
+            if default_wh and sku:
+                batch = InventoryBatch(
+                    sku_id=sku.id,
+                    batch_number=f"LOT-APP-{prod.id}-{date.today().strftime('%Y%m')}",
+                    expiry_date=date.today() + timedelta(days=730),
+                    initial_quantity=100,
+                    status="ACTIVE",
+                )
+                db.add(batch)
+                db.flush()
+                wh_stock = WarehouseBatchStock(
+                    warehouse_id=default_wh.id,
+                    batch_id=batch.id,
+                    quantity_on_hand=100,
+                    quantity_available=100,
+                    quantity_reserved=0,
+                )
+                db.add(wh_stock)
+
+        candidate.canonical_product_id = prod.id
+
+    if prod:
+        prod.publish_status = PublishStatus.PUBLISHED
+        prod.confidence_label = ConfidenceLabel.HIGH_OFFICIAL_MATCH
+        prod.overall_score = max(prod.overall_score or 0, 88)
+        try:
+            from app.services.search_service import index_single_product
+            index_single_product(db, prod)
+        except Exception:
+            pass
+
+    candidate.processing_status = ProcessingStatus.MATCHED
+    db.add(ReviewDecision(product_id=prod.id, reviewer_id=user.id, decision=ReviewDecisionType.MERGE_ACCEPTED, note="Duyệt vào kho chính thức"))
+    write_audit(db, "APPROVE_CANDIDATE", "ProductCandidate", candidate.id, user, request, after={"canonical_product_id": prod.id})
+    db.commit()
+    return {"message": f"Đã duyệt thuốc '{candidate.observed_name}' vào kho thành công", "product_id": prod.id, "candidate_id": candidate.id}
+
+
+@router.post("/candidates/approve-all")
+def approve_all_candidates(
+    request: Request,
+    user: User = Depends(require_roles(UserRole.ADMIN, UserRole.DATA_REVIEWER)),
+    db: Session = Depends(get_db),
+):
+    from app.models import Ingredient, Warehouse
+    from app.services.fulfillment_service import FulfillmentRoutingService
+    from app.services.importer import parse_rx_otc
+    from app.services.normalization import normalize_for_match
+
+    candidates = db.scalars(
+        select(ProductCandidate).where(
+            ProductCandidate.processing_status.in_([ProcessingStatus.EXTRACTED, ProcessingStatus.REVIEW_REQUIRED, ProcessingStatus.NEW])
+        )
+    ).all()
+
+    default_wh = db.query(Warehouse).first()
+    approved_count = 0
+    for candidate in candidates:
+        prod = None
+        if candidate.canonical_product_id:
+            prod = db.get(CanonicalProduct, candidate.canonical_product_id)
+            if prod:
+                prod.publish_status = PublishStatus.PUBLISHED
+        if not prod and candidate.registration_number_text:
+            prod = db.scalar(
+                select(CanonicalProduct).where(
+                    func.lower(CanonicalProduct.registration_number) == candidate.registration_number_text.lower()
+                )
+            )
+        if not prod:
+            prod = db.scalar(
+                select(CanonicalProduct).where(
+                    func.lower(CanonicalProduct.canonical_name) == candidate.observed_name.lower()
+                )
+            )
+        if not prod:
+            prod = CanonicalProduct(
+                canonical_name=candidate.observed_name,
+                registration_number=candidate.registration_number_text,
+                dosage_form=candidate.dosage_form_text,
+                package_description=candidate.package_text,
+                manufacturer=candidate.manufacturer_text,
+                image_url=candidate.image_url,
+                description=candidate.description,
+                usage_instructions=candidate.usage_instructions,
+                indications=candidate.indications,
+                contraindications=candidate.contraindications,
+                side_effects=candidate.side_effects,
+                storage_conditions=candidate.storage_conditions,
+                regulatory_status=RegulatoryStatus.ACTIVE,
+                rx_otc_status=parse_rx_otc(candidate.rx_otc_text),
+                publish_status=PublishStatus.PUBLISHED,
+                overall_score=85,
+                confidence_label=ConfidenceLabel.HIGH_OFFICIAL_MATCH,
+                is_demo=False,
+            )
+            db.add(prod)
+            db.flush()
+
+            for ing in (candidate.ingredients_json or []):
+                ing_name = ing.get("name") if isinstance(ing, dict) else str(ing)
+                if ing_name:
+                    norm_ing = normalize_for_match(ing_name)
+                    ing_entity = db.scalar(select(Ingredient).where(Ingredient.normalized_name == norm_ing))
+                    if not ing_entity:
+                        ing_entity = Ingredient(normalized_name=norm_ing, alternative_names=[ing_name])
+                        db.add(ing_entity)
+                        db.flush()
+                    db.add(
+                        ProductIngredient(
+                            product_id=prod.id,
+                            ingredient_id=ing_entity.id,
+                            strength_value=ing.get("strength_value") if isinstance(ing, dict) else None,
+                            strength_unit=ing.get("strength_unit") if isinstance(ing, dict) else None,
+                            original_strength_text=ing.get("original_strength_text") if isinstance(ing, dict) else None,
+                        )
+                    )
+
+            sku = FulfillmentRoutingService.get_or_create_default_sku(db, prod.id)
+            if default_wh and sku:
+                batch = InventoryBatch(
+                    sku_id=sku.id,
+                    batch_number=f"LOT-ALL-{prod.id}-{date.today().strftime('%Y%m')}",
+                    expiry_date=date.today() + timedelta(days=730),
+                    initial_quantity=100,
+                    status="ACTIVE",
+                )
+                db.add(batch)
+                db.flush()
+                wh_stock = WarehouseBatchStock(
+                    warehouse_id=default_wh.id,
+                    batch_id=batch.id,
+                    quantity_on_hand=100,
+                    quantity_available=100,
+                    quantity_reserved=0,
+                )
+                db.add(wh_stock)
+
+        candidate.canonical_product_id = prod.id
+        if prod:
+            prod.publish_status = PublishStatus.PUBLISHED
+            prod.confidence_label = ConfidenceLabel.HIGH_OFFICIAL_MATCH
+            prod.overall_score = max(prod.overall_score or 0, 88)
+            try:
+                from app.services.search_service import index_single_product
+                index_single_product(db, prod)
+            except Exception:
+                pass
+        candidate.processing_status = ProcessingStatus.MATCHED
+        approved_count += 1
+
+    write_audit(db, "APPROVE_ALL_CANDIDATES", "ProductCandidate", 0, user, request, after={"count": approved_count})
+    db.commit()
+    return {"message": f"Đã duyệt thành công {approved_count} thuốc vào kho chính thức", "approved_count": approved_count}
+
+
+@router.post("/candidates/{candidate_id}/reject")
+def reject_candidate(
+    candidate_id: int,
+    request: Request,
+    user: User = Depends(require_roles(UserRole.ADMIN, UserRole.DATA_REVIEWER)),
+    db: Session = Depends(get_db),
+):
+    candidate = db.get(ProductCandidate, candidate_id)
+    if not candidate:
+        raise HTTPException(status_code=404, detail="Không tìm thấy candidate")
+    candidate.processing_status = ProcessingStatus.REJECTED
+    write_audit(db, "REJECT_CANDIDATE", "ProductCandidate", candidate.id, user, request)
+    db.commit()
+    return {"message": f"Đã từ chối bản ghi '{candidate.observed_name}'", "candidate_id": candidate.id}
 
 
 @router.get("/conflicts", response_model=list[ConflictOut])

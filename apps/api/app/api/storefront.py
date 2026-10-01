@@ -65,6 +65,7 @@ def serialize_product(
     price: int | None = None,
     rating: float = 0.0,
     review_count: int = 0,
+    stock: int = 0,
 ) -> dict[str, Any]:
     cat_slug, cat_name, sub_cat = determine_category_and_subcategory(product)
     
@@ -130,7 +131,7 @@ def serialize_product(
         "sideEffects": product.side_effects or "Thông báo ngay cho bác sĩ hoặc dược sĩ nếu gặp phải bất kỳ tác dụng phụ không mong muốn nào.",
         "precautions": "Đọc kỹ hướng dẫn sử dụng trước khi dùng. Không tự ý tăng liều. Để xa tầm tay trẻ em.",
         "storage": product.storage_conditions or "Bảo quản nơi khô ráo, thoáng mát, nhiệt độ dưới 30°C, tránh ánh sáng trực tiếp.",
-        "stock": 0,
+        "stock": stock,
         "rating": rating,
         "reviewCount": review_count,
         "isPrescription": is_rx,
@@ -190,6 +191,7 @@ def get_store_products(
     prod_ids = [p.id for p in products]
     prices_map: dict[int, int] = {}
     reviews_map: dict[int, tuple[float, int]] = {}
+    stocks_map: dict[int, int] = {}
     if prod_ids:
         price_rows = db.query(PriceObservation.product_id, PriceObservation.observed_price).filter(
             PriceObservation.product_id.in_(prod_ids)
@@ -198,7 +200,7 @@ def get_store_products(
             if pid not in prices_map and pval is not None:
                 prices_map[pid] = int(pval)
 
-        from app.models.inventory import ProductReview
+        from app.models.inventory import InventoryBatch, ProductReview, ProductSku, WarehouseBatchStock
         rev_rows = db.query(
             ProductReview.canonical_product_id,
             func.avg(ProductReview.rating),
@@ -210,10 +212,30 @@ def get_store_products(
         for pid, avg_r, cnt in rev_rows:
             reviews_map[pid] = (round(float(avg_r), 1) if avg_r else 0.0, int(cnt) if cnt else 0)
 
+        stock_rows = db.query(
+            ProductSku.canonical_product_id,
+            func.coalesce(func.sum(WarehouseBatchStock.quantity_available), 0),
+        ).select_from(ProductSku).join(
+            InventoryBatch, InventoryBatch.sku_id == ProductSku.id
+        ).join(
+            WarehouseBatchStock, WarehouseBatchStock.batch_id == InventoryBatch.id
+        ).filter(
+            ProductSku.canonical_product_id.in_(prod_ids),
+            InventoryBatch.status == "ACTIVE",
+        ).group_by(ProductSku.canonical_product_id).all()
+        for pid, s_qty in stock_rows:
+            stocks_map[pid] = int(s_qty)
+
     serialized = []
     for p in products:
         r_val, r_cnt = reviews_map.get(p.id, (0.0, 0))
-        item = serialize_product(p, price=prices_map.get(p.id), rating=r_val, review_count=r_cnt)
+        item = serialize_product(
+            p,
+            price=prices_map.get(p.id),
+            rating=r_val,
+            review_count=r_cnt,
+            stock=stocks_map.get(p.id, 0),
+        )
         
         # Category filters in memory
         if category and item["category"] != category:
@@ -304,7 +326,7 @@ def get_store_product_detail(slug_or_id: str, db: Session = Depends(get_db)):
     price_val = int(price_row[0]) if (price_row and price_row[0] is not None) else None
 
     # Fetch real review stats
-    from app.models.inventory import ProductReview
+    from app.models.inventory import InventoryBatch, ProductReview, ProductSku, WarehouseBatchStock
     rev_row = db.query(
         func.avg(ProductReview.rating),
         func.count(ProductReview.id),
@@ -315,7 +337,18 @@ def get_store_product_detail(slug_or_id: str, db: Session = Depends(get_db)):
     p_rating = round(float(rev_row[0]), 1) if (rev_row and rev_row[0] is not None) else 0.0
     p_count = int(rev_row[1]) if (rev_row and rev_row[1] is not None) else 0
 
-    return serialize_product(product, price=price_val, rating=p_rating, review_count=p_count)
+    stock_val = db.query(
+        func.coalesce(func.sum(WarehouseBatchStock.quantity_available), 0)
+    ).select_from(ProductSku).join(
+        InventoryBatch, InventoryBatch.sku_id == ProductSku.id
+    ).join(
+        WarehouseBatchStock, WarehouseBatchStock.batch_id == InventoryBatch.id
+    ).filter(
+        ProductSku.canonical_product_id == product.id,
+        InventoryBatch.status == "ACTIVE",
+    ).scalar() or 0
+
+    return serialize_product(product, price=price_val, rating=p_rating, review_count=p_count, stock=int(stock_val))
 
 
 @router.get("/categories")

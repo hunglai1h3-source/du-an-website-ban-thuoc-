@@ -11,9 +11,9 @@ Write-Host "  [3] Admin Doc Lap:              http://localhost:8000" -Foreground
 Write-Host "  [4] API Documentation (Docs):   http://localhost:8000/docs" -ForegroundColor Yellow
 Write-Host "======================================================================" -ForegroundColor Cyan
 
-$nodeDir = "C:\Users\AD\AppData\Local\Microsoft\WinGet\Packages\OpenJS.NodeJS.20_Microsoft.Winget.Source_8wekyb3d8bbwe\node-v20.20.2-win-x64"
-$pyDir = "C:\Users\AD\AppData\Local\Programs\Python\Python311"
-$pyScripts = "C:\Users\AD\AppData\Local\Programs\Python\Python311\Scripts"
+$nodeDir = if (Test-Path "C:\Program Files\nodejs") { "C:\Program Files\nodejs" } elseif (Test-Path "$env:LOCALAPPDATA\Programs\nodejs") { "$env:LOCALAPPDATA\Programs\nodejs" } else { "C:\Users\AD\AppData\Local\Microsoft\WinGet\Packages\OpenJS.NodeJS.20_Microsoft.Winget.Source_8wekyb3d8bbwe\node-v20.20.2-win-x64" }
+$pyDir = if (Test-Path "$env:LOCALAPPDATA\Programs\Python\Python311") { "$env:LOCALAPPDATA\Programs\Python\Python311" } else { "C:\Users\AD\AppData\Local\Programs\Python\Python311" }
+$pyScripts = "$pyDir\Scripts"
 
 if ($env:Path -notlike "*$nodeDir*") { $env:Path = "$nodeDir;$env:Path" }
 if ($env:Path -notlike "*$pyDir*") { $env:Path = "$pyDir;$pyScripts;$env:Path" }
