@@ -1,17 +1,20 @@
-import React, { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   AlertCircle,
   CheckCircle2,
   Eye,
   EyeOff,
-  Filter,
   MessageSquare,
   RefreshCw,
-  Search,
   ShieldCheck,
   Star,
   Trash2,
 } from 'lucide-react'
+import { AdminPageHeader } from '../components/AdminPageHeader'
+import { StatCard, StatGrid } from '../components/StatCard'
+import { FilterBar } from '../components/FilterBar'
+import { StatusBadge } from '../components/StatusBadge'
+import { ConfirmModal } from '../components/ConfirmModal'
 import { EmptyState } from '../components/EmptyState'
 import { api } from '../services/api'
 
@@ -38,6 +41,8 @@ export function ReviewsPage() {
 
   // Action states
   const [actionLoadingId, setActionLoadingId] = useState<number | null>(null)
+  const [reviewToDelete, setReviewToDelete] = useState<ReviewItem | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   async function loadReviews() {
     setLoading(true)
@@ -87,18 +92,16 @@ export function ReviewsPage() {
     }
   }
 
-  async function handleDeleteReview(rev: ReviewItem) {
-    if (!window.confirm(`Bạn có chắc chắn muốn xóa vĩnh viễn đánh giá #${rev.id} của khách "${rev.customer_name}"?`)) {
-      return
-    }
-
-    setActionLoadingId(rev.id)
+  async function confirmDeleteReview() {
+    if (!reviewToDelete) return
+    setIsDeleting(true)
     try {
-      await api(`/admin/reviews/${rev.id}`, { method: 'DELETE' })
+      await api(`/admin/reviews/${reviewToDelete.id}`, { method: 'DELETE' })
       setNotification({
         type: 'success',
-        message: `Đã xóa vĩnh viễn đánh giá #${rev.id}`,
+        message: `Đã xóa vĩnh viễn đánh giá #${reviewToDelete.id}`,
       })
+      setReviewToDelete(null)
       await loadReviews()
     } catch (err: any) {
       setNotification({
@@ -106,7 +109,7 @@ export function ReviewsPage() {
         message: err.message || 'Lỗi khi xóa đánh giá',
       })
     } finally {
-      setActionLoadingId(null)
+      setIsDeleting(false)
     }
   }
 
@@ -122,42 +125,43 @@ export function ReviewsPage() {
     )
   })
 
-  // Metrics
+  // Derived statistics
   const totalCount = reviews.length
   const approvedCount = reviews.filter((r) => r.is_approved).length
   const hiddenCount = reviews.filter((r) => !r.is_approved).length
   const verifiedCount = reviews.filter((r) => r.is_verified_purchase).length
 
   return (
-    <div className="page-container">
-      {/* Header */}
-      <div className="page-header">
-        <div>
-          <div className="breadcrumb">Hồ sơ & Bán hàng / Đánh giá sản phẩm</div>
-          <h1 className="page-title">Quản Lý Đánh Giá & Nhận Xét</h1>
-          <p className="page-subtitle">
-            Kiểm duyệt nội dung phản hồi khách hàng, xác thực đơn mua hàng chính hãng và nâng cao chất lượng dịch vụ GPP.
-          </p>
-        </div>
-        <div className="header-actions">
+    <div className="page">
+      <AdminPageHeader
+        title="Đánh giá & Nhận xét"
+        eyebrow="HỒ SƠ & BÁN HÀNG • Kiểm duyệt phản hồi khách hàng"
+        subtitle="Kiểm duyệt nội dung phản hồi khách hàng, xác thực đơn mua hàng chính hãng và nâng cao chất lượng dịch vụ GPP."
+        badge={totalCount > 0 ? <span className="stat-card-badge">{totalCount} nhận xét</span> : undefined}
+        actions={
           <button
-            className="button button-secondary"
+            type="button"
+            className="admin-button button-secondary"
             onClick={loadReviews}
             disabled={loading}
           >
-            <RefreshCw size={16} className={loading ? 'spin' : ''} />
-            Làm mới
+            <RefreshCw size={14} className={loading ? 'spin' : ''} />
+            <span>Làm mới dữ liệu</span>
           </button>
-        </div>
-      </div>
+        }
+      />
 
       {/* Notifications */}
       {notification && (
-        <div className={`banner banner-${notification.type}`} style={{ marginBottom: '1.25rem' }}>
+        <div
+          className={`alert ${notification.type === 'success' ? 'alert-success' : 'alert-error'}`}
+          style={{ marginBottom: '1.25rem' }}
+        >
           {notification.type === 'success' ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
           <span>{notification.message}</span>
           <button
-            className="icon-button"
+            type="button"
+            className="admin-icon-button"
             onClick={() => setNotification(null)}
             style={{ marginLeft: 'auto' }}
           >
@@ -167,179 +171,236 @@ export function ReviewsPage() {
       )}
 
       {/* Metric Cards */}
-      <div className="stats-grid" style={{ marginBottom: '1.5rem' }}>
-        <div className="stat-card">
-          <div className="stat-label">Tổng số nhận xét</div>
-          <div className="stat-value">{totalCount}</div>
-          <div className="stat-help">Tất cả sản phẩm trên toàn sàn</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-label">Đang hiển thị Storefront</div>
-          <div className="stat-value text-emerald-600">{approvedCount}</div>
-          <div className="stat-help">Đã kiểm duyệt đạt chuẩn</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-label">Đã ẩn / Chưa duyệt</div>
-          <div className="stat-value text-amber-600">{hiddenCount}</div>
-          <div className="stat-help">Cần xem xét nội dung</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-label">Xác thực hóa đơn mua</div>
-          <div className="stat-value text-blue-600">{verifiedCount}</div>
-          <div className="stat-help">Có mã đơn hàng hợp lệ</div>
-        </div>
-      </div>
+      <StatGrid columns={4}>
+        <StatCard
+          label="Tổng số nhận xét"
+          value={totalCount}
+          icon={MessageSquare}
+          tone="blue"
+          subtext="Toàn bộ phản hồi trên sàn"
+          loading={loading}
+        />
+        <StatCard
+          label="Đang hiển thị"
+          value={approvedCount}
+          icon={CheckCircle2}
+          tone="emerald"
+          subtext="Đã kiểm duyệt đạt chuẩn"
+          loading={loading}
+        />
+        <StatCard
+          label="Chờ duyệt / Đã ẩn"
+          value={hiddenCount}
+          icon={AlertCircle}
+          tone={hiddenCount > 0 ? 'amber' : 'slate'}
+          subtext="Cần xem xét nội dung"
+          loading={loading}
+        />
+        <StatCard
+          label="Đã mua hàng thật"
+          value={verifiedCount}
+          icon={ShieldCheck}
+          tone="purple"
+          subtext="Có mã đơn hàng hợp lệ"
+          loading={loading}
+        />
+      </StatGrid>
 
-      {/* Filters Toolbar */}
-      <div className="toolbar" style={{ marginBottom: '1.25rem', display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
-          <div className="filter-group">
-            <span className="filter-label">Trạng thái:</span>
-            <div className="segmented-control">
-              <button
-                className={`segment-btn ${statusFilter === 'ALL' ? 'active' : ''}`}
-                onClick={() => setStatusFilter('ALL')}
-              >
-                Tất cả ({totalCount})
-              </button>
-              <button
-                className={`segment-btn ${statusFilter === 'APPROVED' ? 'active' : ''}`}
-                onClick={() => setStatusFilter('APPROVED')}
-              >
-                Đã duyệt
-              </button>
-              <button
-                className={`segment-btn ${statusFilter === 'HIDDEN' ? 'active' : ''}`}
-                onClick={() => setStatusFilter('HIDDEN')}
-              >
-                Đã ẩn ({hiddenCount})
-              </button>
-            </div>
-          </div>
-
-          <div className="filter-group">
-            <span className="filter-label">Xác thực mua hàng:</span>
-            <div className="segmented-control">
-              <button
-                className={`segment-btn ${verifiedFilter === null ? 'active' : ''}`}
-                onClick={() => setVerifiedFilter(null)}
-              >
-                Tất cả
-              </button>
-              <button
-                className={`segment-btn ${verifiedFilter === true ? 'active' : ''}`}
-                onClick={() => setVerifiedFilter(true)}
-              >
-                Đã mua thật
-              </button>
-            </div>
-          </div>
+      {/* Standardized FilterBar */}
+      <FilterBar
+        searchValue={searchQuery}
+        onSearchChange={setSearchQuery}
+        searchPlaceholder="Tìm theo tên thuốc, người gửi, mã đơn, nội dung..."
+        totalCount={totalCount}
+        filteredCount={filteredReviews.length}
+        unitLabel="nhận xét"
+        onRefresh={loadReviews}
+        isRefreshing={loading}
+      >
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            className={`admin-button ${statusFilter === 'ALL' ? 'button-primary' : 'button-secondary'}`}
+            onClick={() => setStatusFilter('ALL')}
+            style={{ fontSize: 12, padding: '5px 10px' }}
+          >
+            Tất cả ({totalCount})
+          </button>
+          <button
+            type="button"
+            className={`admin-button ${statusFilter === 'APPROVED' ? 'button-primary' : 'button-secondary'}`}
+            onClick={() => setStatusFilter('APPROVED')}
+            style={{ fontSize: 12, padding: '5px 10px' }}
+          >
+            Đang hiển thị ({approvedCount})
+          </button>
+          <button
+            type="button"
+            className={`admin-button ${statusFilter === 'HIDDEN' ? 'button-primary' : 'button-secondary'}`}
+            onClick={() => setStatusFilter('HIDDEN')}
+            style={{ fontSize: 12, padding: '5px 10px' }}
+          >
+            Đã ẩn ({hiddenCount})
+          </button>
         </div>
 
-        <div className="search-box" style={{ maxWidth: '320px', width: '100%' }}>
-          <Search size={16} />
-          <input
-            type="text"
-            placeholder="Tìm theo thuốc, người gửi, mã đơn..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
-      </div>
+        <select
+          value={verifiedFilter === null ? 'ALL' : verifiedFilter ? 'VERIFIED' : 'UNVERIFIED'}
+          onChange={(e) => {
+            const v = e.target.value
+            setVerifiedFilter(v === 'ALL' ? null : v === 'VERIFIED')
+          }}
+          style={{ minWidth: '150px' }}
+        >
+          <option value="ALL">Tất cả nguồn gửi</option>
+          <option value="VERIFIED">Đã mua thật (Verified)</option>
+          <option value="UNVERIFIED">Khách vãng lai</option>
+        </select>
+      </FilterBar>
 
       {/* Reviews Table */}
-      <div className="card">
-        {loading ? (
-          <div className="card-loading">Đang tải dữ liệu đánh giá…</div>
-        ) : filteredReviews.length === 0 ? (
-          <EmptyState
-            title="Không có đánh giá nào phù hợp"
-            description="Hãy thử đổi bộ lọc trạng thái hoặc tìm kiếm từ khóa khác."
-          />
-        ) : (
-          <div className="table-responsive">
-            <table className="table">
-              <thead>
+      <div className="admin-data-table-container">
+        <div className="admin-table-wrap">
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th style={{ width: '80px' }}>ID</th>
+                <th style={{ minWidth: '220px' }}>Sản phẩm</th>
+                <th style={{ width: '180px' }}>Khách hàng</th>
+                <th style={{ width: '110px' }}>Đánh giá</th>
+                <th style={{ minWidth: '260px' }}>Nội dung nhận xét</th>
+                <th style={{ width: '140px' }}>Trạng thái</th>
+                <th style={{ width: '130px', textAlign: 'right' }}>Thao tác</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
                 <tr>
-                  <th style={{ width: '60px' }}>ID</th>
-                  <th style={{ width: '220px' }}>Sản phẩm</th>
-                  <th style={{ width: '180px' }}>Khách hàng</th>
-                  <th style={{ width: '120px' }}>Điểm sao</th>
-                  <th>Nội dung nhận xét</th>
-                  <th style={{ width: '120px' }}>Trạng thái</th>
-                  <th style={{ width: '130px', textAlign: 'right' }}>Thao tác</th>
+                  <td colSpan={7} style={{ padding: '40px 16px', textAlign: 'center', color: '#64748b' }}>
+                    <RefreshCw size={20} className="spin" style={{ margin: '0 auto 8px', display: 'block' }} />
+                    Đang tải dữ liệu nhận xét…
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {filteredReviews.map((rev) => (
+              ) : filteredReviews.length === 0 ? (
+                <tr>
+                  <td colSpan={7} style={{ padding: '40px 16px', textAlign: 'center' }}>
+                    <EmptyState
+                      title="Không có đánh giá nào phù hợp"
+                      description="Hãy thử đổi bộ lọc trạng thái hoặc tìm kiếm từ khóa khác."
+                    />
+                  </td>
+                </tr>
+              ) : (
+                filteredReviews.map((rev) => (
                   <tr key={rev.id}>
                     <td>
-                      <span className="font-mono text-muted">#{rev.id}</span>
-                      <div className="text-xs text-muted mt-0.5">{rev.created_at}</div>
+                      <span style={{ fontFamily: 'monospace', fontWeight: 700, color: '#64748b' }}>#{rev.id}</span>
+                      <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>{rev.created_at}</div>
                     </td>
                     <td>
-                      <strong className="d-block text-truncate" style={{ maxWidth: '200px' }}>
+                      <strong style={{ display: 'block', color: '#0f172a', fontSize: '13px' }}>
                         {rev.product_name}
                       </strong>
-                      <span className="text-xs text-muted">Mã SP: #{rev.canonical_product_id}</span>
+                      <span style={{ fontSize: '11px', color: '#64748b' }}>Mã SP: #{rev.canonical_product_id}</span>
                     </td>
                     <td>
-                      <div className="font-bold">{rev.customer_name}</div>
+                      <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '13px' }}>{rev.customer_name}</div>
                       {rev.is_verified_purchase ? (
-                        <span className="tag tag-success text-xs mt-1" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                          <ShieldCheck size={12} />
-                          Đã mua đơn #{rev.order_code || 'GPP'}
+                        <span
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '3px',
+                            background: '#ecfdf5',
+                            color: '#065f46',
+                            border: '1px solid #a7f3d0',
+                            borderRadius: '4px',
+                            padding: '1px 5px',
+                            fontSize: '10.5px',
+                            fontWeight: 700,
+                            marginTop: '3px',
+                          }}
+                        >
+                          <ShieldCheck size={11} />
+                          Đã mua #{rev.order_code || 'GPP'}
                         </span>
                       ) : (
-                        <span className="text-xs text-muted">Khách vãng lai</span>
+                        <span style={{ fontSize: '11px', color: '#94a3b8' }}>Khách vãng lai</span>
                       )}
                     </td>
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
-                        <span className="font-bold">{rev.rating}</span>
-                        <Star size={14} className="fill-amber-400 text-amber-500" />
+                        <span style={{ fontWeight: 800, color: '#d97706', fontSize: '13px' }}>{rev.rating}</span>
+                        <Star size={14} style={{ fill: '#f59e0b', color: '#f59e0b' }} />
                       </div>
                     </td>
                     <td>
-                      <p style={{ margin: 0, fontSize: '0.85rem', lineHeight: '1.4', color: 'var(--text-primary)' }}>
+                      <p style={{ margin: 0, fontSize: '12.5px', lineHeight: 1.5, color: '#334155' }}>
                         {rev.comment}
                       </p>
                     </td>
                     <td>
-                      {rev.is_approved ? (
-                        <span className="badge badge-success">Đang hiển thị</span>
-                      ) : (
-                        <span className="badge badge-warning">Đã ẩn</span>
-                      )}
+                      <StatusBadge
+                        value={rev.is_approved ? 'PUBLISHED' : 'DRAFT'}
+                        tone={rev.is_approved ? 'success' : 'warning'}
+                        showDot
+                      />
                     </td>
                     <td style={{ textAlign: 'right' }}>
                       <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
                         <button
-                          className={`button button-xs ${rev.is_approved ? 'button-secondary' : 'button-primary'}`}
+                          type="button"
+                          className={`admin-button ${rev.is_approved ? 'button-secondary' : 'button-primary'}`}
+                          style={{ padding: '4px 8px', fontSize: '11.5px' }}
                           title={rev.is_approved ? 'Ẩn khỏi cửa hàng' : 'Duyệt hiển thị'}
                           disabled={actionLoadingId === rev.id}
                           onClick={() => handleToggleStatus(rev)}
                         >
-                          {rev.is_approved ? <EyeOff size={14} /> : <Eye size={14} />}
-                          {rev.is_approved ? 'Ẩn' : 'Duyệt'}
+                          {rev.is_approved ? <EyeOff size={13} /> : <Eye size={13} />}
+                          <span>{rev.is_approved ? 'Ẩn' : 'Duyệt'}</span>
                         </button>
                         <button
-                          className="button button-xs button-danger"
+                          type="button"
+                          className="admin-button button-danger"
+                          style={{ padding: '4px 8px', fontSize: '11.5px' }}
                           title="Xóa vĩnh viễn"
                           disabled={actionLoadingId === rev.id}
-                          onClick={() => handleDeleteReview(rev)}
+                          onClick={() => setReviewToDelete(rev)}
                         >
-                          <Trash2 size={14} />
+                          <Trash2 size={13} />
                         </button>
                       </div>
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
+
+      {/* Clean Confirm Modal replacing window.confirm */}
+      <ConfirmModal
+        isOpen={!!reviewToDelete}
+        title="Xóa đánh giá vĩnh viễn"
+        message={
+          reviewToDelete ? (
+            <div>
+              Bạn có chắc chắn muốn xóa vĩnh viễn đánh giá <strong>#{reviewToDelete.id}</strong> của khách hàng{' '}
+              <strong>{reviewToDelete.customer_name}</strong> cho sản phẩm <strong>{reviewToDelete.product_name}</strong>?
+              <div style={{ marginTop: '8px', color: '#dc2626', fontSize: '12px' }}>
+                Hành động này không thể hoàn tác.
+              </div>
+            </div>
+          ) : null
+        }
+        confirmLabel="Xác nhận xóa"
+        cancelLabel="Hủy bỏ"
+        tone="danger"
+        isLoading={isDeleting}
+        onConfirm={confirmDeleteReview}
+        onClose={() => setReviewToDelete(null)}
+      />
     </div>
   )
 }

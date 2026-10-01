@@ -14,6 +14,10 @@ export type PrescriptionStatus =
   | "OCR_PROCESSING"
   | "OCR_COMPLETED"
   | "OCR_FAILED"
+  | "EXTRACTION_PROCESSING"
+  | "EXTRACTION_COMPLETED"
+  | "EXTRACTION_NEEDS_REVIEW"
+  | "EXTRACTION_FAILED"
   | "NEEDS_REVIEW"
   | "COMPLETED"
   | "FAILED"
@@ -29,7 +33,9 @@ export type ValidationErrorCode =
   | "STORAGE_ERROR"
   | "DATABASE_ERROR"
   | "INVALID_ID"
-  | "NOT_FOUND";
+  | "NOT_FOUND"
+  | "INVALID_CANDIDATE"
+  | "CANDIDATE_NOT_FOUND";
 
 export interface PrescriptionValidationResult {
   isValid: boolean;

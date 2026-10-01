@@ -339,13 +339,24 @@ export const Header: React.FC<HeaderProps> = ({ onReplayIntro }) => {
               {/* Cart Button with Count Badge */}
               <Link
                 href="/cart"
-                className="relative flex items-center justify-center w-10 h-10 rounded-xl bg-brand-blue-50 text-brand-blue-700 hover:bg-brand-blue-100 border border-brand-blue-100/90 transition-all duration-150 group active:scale-95"
+                aria-label="Giỏ hàng"
                 title="Giỏ hàng H4CARE"
+                className="relative flex items-center gap-2 px-2.5 sm:px-3.5 py-2 rounded-xl bg-brand-blue-50/80 hover:bg-brand-blue-100/90 text-brand-blue-700 border border-brand-blue-200/80 transition-all duration-150 group active:scale-95 shadow-2xs"
               >
-                <ShoppingBag className="w-4.5 h-4.5 group-hover:scale-110 transition-transform duration-150" />
+                <div className="relative flex items-center justify-center">
+                  <ShoppingBag className="w-4.5 h-4.5 text-brand-blue-600 group-hover:scale-105 transition-transform duration-150 shrink-0" />
+                  {cartCount > 0 && (
+                    <span className="sm:hidden absolute -top-2 -right-2 min-w-[16px] h-4 px-1 rounded-full bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center ring-2 ring-white">
+                      {cartCount > 99 ? "99+" : cartCount}
+                    </span>
+                  )}
+                </div>
+                <span className="hidden sm:inline font-semibold text-slate-800 text-xs">
+                  Giỏ hàng
+                </span>
                 {cartCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-4.5 h-4.5 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center ring-2 ring-white">
-                    {cartCount}
+                  <span className="hidden sm:inline-flex min-w-[18px] h-[18px] px-1.5 rounded-full bg-brand-blue-600 text-white text-[10px] font-bold items-center justify-center shadow-xs">
+                    {cartCount > 99 ? "99+" : cartCount}
                   </span>
                 )}
               </Link>

@@ -10,6 +10,7 @@ from app.api import (
     health,
     imports,
     inventory,
+    locations,
     orders,
     payments,
     products,
@@ -43,6 +44,7 @@ api_router.include_router(inventory.warehouses_router)
 api_router.include_router(inventory.admin_units_router)
 api_router.include_router(imports.router)
 api_router.include_router(exports.router)
+api_router.include_router(locations.locations_router)
 api_router.include_router(dashboard.router)
 
 

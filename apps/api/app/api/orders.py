@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.api.deps import get_current_user, require_roles
 from app.db.session import get_db
 from app.models import (
+    AdministrativeUnit,
     CanonicalProduct,
     FulfillmentItem,
     Order,
@@ -21,8 +22,10 @@ from app.models import (
     User,
 )
 from app.models.enums import PublishStatus, RxOtcStatus, UserRole
+from app.services.administrative_service import AdministrativeDataService
 from app.services.alert_notifier import dispatch_alert
 from app.services.fulfillment_service import FulfillmentRoutingService
+from app.services.geo_service import GeoService
 
 router = APIRouter(tags=["Đơn Hàng & Mua Sắm"])
 store_order_router = APIRouter(prefix="/store/orders", tags=["Storefront Khách Hàng - Đơn Hàng"])
@@ -101,9 +104,26 @@ class CheckoutRequest(BaseModel):
     customer_email: Optional[str] = None
     shipping_address: str = Field(..., min_length=2, max_length=500)
     shipping_city: Optional[str] = "Toàn quốc"
-    payment_method: str = "COD"  # COD | BANK_TRANSFER
+    payment_method: str = "COD"  # COD | BANK_TRANSFER | MOMO
     note: Optional[str] = None
     items: List[CheckoutItem] = Field(..., min_length=1)
+
+    # Cấu trúc địa chỉ giao hàng xác minh (Mô hình 2 cấp 2025 & Legacy)
+    fulfillment_type: Optional[str] = "DELIVERY"  # DELIVERY | STORE_PICKUP
+    province_code: Optional[str] = None
+    commune_code: Optional[str] = None
+    commune_type: Optional[str] = None  # ward | commune | special_zone
+    address_line: Optional[str] = None
+    formatted_address: Optional[str] = None
+    place_id: Optional[str] = None
+    lat: Optional[float] = None
+    lng: Optional[float] = None
+    is_verified: Optional[bool] = False
+
+    # Legacy fields
+    district_code: Optional[str] = None
+    ward_code: Optional[str] = None
+    store_id: Optional[int] = None
 
 
 class UpdateOrderStatusRequest(BaseModel):
@@ -125,6 +145,7 @@ def checkout_order(payload: CheckoutRequest, db: Session = Depends(get_db)):
     """
     Tạo đơn hàng mới từ Storefront Web Khách Hàng.
     Tính giá 100% tại máy chủ (Server-side Pricing), loại bỏ hoàn toàn thuốc kê đơn Rx và chặn can thiệp giá.
+    Xác minh nghiêm ngặt địa chỉ giao hàng và tọa độ bản đồ.
     """
     name = payload.customer_name.strip()
     phone = payload.customer_phone.strip()
@@ -132,6 +153,60 @@ def checkout_order(payload: CheckoutRequest, db: Session = Depends(get_db)):
 
     if not name or not phone or not address:
         raise HTTPException(status_code=400, detail="Vui lòng điền đầy đủ họ tên, số điện thoại và địa chỉ giao hàng.")
+
+    # Xác thực địa chỉ giao hàng đối với hình thức Giao Tận Nơi
+    if (payload.fulfillment_type or "DELIVERY").upper() == "DELIVERY":
+        if not payload.is_verified:
+            raise HTTPException(
+                status_code=400,
+                detail="Địa chỉ giao hàng chưa được xác minh vị trí. Vui lòng bấm 'Xác nhận địa chỉ này' trước khi đặt hàng.",
+            )
+
+        if payload.lat is None or payload.lng is None:
+            raise HTTPException(
+                status_code=400,
+                detail="Thiếu tọa độ định vị GPS giao hàng. Vui lòng chọn và xác nhận vị trí trên bản đồ.",
+            )
+
+        p_code = payload.province_code
+        c_code = payload.commune_code or payload.ward_code
+
+        if not p_code or not c_code:
+            raise HTTPException(
+                status_code=400,
+                detail="Vui lòng chọn đầy đủ 2 cấp hành chính hiện hành: Tỉnh/Thành phố và Xã/Phường/Đặc khu.",
+            )
+
+        # 1. Kiểm tra tính khớp giữa Tỉnh/Thành và tọa độ GPS
+        is_coord_valid, coord_err = GeoService.validate_province_coordinates(
+            province_code=p_code,
+            lat=payload.lat,
+            lng=payload.lng,
+        )
+        if not is_coord_valid:
+            raise HTTPException(status_code=400, detail=coord_err)
+
+        # 2. Kiểm tra tính hợp lệ của cấp hành chính 2 cấp theo dataset 2025
+        is_valid_sel, sel_err = AdministrativeDataService.validate_selection(p_code, c_code)
+        if not is_valid_sel:
+            # Fallback tra cứu DB
+            prov_db = db.scalar(
+                select(AdministrativeUnit).where(
+                    AdministrativeUnit.code == p_code,
+                    AdministrativeUnit.level == "PROVINCE",
+                )
+            )
+            comm_db = db.scalar(
+                select(AdministrativeUnit).where(
+                    AdministrativeUnit.code == c_code,
+                    AdministrativeUnit.parent_code == p_code,
+                )
+            )
+            if not prov_db or not comm_db:
+                raise HTTPException(
+                    status_code=400,
+                    detail=sel_err or "Cấp hành chính không hợp lệ hoặc không thuộc Tỉnh/Thành phố đã chọn.",
+                )
 
     # Tìm thông tin sản phẩm
     product_ids = [it.product_id for it in payload.items]
@@ -199,6 +274,10 @@ def checkout_order(payload: CheckoutRequest, db: Session = Depends(get_db)):
             )
         )
 
+    comm_code_val = payload.commune_code or payload.ward_code
+    comm_info = AdministrativeDataService.get_commune_by_code(comm_code_val) if payload.province_code and comm_code_val else None
+    prov_info = AdministrativeDataService.get_province_by_code(payload.province_code) if payload.province_code else None
+
     order_code = generate_order_code()
     order = Order(
         order_code=order_code,
@@ -206,13 +285,31 @@ def checkout_order(payload: CheckoutRequest, db: Session = Depends(get_db)):
         customer_phone=phone,
         customer_email=payload.customer_email.strip() if payload.customer_email else None,
         shipping_address=address,
-        shipping_city=payload.shipping_city or "Toàn quốc",
+        shipping_city=prov_info["fullName"] if prov_info else (payload.shipping_city or "Toàn quốc"),
+        province_code=payload.province_code,
+        district_code=payload.district_code or (comm_info.get("legacyDistrictName") if comm_info else None),
+        ward_code=comm_code_val,
+        lat=payload.lat,
+        lng=payload.lng,
+        is_verified=bool(payload.is_verified),
+        # 2-Tier 2025 Administrative Model & Legacy Snapshot
+        province_code_current=payload.province_code,
+        commune_code_current=comm_code_val,
+        commune_type=payload.commune_type or (comm_info.get("type") if comm_info else None),
+        formatted_address_current=payload.formatted_address or address,
+        legacy_province=prov_info["fullName"] if prov_info else None,
+        legacy_district=payload.district_code or (comm_info.get("legacyDistrictName") if comm_info else None),
+        legacy_ward=comm_info["fullName"] if comm_info else None,
+        migration_status="MIGRATED_2025",
+        geocode_provider="nominatim",
+        place_id=payload.place_id or f"geo_{payload.province_code}_{comm_code_val}",
+        verified_at=datetime.datetime.utcnow() if payload.is_verified else None,
         payment_method=payload.payment_method.upper(),
         payment_status="PENDING",
         order_status="PENDING",
         total_amount=total_amount,
         shipping_fee=Decimal("0.0"),
-        note=payload.note,
+        note=payload.note.strip() if payload.note else None,
         items=order_items_to_add,
     )
     db.add(order)
@@ -441,6 +538,20 @@ def get_admin_order_detail(
         "order_status": order.order_status,
         "total_amount": float(order.total_amount),
         "note": order.note,
+        "is_verified": bool(order.is_verified) if order.is_verified is not None else False,
+        "lat": order.lat,
+        "lng": order.lng,
+        "province_code": order.province_code,
+        "district_code": order.district_code,
+        "ward_code": order.ward_code,
+        "province_code_current": order.province_code_current,
+        "commune_code_current": order.commune_code_current,
+        "commune_type": order.commune_type,
+        "formatted_address_current": order.formatted_address_current,
+        "legacy_province": order.legacy_province,
+        "legacy_district": order.legacy_district,
+        "legacy_ward": order.legacy_ward,
+        "verified_at": order.verified_at.isoformat() if order.verified_at else None,
         "created_at": order.created_at.isoformat() if order.created_at else None,
         "items": [
             {
