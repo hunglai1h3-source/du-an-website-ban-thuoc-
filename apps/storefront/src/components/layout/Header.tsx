@@ -37,6 +37,19 @@ export const Header: React.FC<HeaderProps> = ({ onReplayIntro }) => {
   const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   const [isAccountDropdownOpen, setIsAccountDropdownOpen] = useState(false);
   const [cartCount, setCartCount] = useState(0);
+  const [copiedHotline, setCopiedHotline] = useState(false);
+
+  const handleHotlineClick = (e: React.MouseEvent) => {
+    // Trên máy tính bàn/laptop Windows, tránh mở popup hệ thống 'Select an app to open tel link'
+    if (typeof window !== "undefined" && !/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+      e.preventDefault();
+      try {
+        navigator.clipboard.writeText("18006868");
+        setCopiedHotline(true);
+        setTimeout(() => setCopiedHotline(false), 3000);
+      } catch (err) {}
+    }
+  };
 
   useEffect(() => {
     const updateCartCount = () => {
@@ -91,10 +104,16 @@ export const Header: React.FC<HeaderProps> = ({ onReplayIntro }) => {
           <div className="flex items-center gap-4">
             <a
               href="tel:18006868"
-              className="flex items-center gap-1.5 text-cyan-300 hover:text-white font-semibold transition-colors"
+              onClick={handleHotlineClick}
+              className="flex items-center gap-1.5 text-cyan-300 hover:text-white font-semibold transition-colors cursor-pointer"
+              title="Nhấn để gọi trên di động hoặc sao chép số trên máy tính"
             >
               <PhoneCall className="w-3 h-3 text-cyan-400" />
-              <span>Tư vấn Dược sĩ: 1800 6868 (Miễn cước)</span>
+              <span>
+                {copiedHotline
+                  ? "✓ Đã sao chép Hotline 1800 6868"
+                  : "Tư vấn Dược sĩ: 1800 6868 (Miễn cước)"}
+              </span>
             </a>
 
             {onReplayIntro && (
@@ -175,15 +194,18 @@ export const Header: React.FC<HeaderProps> = ({ onReplayIntro }) => {
               {/* Consultation Hotline Pill - Minimalist on xl */}
               <a
                 href="tel:18006868"
-                className="hidden xl:flex items-center gap-2 px-3 py-2 rounded-xl border border-cyan-200 bg-cyan-50/50 hover:bg-cyan-100/60 text-slate-800 transition-all duration-150"
-                title="Gọi tư vấn Dược sĩ miễn cước"
+                onClick={handleHotlineClick}
+                className="hidden xl:flex items-center gap-2 px-3 py-2 rounded-xl border border-cyan-200 bg-cyan-50/50 hover:bg-cyan-100/60 text-slate-800 transition-all duration-150 cursor-pointer"
+                title="Nhấn để gọi trên di động hoặc sao chép số trên máy tính"
               >
                 <div className="w-6 h-6 rounded-lg bg-cyan-100 text-cyan-700 flex items-center justify-center shrink-0">
                   <PhoneCall className="w-3.5 h-3.5" />
                 </div>
                 <div className="text-left leading-none">
                   <span className="text-[10px] text-slate-500 block font-normal">Tư vấn Dược sĩ</span>
-                  <span className="text-xs font-bold text-slate-900">1800 6868</span>
+                  <span className="text-xs font-bold text-slate-900">
+                    {copiedHotline ? "✓ Đã copy" : "1800 6868"}
+                  </span>
                 </div>
               </a>
 
