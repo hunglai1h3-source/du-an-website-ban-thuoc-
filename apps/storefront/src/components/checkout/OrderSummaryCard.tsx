@@ -49,7 +49,7 @@ export default function OrderSummaryCard({
   isAddressVerified = true,
   onSubmitOrder,
 }: OrderSummaryCardProps) {
-  const freeshipThreshold = 200000;
+  const freeshipThreshold = 300000;
   const remainingForFreeship = Math.max(0, freeshipThreshold - subtotal);
   const freeshipProgress = Math.min(100, Math.round((subtotal / freeshipThreshold) * 100));
 

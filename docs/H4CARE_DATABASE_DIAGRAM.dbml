@@ -1,0 +1,1574 @@
+// =============================================================================
+// PROJECT H4CARE - COMPLETE & ACCURATE DATABASE SCHEMA (DBML)
+// Generated for rendering on: https://dbdiagram.io/
+//
+// SYSTEM ARCHITECTURE: Dual-Database Production Design
+// 1. Core API & Data Hub (FastAPI / SQLAlchemy / SQLite -> PostgreSQL): 45 Tables
+// 2. Storefront Clinical Portal (Next.js / Prisma / SQLite -> PostgreSQL): 10 Tables
+// TOTAL DATABASE TABLES: 55 Tables
+// =============================================================================
+
+// =============================================================================
+// SECTION 1: ENUM DEFINITIONS (Actual domain enums & status types)
+// =============================================================================
+
+Enum user_role {
+  ADMIN [note: 'System Administrator with full access']
+  DATA_REVIEWER [note: 'Reviewer for drug data normalization and conflicts']
+  VIEWER [note: 'Read-only dashboard user']
+  CUSTOMER [note: 'End-customer pharmacy shopper']
+}
+
+Enum source_type {
+  REGULATORY [note: 'Official regulatory portals (DAV, MOH)']
+  MANUFACTURER [note: 'Drug manufacturers (Davipharm, Hau Giang, etc.)']
+  APPROVED_LEAFLET [note: 'Officially approved drug instruction leaflets']
+  RETAILER [note: 'E-commerce pharmacy retail chains (Pharmacity, Long Chau)']
+  MANUAL_UPLOAD [note: 'Manually uploaded CSV / Excel drug registries']
+  DEMO [note: 'Seed / Mock development data']
+}
+
+Enum run_status {
+  QUEUED
+  RUNNING
+  SUCCESS
+  PARTIAL
+  FAILED
+  CANCELLED
+}
+
+Enum processing_status {
+  NEW
+  EXTRACTED
+  MATCHED
+  REVIEW_REQUIRED
+  REJECTED
+}
+
+Enum confidence_label {
+  HIGH_OFFICIAL_MATCH [note: 'Verified with official regulatory records']
+  REVIEW_REQUIRED [note: 'Requires human pharmacist / reviewer check']
+  INSUFFICIENT_EVIDENCE [note: 'Not enough data points to verify']
+  BLOCKED [note: 'Violates quality / safety rules or recalled']
+}
+
+Enum publish_status {
+  DRAFT
+  REVIEW_REQUIRED
+  PUBLISHED
+  BLOCKED
+}
+
+Enum rx_otc_status {
+  OTC [note: 'Over-The-Counter medication']
+  PRESCRIPTION [note: 'Prescription-only medicine (Rx)']
+  UNKNOWN
+}
+
+Enum regulatory_status {
+  ACTIVE [note: 'Valid active registration in Vietnam']
+  EXPIRED [note: 'Registration number has expired']
+  RECALLED [note: 'Officially recalled by MOH/DAV']
+  QUALITY_VIOLATION [note: 'Flagged for quality or batch violation']
+  UNKNOWN
+}
+
+Enum conflict_severity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+Enum conflict_status {
+  OPEN
+  RESOLVED
+  DISMISSED
+}
+
+Enum review_decision_type {
+  DATA_ACCEPTED
+  DATA_REJECTED
+  NEED_MORE_EVIDENCE
+  MERGE_ACCEPTED
+  MERGE_REJECTED
+}
+
+Enum inventory_batch_status {
+  ACTIVE [note: 'Available for FEFO stock allocation']
+  QUARANTINED [note: 'Under quality inspection or hold']
+  RECALLED [note: 'Recalled by manufacturer or authority']
+  EXPIRED [note: 'Past expiration date - non-sellable']
+}
+
+Enum stock_receipt_status {
+  DRAFT
+  CONFIRMED
+  CANCELLED
+}
+
+Enum stock_movement_type {
+  RECEIPT [note: 'Inbound goods receipt from supplier']
+  DISPATCH [note: 'Outbound dispatch for customer order fulfillment']
+  TRANSFER_OUT [note: 'Stock transfer dispatched to another warehouse']
+  TRANSFER_IN [note: 'Stock transfer received from another warehouse']
+  ADJUST_INC [note: 'Inventory count adjustment increase']
+  ADJUST_DEC [note: 'Inventory count adjustment decrease']
+  DISPOSAL [note: 'Damaged or expired medicine disposal']
+}
+
+Enum stock_adjustment_status {
+  DRAFT
+  CONFIRMED
+  CANCELLED
+}
+
+Enum stock_transfer_status {
+  DRAFT
+  IN_TRANSIT
+  COMPLETED
+  CANCELLED
+}
+
+Enum stock_reservation_status {
+  RESERVED [note: 'Hold placed during customer checkout']
+  FULFILLED [note: 'Converted to active fulfillment package']
+  RELEASED [note: 'Released back to stock upon order cancellation or timeout']
+}
+
+Enum order_fulfillment_status {
+  PENDING
+  PICKED
+  PACKED
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+Enum payment_status {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+Enum payment_provider {
+  COD [note: 'Cash On Delivery']
+  MOMO [note: 'MoMo QR & Gateway']
+  VNPAY [note: 'VNPay Gateway']
+  VIETQR [note: 'Dynamic VietQR Banking Transfer']
+}
+
+Enum order_status {
+  PENDING
+  CONFIRMED
+  PROCESSING
+  SHIPPING
+  DELIVERED
+  CANCELLED
+}
+
+Enum email_status {
+  PENDING
+  SENDING
+  SENT
+  FAILED
+}
+
+Enum campaign_season {
+  XUAN [note: 'Spring season health campaigns']
+  HA [note: 'Summer season health campaigns']
+  THU [note: 'Autumn season health campaigns']
+  DONG [note: 'Winter season health campaigns']
+  QUANH_NAM [note: 'Year-round disease prevention']
+}
+
+Enum campaign_status {
+  ACTIVE
+  PAUSED
+  ENDED
+}
+
+Enum safety_finding_severity {
+  CRITICAL [note: 'Fatal contraindication or life-threatening allergy']
+  HIGH [note: 'Severe adverse interaction or major overdose']
+  WARNING [note: 'Moderate clinical risk requiring adjustment']
+  CAUTION [note: 'Mild interaction or duplicate therapeutic intent']
+  INFO [note: 'Advisory guidance for patient / pharmacist']
+}
+
+// =============================================================================
+// SECTION 2: CORE API & DATA HUB DATABASE (pharmatrust.db / 45 Tables)
+// =============================================================================
+
+// --- 2.1 AUTH & USERS MODULE ---
+
+Table users {
+  id integer [pk, increment]
+  email varchar(255) [unique, not null]
+  phone varchar(50)
+  password_hash varchar(255) [not null]
+  full_name varchar(255) [not null]
+  role user_role [not null, default: 'VIEWER']
+  loyalty_points integer [not null, default: 50]
+  is_active boolean [not null, default: true]
+  last_login_at timestamp
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+
+  Indexes {
+    email [unique]
+    phone
+  }
+  Note: 'Master user and account management for H4CARE (Admins, Data Reviewers, Customers)'
+}
+
+Table audit_logs {
+  id integer [pk, increment]
+  user_id integer
+  action varchar(100) [not null]
+  entity_type varchar(100) [not null]
+  entity_id varchar(100)
+  before_json json
+  after_json json
+  ip_address varchar(80)
+  user_agent varchar(500)
+  created_at timestamp [not null, default: `now()`]
+
+  Indexes {
+    user_id
+    action
+    entity_type
+  }
+  Note: 'Audit trails tracking system modifications and user security events'
+}
+
+// --- 2.2 PRODUCT & DRUG MASTER CATALOG MODULE ---
+
+Table canonical_products {
+  id integer [pk, increment]
+  canonical_name varchar(500) [not null]
+  registration_number varchar(150) [unique]
+  dosage_form varchar(300)
+  route varchar(200)
+  manufacturer varchar(500)
+  manufacturing_country varchar(200)
+  package_description varchar(700)
+  image_url varchar(1000)
+  local_image_url varchar(1000)
+  local_thumbnail_url varchar(1000)
+  description text
+  usage_instructions text
+  indications text
+  contraindications text
+  side_effects text
+  storage_conditions varchar(500)
+  regulatory_status regulatory_status [not null, default: 'UNKNOWN']
+  rx_otc_status rx_otc_status [not null, default: 'UNKNOWN']
+  registration_valid_from date
+  registration_valid_to date
+  overall_score integer [not null, default: 0, note: 'Calculated Trust Score 0-100']
+  confidence_label confidence_label [not null, default: 'INSUFFICIENT_EVIDENCE']
+  publish_status publish_status [not null, default: 'DRAFT']
+  publish_mode varchar(50) [not null, default: 'MANUAL_REVIEW']
+  is_demo boolean [not null, default: false]
+  category_slug varchar(100)
+  subcategory_slug varchar(100)
+  category_confidence float [not null, default: 0.0]
+  category_review_status varchar(50) [not null, default: 'AUTO_RESOLVED']
+  category_review_reason text
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+
+  Indexes {
+    canonical_name
+    registration_number [unique]
+    category_slug
+    category_review_status
+    is_demo
+  }
+  Note: 'Master verified medicine catalog with pharmaceutical attributes and Trust Scores'
+}
+
+Table ingredients {
+  id integer [pk, increment]
+  normalized_name varchar(300) [unique, not null]
+  alternative_names json [not null, default: '[]']
+  external_codes json [not null, default: '{}']
+
+  Indexes {
+    normalized_name [unique]
+  }
+  Note: 'Master active pharmaceutical ingredients (API) dictionary'
+}
+
+Table product_ingredients {
+  id integer [pk, increment]
+  product_id integer [not null]
+  ingredient_id integer [not null]
+  strength_value float
+  strength_unit varchar(50)
+  original_strength_text varchar(200)
+
+  Indexes {
+    product_id
+    ingredient_id
+    (product_id, ingredient_id, strength_value, strength_unit) [unique, name: 'uq_product_ingredient']
+  }
+  Note: 'Active ingredient formulation breakdown with strengths for canonical medicines'
+}
+
+Table product_skus {
+  id integer [pk, increment]
+  canonical_product_id integer [not null]
+  sku_code varchar(100) [unique, not null]
+  barcode varchar(100)
+  uom varchar(50) [not null, default: 'Hộp', note: 'Unit of Measure: Hộp, Vỉ, Viên, Chai, Tuýp, Gói']
+  conversion_rate integer [not null, default: 1]
+  base_price decimal(12, 2) [not null]
+  is_default boolean [not null, default: true]
+  is_active boolean [not null, default: true]
+
+  Indexes {
+    canonical_product_id
+    sku_code [unique]
+    barcode
+  }
+  Note: 'Stock Keeping Units defining unit packaging, conversion rates, and sellable pricing'
+}
+
+Table confidence_scores {
+  id integer [pk, increment]
+  product_id integer [not null]
+  registration_match_score integer [not null, default: 0]
+  otc_status_score integer [not null, default: 0]
+  ingredient_strength_score integer [not null, default: 0]
+  manufacturer_score integer [not null, default: 0]
+  package_score integer [not null, default: 0]
+  source_consensus_score integer [not null, default: 0]
+  recency_score integer [not null, default: 0]
+  completeness_score integer [not null, default: 0]
+  penalty integer [not null, default: 0]
+  total_score integer [not null, default: 0]
+  confidence_label confidence_label [not null]
+  scoring_rule_version varchar(30) [not null, default: '1.0']
+  calculated_at timestamp [not null, default: `now()`]
+
+  Indexes {
+    product_id
+  }
+  Note: 'Multi-criteria scoring breakdown quantifying medicine authenticity and data trust'
+}
+
+Table score_history {
+  id integer [pk, increment]
+  product_id integer [not null]
+  old_score integer [not null, default: 0]
+  new_score integer [not null]
+  old_label varchar(80) [not null]
+  new_label varchar(80) [not null]
+  reason text [not null]
+  calculated_at timestamp [not null, default: `now()`]
+
+  Indexes {
+    product_id
+  }
+  Note: 'Historical tracking of Trust Score changes caused by recalculations or data edits'
+}
+
+Table price_observations {
+  id integer [pk, increment]
+  product_id integer [not null]
+  source_id integer [not null]
+  observed_price decimal(14, 2) [not null]
+  currency varchar(10) [not null, default: 'VND']
+  availability_text varchar(255)
+  observed_at timestamp [not null, default: `now()`]
+  source_url varchar(1500) [not null]
+
+  Indexes {
+    product_id
+    source_id
+  }
+  Note: 'Market retail price monitoring across various pharmaceutical web portals'
+}
+
+// --- 2.3 CRAWLER & DATA SOURCES MODULE ---
+
+Table data_sources {
+  id integer [pk, increment]
+  code varchar(80) [unique, not null]
+  name varchar(255) [not null]
+  source_type source_type [not null]
+  base_url varchar(1000)
+  authority_level integer [not null, default: 1]
+  authority_weight float [not null, default: 0.5]
+  enabled boolean [not null, default: true]
+  robots_status varchar(40) [not null, default: 'UNKNOWN']
+  terms_note text
+  rate_limit float [not null, default: 1.0]
+  crawl_frequency varchar(80) [not null, default: 'MANUAL']
+  last_success_at timestamp
+  last_failure_at timestamp
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+
+  Indexes {
+    code [unique]
+  }
+  Note: 'Registered crawling sources (DAV Vietnam, DrugBank, Retail Pharmacies)'
+}
+
+Table crawl_runs {
+  id integer [pk, increment]
+  source_id integer [not null]
+  status run_status [not null, default: 'QUEUED']
+  started_at timestamp
+  finished_at timestamp
+  pages_requested integer [not null, default: 0]
+  pages_success integer [not null, default: 0]
+  pages_failed integer [not null, default: 0]
+  products_discovered integer [not null, default: 0]
+  error_message text
+  configuration_snapshot json [not null, default: '{}']
+
+  Indexes {
+    source_id
+  }
+  Note: 'Execution instances of scheduled or manual data crawling jobs'
+}
+
+Table crawl_locks {
+  source_code varchar(80) [pk]
+  is_locked boolean [not null, default: false]
+  current_run_id integer
+  locked_at timestamp
+  locked_by varchar(255)
+  lease_timeout_seconds integer [not null, default: 1800]
+  overlap_count integer [not null, default: 0]
+  last_skipped_at timestamp
+
+  Note: 'Distributed locking mechanism preventing simultaneous crawls on the same source'
+}
+
+Table raw_documents {
+  id integer [pk, increment]
+  source_id integer [not null]
+  crawl_run_id integer
+  source_url varchar(1500) [not null]
+  content_type varchar(150) [not null]
+  local_storage_path varchar(1000)
+  raw_text text
+  content_hash varchar(64) [not null]
+  http_status integer
+  fetched_at timestamp [not null, default: `now()`]
+  file_size integer [not null, default: 0]
+  metadata_json json [not null, default: '{}']
+  is_demo boolean [not null, default: false]
+
+  Indexes {
+    source_id
+    crawl_run_id
+    content_hash
+    (source_id, source_url, content_hash) [unique, name: 'uq_raw_document_version']
+  }
+  Note: 'Immutable archive of raw HTML and JSON documents fetched by crawler pipeline'
+}
+
+Table product_candidates {
+  id integer [pk, increment]
+  raw_document_id integer [not null]
+  canonical_product_id integer
+  observed_name varchar(500) [not null]
+  normalized_name varchar(500) [not null]
+  registration_number_text varchar(150)
+  manufacturer_text varchar(500)
+  dosage_form_text varchar(300)
+  package_text varchar(500)
+  rx_otc_text varchar(100)
+  ingredients_json json [not null, default: '[]']
+  image_url varchar(1000)
+  description text
+  usage_instructions text
+  indications text
+  contraindications text
+  side_effects text
+  storage_conditions varchar(500)
+  extraction_confidence float [not null, default: 0]
+  extraction_method varchar(80) [not null, default: 'PARSER']
+  extraction_model varchar(255)
+  processing_status processing_status [not null, default: 'NEW']
+  created_at timestamp [not null, default: `now()`]
+
+  Indexes {
+    raw_document_id
+    canonical_product_id
+    normalized_name
+    registration_number_text
+  }
+  Note: 'Unmerged product candidates parsed from raw documents awaiting resolution'
+}
+
+Table product_source_fields {
+  id integer [pk, increment]
+  product_id integer [not null]
+  source_id integer [not null]
+  raw_document_id integer
+  field_name varchar(100) [not null]
+  original_value text
+  normalized_value text
+  field_confidence float [not null, default: 0]
+  observed_at timestamp [not null, default: `now()`]
+  is_selected_value boolean [not null, default: false]
+
+  Indexes {
+    product_id
+    source_id
+    field_name
+  }
+  Note: 'Attribute-level provenance detailing which data source provided each canonical field'
+}
+
+Table regulatory_records {
+  id integer [pk, increment]
+  registration_number varchar(150) [not null]
+  official_name varchar(500) [not null]
+  manufacturer varchar(500)
+  ingredients_json json [not null, default: '[]']
+  dosage_form varchar(300)
+  package_description varchar(700)
+  rx_otc_status rx_otc_status [not null, default: 'UNKNOWN']
+  regulatory_status regulatory_status [not null, default: 'UNKNOWN']
+  source_url varchar(1500) [not null]
+  effective_date date
+  fetched_at timestamp [not null, default: `now()`]
+  raw_document_id integer
+
+  Indexes {
+    registration_number
+  }
+  Note: 'Official regulatory drug reference database from Vietnam MOH / DAV'
+}
+
+Table data_conflicts {
+  id integer [pk, increment]
+  product_id integer [not null]
+  conflict_type varchar(100) [not null]
+  severity conflict_severity [not null]
+  field_name varchar(100) [not null]
+  source_a_id integer
+  value_a text
+  source_b_id integer
+  value_b text
+  description text [not null]
+  status conflict_status [not null, default: 'OPEN']
+  detected_by varchar(100) [not null, default: 'RULE_ENGINE']
+  created_at timestamp [not null, default: `now()`]
+  resolved_at timestamp
+  resolved_by integer
+  resolution_note text
+
+  Indexes {
+    product_id
+    conflict_type
+  }
+  Note: 'Discrepancies identified between sources for human reviewer investigation'
+}
+
+Table review_decisions {
+  id integer [pk, increment]
+  product_id integer [not null]
+  reviewer_id integer [not null]
+  decision review_decision_type [not null]
+  note text
+  created_at timestamp [not null, default: `now()`]
+
+  Indexes {
+    product_id
+    reviewer_id
+  }
+  Note: 'Pharmacist reviewer decisions accepting or rejecting candidate merges'
+}
+
+Table failed_crawl_items {
+  id integer [pk, increment]
+  source_id integer [not null]
+  crawl_run_id integer
+  url varchar(1500) [not null]
+  error_type varchar(100) [not null]
+  error_message text [not null]
+  retry_count integer [not null, default: 0]
+  resolved boolean [not null, default: false]
+  created_at timestamp [not null, default: `now()`]
+  resolved_at timestamp
+
+  Indexes {
+    source_id
+    error_type
+  }
+  Note: 'Failed URLs logged for automated retry or scraper bug analysis'
+}
+
+Table admin_alerts {
+  id integer [pk, increment]
+  source_code varchar(80) [not null]
+  alert_type varchar(100) [not null]
+  severity varchar(50) [not null, default: 'WARNING']
+  message text [not null]
+  is_read boolean [not null, default: false]
+  created_at timestamp [not null, default: `now()`]
+
+  Indexes {
+    source_code
+    alert_type
+  }
+  Note: 'System operational alerts for administrative monitoring'
+}
+
+// --- 2.4 GEOGRAPHY & ADDRESS MODULE ---
+
+Table administrative_units {
+  id integer [pk, increment]
+  code varchar(50) [unique, not null]
+  name varchar(255) [not null]
+  parent_code varchar(50)
+  level varchar(50) [not null, note: 'PROVINCE, DISTRICT, WARD']
+  full_name varchar(255) [not null]
+
+  Indexes {
+    code [unique]
+    parent_code
+  }
+  Note: 'Vietnam administrative units catalog (supports 2025 2-tier local government structure)'
+}
+
+Table customer_addresses {
+  id integer [pk, increment]
+  user_id integer
+  recipient_name varchar(255) [not null]
+  phone varchar(50) [not null]
+  address_line varchar(500) [not null]
+  province_code varchar(50)
+  district_code varchar(50)
+  ward_code varchar(50)
+  lat float
+  lng float
+  place_id varchar(255)
+  is_default boolean [not null, default: false]
+  created_at timestamp [not null, default: `now()`]
+
+  Indexes {
+    user_id
+  }
+  Note: 'Saved customer delivery addresses with coordinates and administrative codes'
+}
+
+// --- 2.5 WAREHOUSE & INVENTORY MODULE ---
+
+Table warehouses {
+  id integer [pk, increment]
+  code varchar(50) [unique, not null]
+  name varchar(255) [not null]
+  address varchar(500) [not null]
+  ward varchar(100)
+  district varchar(100)
+  province varchar(100)
+  lat float
+  lng float
+  is_active boolean [not null, default: true]
+  is_central boolean [not null, default: false]
+  phone varchar(50)
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+
+  Indexes {
+    code [unique]
+  }
+  Note: 'Physical distribution centers and local hub pharmacies'
+}
+
+Table warehouse_locations {
+  id integer [pk, increment]
+  warehouse_id integer [not null]
+  code varchar(50) [not null]
+  name varchar(255)
+  aisle varchar(50)
+  shelf varchar(50)
+  bin varchar(50)
+  is_active boolean [not null, default: true]
+
+  Indexes {
+    warehouse_id
+    code
+  }
+  Note: 'Specific bin, shelf, and aisle storage slots within a warehouse'
+}
+
+Table suppliers {
+  id integer [pk, increment]
+  code varchar(50) [unique, not null]
+  name varchar(255) [not null]
+  tax_code varchar(50)
+  phone varchar(50)
+  email varchar(255)
+  address varchar(500)
+  gsp_license_number varchar(100)
+  is_active boolean [not null, default: true]
+  created_at timestamp [not null, default: `now()`]
+
+  Indexes {
+    code [unique]
+  }
+  Note: 'Pharmaceutical vendors, importers, and manufacturers'
+}
+
+Table inventory_batches {
+  id integer [pk, increment]
+  sku_id integer [not null]
+  batch_number varchar(100) [not null]
+  manufacture_date date
+  expiry_date date [not null, note: 'Primary key for FEFO algorithm']
+  supplier_id integer
+  initial_quantity integer [not null, default: 0]
+  status inventory_batch_status [not null, default: 'ACTIVE']
+  certificate_url varchar(1000)
+  created_at timestamp [not null, default: `now()`]
+
+  Indexes {
+    sku_id
+    batch_number
+    expiry_date
+    supplier_id
+  }
+  Note: 'Specific manufacturing batches with expiry dates powering FEFO allocation'
+}
+
+Table warehouse_batch_stock {
+  id integer [pk, increment]
+  warehouse_id integer [not null]
+  batch_id integer [not null]
+  location_id integer
+  quantity_on_hand integer [not null, default: 0]
+  quantity_reserved integer [not null, default: 0]
+  quantity_available integer [not null, default: 0]
+  updated_at timestamp [not null, default: `now()`]
+
+  Indexes {
+    warehouse_id
+    batch_id
+    (warehouse_id, batch_id, location_id) [unique, name: 'uq_wh_batch_loc']
+  }
+  Note: 'Live inventory balances per warehouse, batch, and location'
+}
+
+Table stock_receipts {
+  id integer [pk, increment]
+  receipt_code varchar(50) [unique, not null]
+  warehouse_id integer [not null]
+  supplier_id integer [not null]
+  status stock_receipt_status [not null, default: 'DRAFT']
+  received_date timestamp [not null, default: `now()`]
+  total_amount decimal(14, 2) [not null, default: 0.0]
+  note text
+  created_by integer
+  confirmed_by integer
+  created_at timestamp [not null, default: `now()`]
+
+  Indexes {
+    receipt_code [unique]
+    warehouse_id
+    supplier_id
+    status
+  }
+  Note: 'Inbound warehouse purchase orders and receipts'
+}
+
+Table stock_receipt_items {
+  id integer [pk, increment]
+  receipt_id integer [not null]
+  sku_id integer [not null]
+  batch_number varchar(100) [not null]
+  manufacture_date date
+  expiry_date date [not null]
+  quantity integer [not null]
+  purchase_unit_price decimal(12, 2) [not null]
+  line_total decimal(14, 2) [not null]
+  storage_location_id integer
+  batch_id integer
+
+  Indexes {
+    receipt_id
+    sku_id
+  }
+  Note: 'Itemized received batch quantities on stock receipts'
+}
+
+Table stock_movements {
+  id integer [pk, increment]
+  movement_code varchar(50) [unique, not null]
+  movement_type stock_movement_type [not null]
+  warehouse_id integer [not null]
+  batch_id integer [not null]
+  quantity integer [not null]
+  balance_after integer [not null, default: 0]
+  reference_type varchar(50) [note: 'STOCK_RECEIPT, ORDER_FULFILLMENT, TRANSFER, ADJUSTMENT']
+  reference_id varchar(100)
+  created_by integer
+  note text
+  created_at timestamp [not null, default: `now()`]
+
+  Indexes {
+    movement_code [unique]
+    movement_type
+    warehouse_id
+    batch_id
+  }
+  Note: 'Immutable financial and operational stock ledger'
+}
+
+Table stock_adjustments {
+  id integer [pk, increment]
+  adjustment_code varchar(50) [unique, not null]
+  warehouse_id integer [not null]
+  reason varchar(255) [not null]
+  status stock_adjustment_status [not null, default: 'DRAFT']
+  created_by integer
+  confirmed_by integer
+  created_at timestamp [not null, default: `now()`]
+
+  Indexes {
+    adjustment_code [unique]
+    warehouse_id
+    status
+  }
+  Note: 'Stock cycle count variance adjustments'
+}
+
+Table stock_adjustment_items {
+  id integer [pk, increment]
+  adjustment_id integer [not null]
+  batch_id integer [not null]
+  system_quantity integer [not null]
+  actual_quantity integer [not null]
+  delta_quantity integer [not null, note: 'actual - system']
+  reason varchar(255)
+
+  Indexes {
+    adjustment_id
+    batch_id
+  }
+  Note: 'Batch level count discrepancies'
+}
+
+Table stock_transfers {
+  id integer [pk, increment]
+  transfer_code varchar(50) [unique, not null]
+  from_warehouse_id integer [not null]
+  to_warehouse_id integer [not null]
+  status stock_transfer_status [not null, default: 'DRAFT']
+  note text
+  created_by integer
+  shipped_at timestamp
+  received_at timestamp
+  created_at timestamp [not null, default: `now()`]
+
+  Indexes {
+    transfer_code [unique]
+    from_warehouse_id
+    to_warehouse_id
+    status
+  }
+  Note: 'Inter-branch stock transfer shipments'
+}
+
+Table stock_transfer_items {
+  id integer [pk, increment]
+  transfer_id integer [not null]
+  batch_id integer [not null]
+  quantity integer [not null]
+  received_quantity integer [not null, default: 0]
+
+  Indexes {
+    transfer_id
+    batch_id
+  }
+  Note: 'Batches and quantities transferred between warehouses'
+}
+
+Table stock_reservations {
+  id integer [pk, increment]
+  order_id integer [not null]
+  batch_id integer [not null]
+  warehouse_id integer [not null]
+  quantity integer [not null]
+  status stock_reservation_status [not null, default: 'RESERVED']
+  expires_at timestamp
+  created_at timestamp [not null, default: `now()`]
+
+  Indexes {
+    order_id
+    batch_id
+    warehouse_id
+    status
+  }
+  Note: 'Temporary inventory reservation locks during customer checkout'
+}
+
+// --- 2.6 ORDERS & PAYMENTS MODULE ---
+
+Table orders {
+  id integer [pk, increment]
+  order_code varchar(50) [unique, not null]
+  customer_name varchar(255) [not null]
+  customer_phone varchar(50) [not null]
+  customer_email varchar(255)
+  shipping_address varchar(500) [not null]
+  shipping_city varchar(100)
+  province_code varchar(50)
+  district_code varchar(50)
+  ward_code varchar(50)
+  lat float
+  lng float
+  is_verified boolean [not null, default: false]
+  payment_method payment_provider [not null, default: 'COD']
+  payment_status payment_status [not null, default: 'PENDING']
+  order_status order_status [not null, default: 'PENDING']
+  total_amount decimal(12, 2) [not null]
+  shipping_fee decimal(12, 2) [not null, default: 0.0]
+  note text
+  province_code_current varchar(50) [note: '2-tier 2025 administrative code']
+  commune_code_current varchar(50) [note: '2-tier 2025 commune code']
+  commune_type varchar(50)
+  formatted_address_current varchar(500)
+  legacy_province varchar(100)
+  legacy_district varchar(100)
+  legacy_ward varchar(100)
+  migration_status varchar(50) [default: 'MIGRATED_2025']
+  geocode_provider varchar(50) [default: 'nominatim']
+  place_id varchar(100)
+  verified_at timestamp
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+
+  Indexes {
+    order_code [unique]
+    customer_phone
+    order_status
+  }
+  Note: 'Customer orders featuring geocoding, 2-Tier 2025 Vietnam administrative integration'
+}
+
+Table order_items {
+  id integer [pk, increment]
+  order_id integer [not null]
+  product_id integer
+  product_name varchar(500) [not null]
+  product_sku varchar(150)
+  price decimal(12, 2) [not null]
+  quantity integer [not null, default: 1]
+  subtotal decimal(12, 2) [not null]
+
+  Indexes {
+    order_id
+    product_id
+  }
+  Note: 'Purchased product lines within an order'
+}
+
+Table order_fulfillments {
+  id integer [pk, increment]
+  fulfillment_code varchar(50) [unique, not null]
+  order_id integer [not null]
+  warehouse_id integer [not null]
+  status order_fulfillment_status [not null, default: 'PENDING']
+  carrier_name varchar(100)
+  tracking_code varchar(100)
+  shipping_fee decimal(12, 2) [not null, default: 0.0]
+  created_at timestamp [not null, default: `now()`]
+  shipped_at timestamp
+  delivered_at timestamp
+
+  Indexes {
+    fulfillment_code [unique]
+    order_id
+    warehouse_id
+    status
+  }
+  Note: 'Fulfillment orders dispatched from a specific warehouse to 3PL logistics carriers'
+}
+
+Table fulfillment_items {
+  id integer [pk, increment]
+  fulfillment_id integer [not null]
+  order_item_id integer [not null]
+  quantity integer [not null]
+
+  Indexes {
+    fulfillment_id
+    order_item_id
+  }
+  Note: 'Quantity allocation mapping order items to specific fulfillment packages'
+}
+
+Table order_item_batch_allocations {
+  id integer [pk, increment]
+  fulfillment_item_id integer
+  order_item_id integer [not null]
+  batch_id integer [not null]
+  warehouse_id integer [not null]
+  allocated_quantity integer [not null]
+  created_at timestamp [not null, default: `now()`]
+
+  Indexes {
+    fulfillment_item_id
+    order_item_id
+    batch_id
+    warehouse_id
+  }
+  Note: 'Exact physical batch and warehouse assigned to fulfill each line item (FEFO allocation)'
+}
+
+Table payment_transactions {
+  id integer [pk, increment]
+  order_id integer [not null]
+  transaction_code varchar(100) [unique, not null]
+  provider payment_provider [not null]
+  amount decimal(12, 2) [not null]
+  currency varchar(10) [not null, default: 'VND']
+  status payment_status [not null, default: 'PENDING']
+  provider_trans_id varchar(100)
+  provider_pay_url varchar(1000)
+  provider_response_raw text
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+
+  Indexes {
+    order_id
+    transaction_code [unique]
+    status
+  }
+  Note: 'Gateway payment transactions (MoMo, VNPay, COD)'
+}
+
+Table payment_webhook_events {
+  id integer [pk, increment]
+  provider varchar(50) [not null]
+  event_id varchar(100)
+  signature varchar(255)
+  payload_raw text [not null]
+  processed boolean [not null, default: false]
+  process_error text
+  created_at timestamp [not null, default: `now()`]
+
+  Indexes {
+    event_id
+  }
+  Note: 'Inbound IPN webhook events from payment gateways with audit payloads'
+}
+
+// --- 2.7 MARKETING & AUDIT MODULE ---
+
+Table product_reviews {
+  id integer [pk, increment]
+  canonical_product_id integer [not null]
+  user_id integer
+  order_id integer
+  rating integer [not null, note: 'Rating scale 1-5']
+  customer_name varchar(255) [not null]
+  comment text [not null]
+  is_verified_purchase boolean [not null, default: false]
+  is_approved boolean [not null, default: true]
+  created_at timestamp [not null, default: `now()`]
+
+  Indexes {
+    canonical_product_id
+    user_id
+    order_id
+  }
+  Note: 'Customer product reviews with verified purchase confirmation'
+}
+
+Table seasonal_campaigns {
+  id integer [pk, increment]
+  slug varchar(100) [unique, not null]
+  title varchar(255) [not null]
+  disease_name varchar(255) [not null]
+  season campaign_season [not null]
+  symptoms text [not null]
+  prevention text [not null]
+  recommended_product_ids text [note: 'JSON array of canonical_product_ids']
+  status campaign_status [not null, default: 'ACTIVE']
+  banner_image_url varchar(1000)
+  created_at timestamp [not null, default: `now()`]
+
+  Indexes {
+    slug [unique]
+    status
+  }
+  Note: 'Seasonal preventive health campaigns linking diseases to recommended medicines'
+}
+
+Table email_outboxes {
+  id integer [pk, increment]
+  recipient_email varchar(255) [not null]
+  subject varchar(500) [not null]
+  body_html text [not null]
+  body_text text
+  reference_type varchar(50) [note: 'ORDER_CONFIRMATION, OTP, RESTOCK_ALERT']
+  reference_id varchar(100)
+  status email_status [not null, default: 'PENDING']
+  retry_count integer [not null, default: 0]
+  max_retries integer [not null, default: 3]
+  last_error text
+  sent_at timestamp
+  created_at timestamp [not null, default: `now()`]
+
+  Indexes {
+    recipient_email
+    status
+  }
+  Note: 'Transactional email dispatch queue with automated retries and SMTP delivery tracking'
+}
+
+// =============================================================================
+// SECTION 3: STOREFRONT PRISMA DATABASE (apps/storefront/prisma/dev.db / 10 Tables)
+// =============================================================================
+
+// --- 3.1 PRESCRIPTION & OCR MODULE ---
+
+Table prescriptions {
+  id uuid [pk]
+  userId varchar(255) [note: 'Logical FK to users.id']
+  sessionId varchar(255) [note: 'Guest browsing session identifier']
+  originalFileName varchar(500) [not null]
+  storedFileName varchar(500) [not null]
+  storageKey varchar(500) [not null]
+  filePath varchar(1000) [not null]
+  mimeType varchar(100) [not null]
+  fileExtension varchar(20) [not null]
+  fileSize integer [not null]
+  status varchar(50) [not null, default: 'STORED', note: 'STORED, PROCESSING, OCR_COMPLETED, OCR_FAILED, etc.']
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null]
+
+  Indexes {
+    userId
+    sessionId
+    status
+  }
+  Note: 'Customer uploaded prescription images and documents'
+}
+
+Table prescription_ocr_results {
+  id uuid [pk]
+  prescriptionId uuid [unique, not null]
+  provider varchar(50) [not null, note: 'tesseract | google_vision | mock']
+  status varchar(50) [not null, note: 'PENDING | PROCESSING | COMPLETED | FAILED']
+  fullText text [not null]
+  pageCount integer [not null, default: 1]
+  averageConfidence float
+  processingTimeMs integer
+  attemptCount integer [not null, default: 1]
+  errorMessage text
+  errorCode varchar(100)
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null]
+
+  Indexes {
+    prescriptionId [unique]
+    status
+  }
+  Note: 'Raw document OCR recognition text output and metrics'
+}
+
+Table prescription_ocr_pages {
+  id uuid [pk]
+  ocrResultId uuid [not null]
+  pageNumber integer [not null]
+  text text [not null]
+  confidence float
+  createdAt timestamp [not null, default: `now()`]
+
+  Indexes {
+    ocrResultId
+  }
+  Note: 'Per-page OCR extracted text segments for multi-page documents'
+}
+
+Table prescription_extractions {
+  id uuid [pk]
+  prescriptionId uuid [unique, not null]
+  ocrResultId uuid
+  provider varchar(50) [not null, note: 'openai | gemini | mock']
+  model varchar(100) [not null, note: 'gpt-4o-mini | gemini-1.5-flash | mock-v1']
+  status varchar(50) [not null, note: 'PENDING | PROCESSING | COMPLETED | NEEDS_REVIEW | FAILED']
+  rawOcrText text [not null]
+  patientName varchar(255)
+  patientAge varchar(50)
+  patientGender varchar(50)
+  doctorName varchar(255)
+  diagnosis text
+  medicationCount integer [not null, default: 0]
+  matchedCount integer [not null, default: 0]
+  needsReviewCount integer [not null, default: 0]
+  unmatchedCount integer [not null, default: 0]
+  attemptCount integer [not null, default: 1]
+  errorMessage text
+  errorCode varchar(100)
+  processingTimeMs integer
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null]
+
+  Indexes {
+    prescriptionId [unique]
+    status
+  }
+  Note: 'AI clinical parsing extracting patient data, diagnosis, and medications'
+}
+
+Table prescription_medications {
+  id uuid [pk]
+  extractionId uuid [not null]
+  rawName varchar(500) [not null]
+  normalizedName varchar(500) [not null]
+  strength varchar(100)
+  dosage varchar(100)
+  frequency varchar(100)
+  duration varchar(100)
+  quantity varchar(100)
+  route varchar(100)
+  instructions text
+  sourcePage integer
+  sourceText text
+  matchStatus varchar(50) [not null, note: 'MATCHED | NEEDS_REVIEW | UNMATCHED']
+  matchedDrugId varchar(255) [note: 'Logical FK to drug_references.id or canonical_products.id']
+  matchedDrugName varchar(500)
+  matchScore float
+  candidatesJson text [note: 'JSON array of candidate matching drugs']
+  userConfirmedDrugId varchar(255)
+  userConfirmedName varchar(500)
+  reviewStatus varchar(50) [not null, default: 'PENDING_REVIEW', note: 'PENDING_REVIEW | CONFIRMED | REJECTED_UNKNOWN']
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null]
+
+  Indexes {
+    extractionId
+    matchStatus
+    reviewStatus
+  }
+  Note: 'Extracted drug line items with dosage instructions and normalization matches'
+}
+
+Table drug_references {
+  id uuid [pk]
+  brandName varchar(255) [not null]
+  genericName varchar(255) [not null]
+  activeIngredient text
+  strength varchar(100)
+  dosageForm varchar(100)
+  manufacturer varchar(255)
+  normalizedSearchName varchar(255) [not null]
+  isPrescription boolean [not null, default: false]
+  createdAt timestamp [not null, default: `now()`]
+
+  Indexes {
+    normalizedSearchName
+    genericName
+  }
+  Note: 'Local drug reference table embedded in Storefront for instant validation'
+}
+
+// --- 3.2 CLINICAL SAFETY CHECK ENGINE MODULE ---
+
+Table safety_reports {
+  id uuid [pk]
+  prescriptionId uuid [not null]
+  extractionId uuid [not null]
+  extractionUpdatedAt timestamp [not null]
+  status varchar(50) [not null, note: 'PENDING | PROCESSING | COMPLETED | NEEDS_REVIEW | INCOMPLETE | FAILED | STALE']
+  isStale boolean [not null, default: false]
+  totalFindings integer [not null, default: 0]
+  criticalCount integer [not null, default: 0]
+  highCount integer [not null, default: 0]
+  warningCount integer [not null, default: 0]
+  cautionCount integer [not null, default: 0]
+  infoCount integer [not null, default: 0]
+  allergyCheckStatus varchar(50) [not null, note: 'COMPLETED | INSUFFICIENT_DATA | FAILED | SKIPPED']
+  interactionCheckStatus varchar(50) [not null, note: 'COMPLETED | INSUFFICIENT_DATA | FAILED | SKIPPED']
+  dosageCheckStatus varchar(50) [not null, note: 'COMPLETED | INSUFFICIENT_DATA | FAILED | SKIPPED']
+  duplicateCheckStatus varchar(50) [not null, note: 'COMPLETED | INSUFFICIENT_DATA | FAILED | SKIPPED']
+  hasUnresolvedMedications boolean [not null, default: false]
+  summaryText text
+  processingTimeMs integer
+  attemptCount integer [not null, default: 1]
+  errorMessage text
+  errorCode varchar(100)
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null]
+
+  Indexes {
+    prescriptionId
+    status
+    isStale
+  }
+  Note: 'Comprehensive clinical safety report analyzing interactions, allergies, and dosages'
+}
+
+Table safety_findings {
+  id uuid [pk]
+  reportId uuid [not null]
+  ruleId varchar(100) [not null, note: 'RULE_ALLERGY | RULE_INTERACTION | RULE_DOSAGE | RULE_DUPLICATE']
+  findingType varchar(50) [not null, note: 'ALLERGY | DRUG_INTERACTION | DOSAGE_LIMIT | STRUCTURAL_DOSAGE | DUPLICATE_MEDICATION | DUPLICATE_ACTIVE_INGREDIENT | INSUFFICIENT_DATA']
+  severity safety_finding_severity [not null]
+  title varchar(255) [not null]
+  description text [not null]
+  clinicalExplanation text
+  recommendationText text
+  medicationIdsJson text [note: 'JSON array of involved medication IDs']
+  drugNamesJson text [note: 'JSON array of involved drug names']
+  sourceId varchar(100) [not null]
+  sourceName varchar(255) [not null]
+  sourceVersion varchar(50) [not null]
+  ruleVersion varchar(50) [not null]
+  createdAt timestamp [not null, default: `now()`]
+
+  Indexes {
+    reportId
+    severity
+    findingType
+  }
+  Note: 'Individual contraindication, adverse interaction, or allergy alert finding'
+}
+
+Table safety_rule_executions {
+  id uuid [pk]
+  reportId uuid [not null]
+  ruleId varchar(100) [not null]
+  ruleName varchar(255) [not null]
+  ruleVersion varchar(50) [not null]
+  status varchar(50) [not null, note: 'COMPLETED | SKIPPED | FAILED | INSUFFICIENT_DATA']
+  findingCount integer [not null, default: 0]
+  durationMs integer
+  message text
+  createdAt timestamp [not null, default: `now()`]
+
+  Indexes {
+    reportId
+  }
+  Note: 'Execution audit of clinical safety rule passes'
+}
+
+Table user_allergy_profiles {
+  id uuid [pk]
+  userId varchar(255) [note: 'Logical FK to API users.id']
+  sessionId varchar(255) [note: 'Guest session identifier']
+  allergenName varchar(255) [not null]
+  allergenType varchar(50) [not null, default: 'MEDICATION', note: 'MEDICATION | DRUG_CLASS | OTHER']
+  severity varchar(50) [note: 'CRITICAL | HIGH | MODERATE']
+  reaction text
+  createdAt timestamp [not null, default: `now()`]
+  updatedAt timestamp [not null]
+
+  Indexes {
+    userId
+    sessionId
+  }
+  Note: 'Known patient drug and substance allergy registry for clinical cross-checking'
+}
+
+// =============================================================================
+// SECTION 4: PHYSICAL FOREIGN KEY RELATIONSHIPS
+// =============================================================================
+
+// --- 4.1 CORE API DATABASE PHYSICAL RELATIONS ---
+Ref: audit_logs.user_id > users.id
+Ref: customer_addresses.user_id > users.id [delete: cascade]
+
+Ref: product_skus.canonical_product_id > canonical_products.id [delete: cascade]
+Ref: product_ingredients.product_id > canonical_products.id [delete: cascade]
+Ref: product_ingredients.ingredient_id > ingredients.id
+Ref: confidence_scores.product_id > canonical_products.id [delete: cascade]
+Ref: score_history.product_id > canonical_products.id [delete: cascade]
+Ref: price_observations.product_id > canonical_products.id [delete: cascade]
+Ref: price_observations.source_id > data_sources.id
+
+Ref: crawl_runs.source_id > data_sources.id [delete: cascade]
+Ref: crawl_locks.current_run_id > crawl_runs.id
+Ref: raw_documents.source_id > data_sources.id
+Ref: raw_documents.crawl_run_id > crawl_runs.id
+Ref: product_candidates.raw_document_id > raw_documents.id [delete: cascade]
+Ref: product_candidates.canonical_product_id > canonical_products.id
+Ref: product_source_fields.product_id > canonical_products.id [delete: cascade]
+Ref: product_source_fields.source_id > data_sources.id
+Ref: product_source_fields.raw_document_id > raw_documents.id
+Ref: regulatory_records.raw_document_id > raw_documents.id
+Ref: data_conflicts.product_id > canonical_products.id [delete: cascade]
+Ref: data_conflicts.source_a_id > data_sources.id
+Ref: data_conflicts.source_b_id > data_sources.id
+Ref: data_conflicts.resolved_by > users.id
+Ref: review_decisions.product_id > canonical_products.id [delete: cascade]
+Ref: review_decisions.reviewer_id > users.id
+Ref: failed_crawl_items.source_id > data_sources.id
+Ref: failed_crawl_items.crawl_run_id > crawl_runs.id
+
+Ref: warehouse_locations.warehouse_id > warehouses.id [delete: cascade]
+Ref: inventory_batches.sku_id > product_skus.id [delete: cascade]
+Ref: inventory_batches.supplier_id > suppliers.id [delete: set null]
+Ref: warehouse_batch_stock.warehouse_id > warehouses.id [delete: cascade]
+Ref: warehouse_batch_stock.batch_id > inventory_batches.id [delete: cascade]
+Ref: warehouse_batch_stock.location_id > warehouse_locations.id [delete: set null]
+Ref: stock_receipts.warehouse_id > warehouses.id [delete: restrict]
+Ref: stock_receipts.supplier_id > suppliers.id [delete: restrict]
+Ref: stock_receipts.created_by > users.id [delete: set null]
+Ref: stock_receipts.confirmed_by > users.id [delete: set null]
+Ref: stock_receipt_items.receipt_id > stock_receipts.id [delete: cascade]
+Ref: stock_receipt_items.sku_id > product_skus.id [delete: restrict]
+Ref: stock_receipt_items.storage_location_id > warehouse_locations.id [delete: set null]
+Ref: stock_receipt_items.batch_id > inventory_batches.id [delete: set null]
+Ref: stock_movements.warehouse_id > warehouses.id [delete: restrict]
+Ref: stock_movements.batch_id > inventory_batches.id [delete: restrict]
+Ref: stock_movements.created_by > users.id [delete: set null]
+Ref: stock_adjustments.warehouse_id > warehouses.id [delete: restrict]
+Ref: stock_adjustments.created_by > users.id [delete: set null]
+Ref: stock_adjustments.confirmed_by > users.id [delete: set null]
+Ref: stock_adjustment_items.adjustment_id > stock_adjustments.id [delete: cascade]
+Ref: stock_adjustment_items.batch_id > inventory_batches.id [delete: restrict]
+Ref: stock_transfers.from_warehouse_id > warehouses.id [delete: restrict]
+Ref: stock_transfers.to_warehouse_id > warehouses.id [delete: restrict]
+Ref: stock_transfers.created_by > users.id [delete: set null]
+Ref: stock_transfer_items.transfer_id > stock_transfers.id [delete: cascade]
+Ref: stock_transfer_items.batch_id > inventory_batches.id [delete: restrict]
+Ref: stock_reservations.order_id > orders.id [delete: cascade]
+Ref: stock_reservations.batch_id > inventory_batches.id [delete: cascade]
+Ref: stock_reservations.warehouse_id > warehouses.id [delete: cascade]
+
+Ref: order_items.order_id > orders.id [delete: cascade]
+Ref: order_items.product_id > canonical_products.id [delete: set null]
+Ref: order_fulfillments.order_id > orders.id [delete: cascade]
+Ref: order_fulfillments.warehouse_id > warehouses.id [delete: restrict]
+Ref: fulfillment_items.fulfillment_id > order_fulfillments.id [delete: cascade]
+Ref: fulfillment_items.order_item_id > order_items.id [delete: cascade]
+Ref: order_item_batch_allocations.order_item_id > order_items.id [delete: cascade]
+Ref: order_item_batch_allocations.fulfillment_item_id > fulfillment_items.id [delete: cascade]
+Ref: order_item_batch_allocations.batch_id > inventory_batches.id [delete: restrict]
+Ref: order_item_batch_allocations.warehouse_id > warehouses.id [delete: restrict]
+Ref: payment_transactions.order_id > orders.id [delete: cascade]
+
+Ref: product_reviews.canonical_product_id > canonical_products.id [delete: cascade]
+Ref: product_reviews.user_id > users.id [delete: set null]
+Ref: product_reviews.order_id > orders.id [delete: set null]
+
+// --- 4.2 STOREFRONT PRISMA DATABASE PHYSICAL RELATIONS ---
+Ref: prescription_ocr_results.prescriptionId - prescriptions.id [delete: cascade, update: cascade]
+Ref: prescription_ocr_pages.ocrResultId > prescription_ocr_results.id [delete: cascade, update: cascade]
+Ref: prescription_extractions.prescriptionId - prescriptions.id [delete: cascade, update: cascade]
+Ref: prescription_medications.extractionId > prescription_extractions.id [delete: cascade, update: cascade]
+Ref: safety_reports.prescriptionId > prescriptions.id [delete: cascade, update: cascade]
+Ref: safety_findings.reportId > safety_reports.id [delete: cascade, update: cascade]
+Ref: safety_rule_executions.reportId > safety_reports.id [delete: cascade, update: cascade]
+
+// =============================================================================
+// SECTION 5: LOGICAL CROSS-DATABASE RELATIONSHIPS
+// (Annotated for documentation; no physical foreign keys across distinct DBs)
+// =============================================================================
+
+// LOGICAL RELATION ONLY – different databases: prescriptions.userId references API users.id
+// Ref: prescriptions.userId > users.id
+
+// LOGICAL RELATION ONLY – different databases: user_allergy_profiles.userId references API users.id
+// Ref: user_allergy_profiles.userId > users.id
+
+// LOGICAL RELATION ONLY – different databases: prescription_medications.matchedDrugId references API canonical_products.id
+// Ref: prescription_medications.matchedDrugId > canonical_products.id
+
+// LOGICAL RELATION ONLY – weak reference within Storefront DB: prescription_medications.matchedDrugId references drug_references.id
+// Ref: prescription_medications.matchedDrugId > drug_references.id
+
+// LOGICAL RELATION ONLY – weak reference within Storefront DB: prescription_extractions.ocrResultId references prescription_ocr_results.id
+// Ref: prescription_extractions.ocrResultId > prescription_ocr_results.id
+
+// =============================================================================
+// SECTION 6: TABLE GROUPS (Visual grouping for dbdiagram.io)
+// =============================================================================
+
+TableGroup "AUTH & USERS (API DB)" {
+  users
+  audit_logs
+}
+
+TableGroup "PRODUCT & DRUG CATALOG (API DB)" {
+  canonical_products
+  ingredients
+  product_ingredients
+  product_skus
+  confidence_scores
+  score_history
+  price_observations
+}
+
+TableGroup "CRAWLER & DATA SOURCES (API DB)" {
+  data_sources
+  crawl_runs
+  crawl_locks
+  raw_documents
+  product_candidates
+  product_source_fields
+  regulatory_records
+  data_conflicts
+  review_decisions
+  failed_crawl_items
+  admin_alerts
+}
+
+TableGroup "GEOGRAPHY & ADDRESS (API DB)" {
+  administrative_units
+  customer_addresses
+}
+
+TableGroup "WAREHOUSE & INVENTORY (API DB)" {
+  warehouses
+  warehouse_locations
+  suppliers
+  inventory_batches
+  warehouse_batch_stock
+  stock_receipts
+  stock_receipt_items
+  stock_movements
+  stock_adjustments
+  stock_adjustment_items
+  stock_transfers
+  stock_transfer_items
+  stock_reservations
+}
+
+TableGroup "ORDERS & FULFILLMENT (API DB)" {
+  orders
+  order_items
+  order_fulfillments
+  fulfillment_items
+  order_item_batch_allocations
+  payment_transactions
+  payment_webhook_events
+}
+
+TableGroup "MARKETING & OPERATIONS (API DB)" {
+  product_reviews
+  seasonal_campaigns
+  email_outboxes
+}
+
+TableGroup "PRESCRIPTION PIPELINE (Storefront DB)" {
+  prescriptions
+  prescription_ocr_results
+  prescription_ocr_pages
+  prescription_extractions
+  prescription_medications
+  drug_references
+}
+
+TableGroup "CLINICAL SAFETY ENGINE (Storefront DB)" {
+  safety_reports
+  safety_findings
+  safety_rule_executions
+  user_allergy_profiles
+}

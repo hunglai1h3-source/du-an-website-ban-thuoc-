@@ -47,13 +47,30 @@ class FulfillmentRoutingService:
     }
 
     @classmethod
-    def get_preferred_warehouse_order(cls, db: Session, shipping_city: Optional[str], shipping_address: Optional[str]) -> list[Warehouse]:
+    def get_preferred_warehouse_order(
+        cls,
+        db: Session,
+        shipping_city: Optional[str],
+        shipping_address: Optional[str],
+        lat: Optional[float] = None,
+        lng: Optional[float] = None,
+    ) -> list[Warehouse]:
         """
-        Xác định thứ tự ưu tiên kho dựa trên địa chỉ giao nhận (Bắc -> KHO-HN-01, Nam/Khác -> KHO-HCM-01).
+        Xác định thứ tự ưu tiên kho dựa trên tọa độ GPS (nếu có) hoặc địa chỉ giao nhận (Bắc -> KHO-HN-01, Nam/Khác -> KHO-HCM-01).
         """
         all_warehouses = db.scalars(select(Warehouse).where(Warehouse.is_active == True).order_by(Warehouse.id.asc())).all()
         if not all_warehouses:
             raise HTTPException(status_code=500, detail="Hệ thống chưa thiết lập kho hàng nào đang hoạt động.")
+
+        # Nếu có tọa độ GPS hợp lệ từ Address V2, sắp xếp theo khoảng cách vật lý thực tế
+        if lat is not None and lng is not None and (-90 <= lat <= 90) and (-180 <= lng <= 180) and not (abs(lat) < 0.001 and abs(lng) < 0.001):
+            from app.services.geo_service import calculate_haversine_distance
+            def get_distance_to_wh(w: Warehouse) -> float:
+                w_lat = float(w.lat) if w.lat is not None else (10.7872 if "HCM" in w.code.upper() else 21.0253)
+                w_lng = float(w.lng) if w.lng is not None else (106.7001 if "HCM" in w.code.upper() else 105.8552)
+                return calculate_haversine_distance(lat, lng, w_lat, w_lng)
+
+            return sorted(all_warehouses, key=get_distance_to_wh)
 
         hcm_wh = next((w for w in all_warehouses if "HCM" in w.code.upper()), all_warehouses[0])
         hn_wh = next((w for w in all_warehouses if "HN" in w.code.upper()), None)
@@ -62,10 +79,8 @@ class FulfillmentRoutingService:
         is_north = any(prov in combined_addr for prov in cls.NORTH_PROVINCES)
 
         if is_north and hn_wh:
-            # Ưu tiên Hà Nội trước, TP.HCM sau
             ordered = [hn_wh] + [w for w in all_warehouses if w.id != hn_wh.id]
         else:
-            # Ưu tiên TP.HCM trước, Hà Nội sau
             ordered = [hcm_wh] + [w for w in all_warehouses if w.id != hcm_wh.id]
 
         return ordered
@@ -120,7 +135,9 @@ class FulfillmentRoutingService:
         - Kịch bản 2: Không kho nào đơn lẻ đủ hàng -> Tách đơn (Split Order) giữa các kho.
         - Kịch bản 3: Toàn hệ thống không đủ hàng -> Trả về lỗi 400 kèm số lượng thiếu chi tiết.
         """
-        ordered_warehouses = cls.get_preferred_warehouse_order(db, shipping_city, shipping_address)
+        ordered_warehouses = cls.get_preferred_warehouse_order(
+            db, shipping_city, shipping_address, lat=order.lat, lng=order.lng
+        )
         today = date.today()
 
         # 1. Map mỗi order item sang SKU

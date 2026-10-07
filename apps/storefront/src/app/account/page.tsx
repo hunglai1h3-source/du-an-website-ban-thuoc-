@@ -29,6 +29,7 @@ import {
   Truck,
   PhoneCall,
 } from "lucide-react";
+import { CustomerAddressBook } from "@/components/account/CustomerAddressBook";
 
 interface CustomerOrder {
   id: number;
@@ -290,6 +291,17 @@ export default function AccountPage() {
               <ChevronRight className="w-4 h-4 text-slate-400" />
             </button>
 
+            <a
+              href="#addresses"
+              className="flex items-center justify-between p-3 rounded-xl text-slate-700 hover:bg-slate-50 font-medium text-xs transition-colors"
+            >
+              <div className="flex items-center gap-2.5">
+                <MapPin className="w-4 h-4 text-brand-blue-600" />
+                <span className="font-bold text-slate-800">Sổ địa chỉ của tôi</span>
+              </div>
+              <ChevronRight className="w-4 h-4 text-slate-400" />
+            </a>
+
             {user.isAdmin && (
               <button
                 type="button"
@@ -343,6 +355,14 @@ export default function AccountPage() {
           {/* Right Main Content */}
           <div className="md:col-span-2 space-y-6">
             
+            {/* Customer Address Book V2 Section */}
+            <div id="addresses" className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xs">
+              <CustomerAddressBook
+                userName={user.fullName}
+                userPhone={user.phone}
+              />
+            </div>
+
             {/* Health Records Section */}
             <div id="prescriptions" className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xs">
               <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">

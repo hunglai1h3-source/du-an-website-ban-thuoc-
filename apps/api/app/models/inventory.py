@@ -80,13 +80,21 @@ class CustomerAddress(Base):
     phone: Mapped[str] = mapped_column(String(50))
     address_line: Mapped[str] = mapped_column(String(500))
     province_code: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    province_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    commune_code: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    commune_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    formatted_address: Mapped[str | None] = mapped_column(String(500), nullable=True)
     district_code: Mapped[str | None] = mapped_column(String(50), nullable=True)
     ward_code: Mapped[str | None] = mapped_column(String(50), nullable=True)
     lat: Mapped[float | None] = mapped_column(Float, nullable=True)
     lng: Mapped[float | None] = mapped_column(Float, nullable=True)
     place_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    delivery_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    is_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     is_default: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, onupdate=utcnow)
 
 
 class ProductSku(Base):

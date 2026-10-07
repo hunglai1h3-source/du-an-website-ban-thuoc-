@@ -236,12 +236,15 @@ export default function CartPage() {
     );
   };
 
+  const [dynamicShippingFee, setDynamicShippingFee] = useState<number>(25000);
+
   // Pricing calculations
   const subtotal = items.reduce(
     (sum, item) => sum + (item.salePrice || item.price) * item.quantity,
     0
   );
-  const baseShippingFee = subtotal >= 200000 || subtotal === 0 ? 0 : 25000;
+  const isFreeShip = subtotal >= 300000;
+  const baseShippingFee = isFreeShip || subtotal === 0 ? 0 : dynamicShippingFee;
   const effectiveShippingFee =
     fulfillmentType === "STORE_PICKUP" ? 0 : baseShippingFee;
   const grandTotal = Math.max(0, subtotal + effectiveShippingFee - discount);
@@ -565,12 +568,15 @@ export default function CartPage() {
                 coords={coords}
                 setCoords={setCoords}
                 nearestWarehouse={nearestWarehouse}
+                setNearestWarehouse={setNearestWarehouse}
                 isLocating={isLocating}
                 onGetLocation={handleGetLocation}
                 isVerified={isAddressVerified}
                 setIsVerified={setIsAddressVerified}
                 verifiedAddress={verifiedAddress}
                 setVerifiedAddress={setVerifiedAddress}
+                subtotal={subtotal}
+                onShippingFeeCalculated={setDynamicShippingFee}
               />
 
               {/* 4. Payment Method Selector */}

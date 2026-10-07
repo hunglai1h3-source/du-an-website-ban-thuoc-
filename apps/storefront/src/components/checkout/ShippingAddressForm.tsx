@@ -17,6 +17,11 @@ import {
   Building,
   Sparkles,
   Compass,
+  Plus,
+  BookOpen,
+  BookmarkCheck,
+  X,
+  Loader2,
 } from "lucide-react";
 import dynamic from "next/dynamic";
 import { FulfillmentType } from "./FulfillmentSelector";
@@ -26,6 +31,13 @@ import {
   CommuneUnit,
   removeVietnameseAccents,
 } from "@/services/administrativeService";
+import {
+  customerAddressService,
+  CustomerAddressItem,
+  ShippingCalculationResult,
+} from "@/services/customerAddressService";
+import { CustomerAddressModal } from "@/components/account/CustomerAddressModal";
+import { useAuth } from "@/lib/auth/auth-context";
 
 const DeliveryRealMap = dynamic(
   () => import("@/components/checkout/DeliveryRealMap"),
@@ -98,8 +110,8 @@ export interface ShippingAddressFormProps {
   setShippingAddress?: (v: string) => void;
   orderNote: string;
   setOrderNote: (v: string) => void;
-  selectedStoreId?: number;
-  setSelectedStoreId?: (v: number) => void;
+  selectedStoreId?: number | string;
+  setSelectedStoreId?: (v: number | string) => void;
   isAddressVerified?: boolean;
   setIsAddressVerified?: (v: boolean) => void;
   isVerified?: boolean;
@@ -108,6 +120,8 @@ export interface ShippingAddressFormProps {
   setVerifiedAddress: (addr: StructuredAddress | null) => void;
   nearestWarehouse: NearestWarehouseInfo | null;
   setNearestWarehouse?: (wh: NearestWarehouseInfo | null) => void;
+  subtotal?: number;
+  onShippingFeeCalculated?: (fee: number) => void;
 
   // Compatibility props with cart/page.tsx
   selectedProvinceCode?: string;
@@ -168,12 +182,28 @@ export default function ShippingAddressForm({
   setVerifiedAddress,
   nearestWarehouse,
   setNearestWarehouse,
+  subtotal = 0,
+  onShippingFeeCalculated,
 }: ShippingAddressFormProps) {
-  const isAddressVerified = propIsVerified !== undefined ? propIsVerified : (propIsAddressVerified || false);
+  const { user, isAuthenticated } = useAuth();
+
+  const isAddressVerified =
+    propIsVerified !== undefined ? propIsVerified : propIsAddressVerified || false;
   const setIsAddressVerified = (v: boolean) => {
     if (propSetIsVerified) propSetIsVerified(v);
     if (propSetIsAddressVerified) propSetIsAddressVerified(v);
   };
+
+  // Saved Addresses from Customer Account
+  const [savedAddresses, setSavedAddresses] = useState<CustomerAddressItem[]>([]);
+  const [selectedAddressId, setSelectedAddressId] = useState<number | null>(null);
+  const [isLoadingSavedAddrs, setIsLoadingSavedAddrs] = useState(false);
+  const [isPickerModalOpen, setIsPickerModalOpen] = useState(false);
+  const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
+  const [addressToEdit, setAddressToEdit] = useState<CustomerAddressItem | null>(null);
+  const [useManualForm, setUseManualForm] = useState(false);
+  const [shouldSaveToAddressBook, setShouldSaveToAddressBook] = useState(true);
+
   // Cascading Selection State (2-tier: Tỉnh/Thành -> Xã/Phường/Đặc khu)
   const [selectedProvince, setSelectedProvince] = useState<ProvinceUnit | null>(null);
   const [selectedCommune, setSelectedCommune] = useState<CommuneUnit | null>(null);
@@ -227,6 +257,94 @@ export default function ShippingAddressForm({
     return administrativeService.getCommunes(selectedProvince.code, undefined, communeSearch);
   }, [selectedProvince, communeSearch]);
 
+  // Helper: Apply a saved CustomerAddressItem to the checkout form
+  const applySavedAddress = (addr: CustomerAddressItem) => {
+    setSelectedAddressId(addr.id);
+    setUseManualForm(false);
+
+    if (addr.recipient_name) {
+      setCustomerName(addr.recipient_name);
+    }
+    if (addr.phone) {
+      setCustomerPhone(addr.phone);
+    }
+    if (addr.delivery_note && !orderNote) {
+      setOrderNote(addr.delivery_note);
+    }
+
+    const p = addr.province_code
+      ? administrativeService.getProvinceByCode(addr.province_code)
+      : null;
+    const c = addr.commune_code
+      ? administrativeService.getCommuneByCode(addr.commune_code)
+      : null;
+
+    if (p) setSelectedProvince(p);
+    if (c) setSelectedCommune(c);
+    setStreetInput(addr.address_line);
+
+    const lat = addr.lat || (p?.boundingBox ? (p.boundingBox.minLat + p.boundingBox.maxLat) / 2 : 10.8231);
+    const lng = addr.lng || (p?.boundingBox ? (p.boundingBox.minLng + p.boundingBox.maxLng) / 2 : 106.6297);
+    setCurrentLat(lat);
+    setCurrentLng(lng);
+
+    const fullAddr =
+      addr.formatted_address ||
+      `${addr.address_line}, ${addr.commune_name || c?.fullName || ""}, ${addr.province_name || p?.fullName || ""}`;
+
+    const structured: StructuredAddress = {
+      provinceCode: addr.province_code || (p ? p.code : ""),
+      provinceName: addr.province_name || (p ? p.fullName : ""),
+      communeCode: addr.commune_code || (c ? c.code : ""),
+      communeName: addr.commune_name || (c ? c.fullName : ""),
+      communeType: (c ? c.type : "ward") as "ward" | "commune" | "special_zone",
+      streetAddress: addr.address_line,
+      fullAddress: fullAddr,
+      lat,
+      lng,
+      isVerified: true,
+      placeId: addr.place_id || undefined,
+      districtName: addr.district_code || (c?.legacyDistrictName || undefined),
+      wardCode: addr.commune_code || addr.ward_code || undefined,
+      wardName: addr.commune_name || (c?.fullName || undefined),
+    };
+
+    setVerifiedAddress(structured);
+    if (setShippingAddress) {
+      setShippingAddress(fullAddr);
+    }
+    setIsAddressVerified(true);
+    setInputError(null);
+
+    // Calculate shipping distance & fee
+    calculateShippingForLocation(lat, lng, addr.province_code, addr.district_code);
+  };
+
+  // Load Saved Addresses on mount or auth change
+  useEffect(() => {
+    async function loadSavedAddresses() {
+      setIsLoadingSavedAddrs(true);
+      try {
+        const list = await customerAddressService.listAddresses();
+        setSavedAddresses(list);
+
+        // If we don't already have a verified address and saved addresses exist, pick default
+        if (list.length > 0 && !verifiedAddress) {
+          const defaultAddr = list.find((a) => a.is_default) || list[0];
+          applySavedAddress(defaultAddr);
+        }
+      } catch (err) {
+        console.warn("Could not load customer addresses:", err);
+      } finally {
+        setIsLoadingSavedAddrs(false);
+      }
+    }
+
+    if (fulfillmentType === "DELIVERY") {
+      loadSavedAddresses();
+    }
+  }, [fulfillmentType, isAuthenticated]);
+
   // Initialize from existing verified address if available
   useEffect(() => {
     if (verifiedAddress && !selectedProvince) {
@@ -250,8 +368,9 @@ export default function ShippingAddressForm({
     setProvinceSearch("");
     setIsAddressVerified(false);
     setInputError(null);
+    setSelectedAddressId(null);
 
-    // Center map on province bounding box or centroid
+    // Center map on province bounding box
     if (prov.boundingBox) {
       const midLat = (prov.boundingBox.minLat + prov.boundingBox.maxLat) / 2;
       const midLng = (prov.boundingBox.minLng + prov.boundingBox.maxLng) / 2;
@@ -267,6 +386,7 @@ export default function ShippingAddressForm({
     setCommuneSearch("");
     setIsAddressVerified(false);
     setInputError(null);
+    setSelectedAddressId(null);
   };
 
   // Handle Street input with debounce autocomplete
@@ -277,7 +397,6 @@ export default function ShippingAddressForm({
     }
 
     const clean = streetInput.trim().toLowerCase();
-    // Validate anti-junk
     for (const junk of JUNK_KEYWORDS) {
       if (clean === junk || clean.startsWith(junk + " ")) {
         setInputError(`Địa chỉ "${streetInput}" không cụ thể. Vui lòng nhập số nhà và tên đường thật.`);
@@ -295,7 +414,7 @@ export default function ShippingAddressForm({
     const timer = setTimeout(async () => {
       setIsLoadingSuggestions(true);
       try {
-        const url = `/api/v1/locations/suggest?q=${encodeURIComponent(streetInput.trim())}&province_code=${selectedProvince.code}&commune_code=${selectedCommune.code}`;
+        const url = `/api/v1/addresses/suggest?q=${encodeURIComponent(streetInput.trim())}&province_code=${selectedProvince.code}&commune_code=${selectedCommune.code}`;
         const res = await fetch(url);
         if (res.ok) {
           const data: SuggestionItem[] = await res.json();
@@ -303,7 +422,6 @@ export default function ShippingAddressForm({
           setIsSuggestionsOpen(data.length > 0);
         }
       } catch {
-        // Fallback local suggestion
         const display = `${streetInput.trim()}, ${selectedCommune.fullName}, ${selectedProvince.fullName}`;
         setSuggestions([
           {
@@ -338,14 +456,51 @@ export default function ShippingAddressForm({
   const handleMapLocationChange = (lat: number, lng: number) => {
     setCurrentLat(lat);
     setCurrentLng(lng);
-    // Pin moved -> require re-verification
     if (isAddressVerified) {
       setIsAddressVerified(false);
     }
   };
 
-  // Handle "Xác nhận địa chỉ này"
-  const handleConfirmAddress = () => {
+  // Calculate shipping and nearest warehouse
+  const calculateShippingForLocation = async (
+    lat: number,
+    lng: number,
+    provCode?: string,
+    distCode?: string
+  ) => {
+    try {
+      const calcResult = await customerAddressService.calculateShipping({
+        lat,
+        lng,
+        province_code: provCode,
+        district_code: distCode,
+        order_total: subtotal,
+      });
+
+      if (calcResult && setNearestWarehouse) {
+        setNearestWarehouse({
+          warehouse_id: calcResult.warehouse_id || 1,
+          warehouse_code: calcResult.warehouse_code || "KHO-HCM-01",
+          warehouse_name: calcResult.warehouse_name,
+          warehouse_address: calcResult.warehouse_address,
+          distance_km: calcResult.distance_km,
+          estimated_delivery_time: calcResult.estimated_delivery,
+          navigation_url: "",
+          lat: lat,
+          lng: lng,
+        });
+      }
+
+      if (onShippingFeeCalculated && calcResult) {
+        onShippingFeeCalculated(calcResult.shipping_fee);
+      }
+    } catch (e) {
+      console.warn("Error calculating shipping:", e);
+    }
+  };
+
+  // Handle "Xác nhận địa chỉ này" in Manual Form
+  const handleConfirmAddress = async () => {
     if (!selectedProvince) {
       setInputError("Vui lòng chọn Tỉnh / Thành phố.");
       return;
@@ -365,8 +520,6 @@ export default function ShippingAddressForm({
       }
     }
 
-    // Build standard formatted address according to Clause 28:
-    // [Số nhà / Đường], [Phường/Xã/Đặc khu], [Tỉnh/Thành phố]
     const fullAddr = `${streetInput.trim()}, ${selectedCommune.fullName}, ${selectedProvince.fullName}`;
 
     const newStructuredAddr: StructuredAddress = {
@@ -392,38 +545,53 @@ export default function ShippingAddressForm({
     }
     setIsAddressVerified(true);
     setInputError(null);
+    setUseManualForm(false);
+
+    // Save to customer address book if authenticated and opted-in
+    if (isAuthenticated && shouldSaveToAddressBook) {
+      try {
+        const saved = await customerAddressService.saveAddress({
+          recipient_name: customerName || user?.fullName || "Khách hàng H4CARE",
+          phone: customerPhone || user?.phone || "0912345678",
+          address_line: streetInput.trim(),
+          province_code: selectedProvince.code,
+          province_name: selectedProvince.fullName,
+          commune_code: selectedCommune.code,
+          commune_name: selectedCommune.fullName,
+          lat: currentLat,
+          lng: currentLng,
+          place_id: newStructuredAddr.placeId,
+          delivery_note: orderNote || undefined,
+          is_default: savedAddresses.length === 0,
+        });
+        if (saved) {
+          setSavedAddresses((prev) => [saved, ...prev]);
+          setSelectedAddressId(saved.id);
+        }
+      } catch (err) {
+        console.warn("Could not save address to address book:", err);
+      }
+    }
 
     // Call nearest warehouse calculation
-    fetchNearestWarehouse(currentLat, currentLng, selectedProvince.code);
+    calculateShippingForLocation(
+      currentLat,
+      currentLng,
+      selectedProvince.code,
+      selectedCommune.legacyDistrictName
+    );
   };
 
   // Handle "Thay đổi địa chỉ" from State B
   const handleEditAddress = () => {
     setIsAddressVerified(false);
+    setUseManualForm(true);
   };
 
-  // Fetch nearest warehouse
-  const fetchNearestWarehouse = async (lat: number, lng: number, pCode: string) => {
-    try {
-      const res = await fetch("/api/v1/addresses/nearest-warehouse", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          lat,
-          lng,
-          province_code: pCode,
-        }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.nearest_warehouse && setNearestWarehouse) {
-          setNearestWarehouse(data.nearest_warehouse);
-        }
-      }
-    } catch {
-      // Non-fatal
-    }
-  };
+  const selectedSavedItem = useMemo(() => {
+    if (!selectedAddressId) return null;
+    return savedAddresses.find((a) => a.id === selectedAddressId) || null;
+  }, [selectedAddressId, savedAddresses]);
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden">
@@ -510,9 +678,52 @@ export default function ShippingAddressForm({
 
         {/* DELIVERY FLOW */}
         {fulfillmentType === "DELIVERY" && (
-          <div className="pt-2 border-t border-slate-100">
+          <div className="pt-2 border-t border-slate-100 space-y-4">
+            {/* SAVED ADDRESS SELECTOR BANNER (If user has saved addresses) */}
+            {savedAddresses.length > 0 && (
+              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/90 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-brand-blue-100/70 text-brand-blue-700 flex items-center justify-center shrink-0">
+                    <BookOpen className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-slate-800">
+                      Sổ địa chỉ của bạn ({savedAddresses.length} địa chỉ đã lưu)
+                    </span>
+                    <p className="text-[11px] text-slate-500">
+                      {selectedSavedItem
+                        ? `Đang chọn: ${selectedSavedItem.recipient_name} - ${selectedSavedItem.address_line}`
+                        : "Chọn địa chỉ sẵn có để thanh toán nhanh hơn"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <button
+                    type="button"
+                    onClick={() => setIsPickerModalOpen(true)}
+                    className="flex-1 sm:flex-initial px-3 py-1.5 rounded-lg border border-brand-blue-600 text-brand-blue-600 hover:bg-brand-blue-50 text-xs font-bold transition-colors shadow-2xs"
+                  >
+                    Chọn từ sổ địa chỉ
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAddressToEdit(null);
+                      setIsAddressModalOpen(true);
+                    }}
+                    className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg bg-brand-blue-600 hover:bg-brand-blue-700 text-white text-xs font-bold transition-colors shadow-2xs"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    Thêm mới
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* STATE B: VERIFIED SUMMARY CARD */}
-            {isAddressVerified && verifiedAddress ? (
+            {isAddressVerified && verifiedAddress && !useManualForm ? (
               <div className="p-4 rounded-xl border-2 border-emerald-500/40 bg-emerald-50/30 space-y-3">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-start gap-2.5">
@@ -524,8 +735,13 @@ export default function ShippingAddressForm({
                         <span className="text-xs font-bold text-emerald-800 uppercase tracking-wider">
                           Địa chỉ giao hàng đã xác thực
                         </span>
+                        {selectedSavedItem?.is_default && (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                            Mặc định
+                          </span>
+                        )}
                         {verifiedAddress.communeType === "special_zone" && (
-                          <span className="px-2 py-0.5 rounded-full text-[10.5px] font-bold bg-cyan-100 text-cyan-800 border border-cyan-200">
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-cyan-100 text-cyan-800 border border-cyan-200">
                             Đặc khu kinh tế
                           </span>
                         )}
@@ -533,8 +749,10 @@ export default function ShippingAddressForm({
                       <p className="text-sm font-semibold text-slate-900 mt-1">
                         {verifiedAddress.fullAddress}
                       </p>
-                      <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-2">
-                        <span>Tọa độ GPS: ({verifiedAddress.lat.toFixed(4)}, {verifiedAddress.lng.toFixed(4)})</span>
+                      <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-2 flex-wrap">
+                        <span>
+                          Tọa độ GPS: ({verifiedAddress.lat.toFixed(4)}, {verifiedAddress.lng.toFixed(4)})
+                        </span>
                         {verifiedAddress.districtName && (
                           <span className="text-slate-400 text-[11px]">
                             • Khu vực: {verifiedAddress.districtName}
@@ -544,14 +762,16 @@ export default function ShippingAddressForm({
                     </div>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={handleEditAddress}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 hover:border-brand-blue-500 text-xs font-semibold text-slate-700 hover:text-brand-blue-600 bg-white transition-colors shadow-2xs shrink-0"
-                  >
-                    <Edit3 className="w-3.5 h-3.5" />
-                    Thay đổi
-                  </button>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={handleEditAddress}
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-300 hover:border-brand-blue-500 text-xs font-semibold text-slate-700 hover:text-brand-blue-600 bg-white transition-colors shadow-2xs"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                      Chỉnh sửa
+                    </button>
+                  </div>
                 </div>
 
                 {/* Nearest warehouse banner */}
@@ -582,7 +802,7 @@ export default function ShippingAddressForm({
 
                 {/* Row 1: 2-TIER ADMINISTRATIVE UNITS */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                  {/* CẤP 1: TỈNH / THÀNH PHỐ (34 đơn vị hiện hành) */}
+                  {/* CẤP 1: TỈNH / THÀNH PHỐ */}
                   <div className="relative" ref={provinceRef}>
                     <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                       Tỉnh / Thành phố <span className="text-rose-500">*</span>
@@ -690,7 +910,7 @@ export default function ShippingAddressForm({
                             type="text"
                             value={communeSearch}
                             onChange={(e) => setCommuneSearch(e.target.value)}
-                            placeholder="Tìm kiếm theo tên hoặc quận cũ (Ba Đình, Cầu Giấy, Bình Thạnh...)"
+                            placeholder="Tìm kiếm theo tên hoặc quận cũ..."
                             className="w-full bg-transparent text-xs text-slate-800 outline-hidden placeholder:text-slate-400"
                             autoFocus
                           />
@@ -844,6 +1064,26 @@ export default function ShippingAddressForm({
                   </div>
                 )}
 
+                {/* Checkbox: Save to address book if logged in */}
+                {isAuthenticated && (
+                  <div className="pt-2 flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="save-to-address-book"
+                      checked={shouldSaveToAddressBook}
+                      onChange={(e) => setShouldSaveToAddressBook(e.target.checked)}
+                      className="w-4 h-4 rounded text-brand-blue-600 focus:ring-brand-blue-500 border-slate-300 cursor-pointer"
+                    />
+                    <label
+                      htmlFor="save-to-address-book"
+                      className="text-xs text-slate-700 cursor-pointer select-none flex items-center gap-1"
+                    >
+                      <BookmarkCheck className="w-3.5 h-3.5 text-brand-blue-600" />
+                      Lưu địa chỉ này vào sổ địa chỉ để sử dụng cho lần sau
+                    </label>
+                  </div>
+                )}
+
                 {/* Row 4: CONFIRM BUTTON */}
                 <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3">
                   <p className="text-[11.5px] text-slate-500 text-center sm:text-left">
@@ -882,6 +1122,131 @@ export default function ShippingAddressForm({
           />
         </div>
       </div>
+
+      {/* MODAL 1: SAVED ADDRESS PICKER MODAL */}
+      {isPickerModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl border border-slate-200 flex flex-col max-h-[85vh]">
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/80">
+              <div className="flex items-center gap-2">
+                <BookOpen className="w-4 h-4 text-brand-blue-600" />
+                <h3 className="font-bold text-slate-900 text-sm">
+                  Chọn địa chỉ nhận hàng từ Sổ địa chỉ
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsPickerModalOpen(false)}
+                className="p-1 rounded-lg hover:bg-slate-200/60 text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-4 overflow-y-auto space-y-3 flex-1">
+              {savedAddresses.map((addr) => {
+                const isSelected = selectedAddressId === addr.id;
+                return (
+                  <div
+                    key={addr.id}
+                    onClick={() => {
+                      applySavedAddress(addr);
+                      setIsPickerModalOpen(false);
+                    }}
+                    className={`p-3.5 rounded-xl border cursor-pointer transition-all ${
+                      isSelected
+                        ? "border-brand-blue-600 bg-brand-blue-50/40 ring-2 ring-brand-blue-500/10 shadow-xs"
+                        : "border-slate-200 hover:border-slate-300 hover:bg-slate-50"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-slate-900 text-xs sm:text-sm">
+                          {addr.recipient_name}
+                        </span>
+                        <span className="text-slate-300">•</span>
+                        <span className="text-xs text-slate-600 font-mono">
+                          {addr.phone}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {addr.is_default && (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                            Mặc định
+                          </span>
+                        )}
+                        {addr.is_verified && (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                            Đã xác thực
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <p className="text-xs text-slate-700 mt-1 font-medium">
+                      {addr.formatted_address || addr.address_line}
+                    </p>
+
+                    {addr.delivery_note && (
+                      <p className="text-[11px] text-slate-500 mt-1 italic">
+                        Ghi chú: {addr.delivery_note}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="p-4 border-t border-slate-100 bg-slate-50 flex items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsPickerModalOpen(false);
+                  setAddressToEdit(null);
+                  setIsAddressModalOpen(true);
+                }}
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-brand-blue-600 hover:text-brand-blue-700"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Thêm địa chỉ mới vào sổ
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsPickerModalOpen(false)}
+                className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-colors"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 2: ADD/EDIT ADDRESS MODAL */}
+      <CustomerAddressModal
+        isOpen={isAddressModalOpen}
+        onClose={() => {
+          setIsAddressModalOpen(false);
+          setAddressToEdit(null);
+        }}
+        addressToEdit={addressToEdit}
+        prefillName={customerName}
+        prefillPhone={customerPhone}
+        onSaved={(savedAddr) => {
+          setSavedAddresses((prev) => {
+            const exists = prev.some((a) => a.id === savedAddr.id);
+            if (exists) {
+              return prev.map((a) => (a.id === savedAddr.id ? savedAddr : a));
+            }
+            return [savedAddr, ...prev];
+          });
+          applySavedAddress(savedAddr);
+          setIsAddressModalOpen(false);
+          setAddressToEdit(null);
+        }}
+      />
     </div>
   );
 }

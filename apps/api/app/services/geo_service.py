@@ -133,6 +133,13 @@ class GeoService:
         if lat is None or lng is None:
             return False, "Thiếu tọa độ địa lý (vĩ độ, kinh độ)."
 
+        # Chặn tọa độ vô nghĩa (0, 0)
+        if abs(lat) < 0.0001 and abs(lng) < 0.0001:
+            return False, "Tọa độ (0, 0) không hợp lệ."
+
+        if not (-90.0 <= lat <= 90.0 and -180.0 <= lng <= 180.0):
+            return False, "Tọa độ vượt giới hạn hợp lệ."
+
         # Kiểm tra trong lãnh thổ Việt Nam
         if not (8.0 <= lat <= 24.0 and 102.0 <= lng <= 110.0):
             return False, f"Tọa độ ({lat:.4f}, {lng:.4f}) nằm ngoài lãnh thổ giao hàng Việt Nam."
@@ -146,6 +153,33 @@ class GeoService:
                 )
 
         return True, "Hợp lệ"
+
+    @classmethod
+    def verify_customer_address(
+        cls,
+        province_code: Optional[str],
+        commune_code: Optional[str],
+        lat: Optional[float],
+        lng: Optional[float],
+    ) -> tuple[bool, str]:
+        """
+        Xác minh máy chủ (Server-side verification) cho địa chỉ khách hàng.
+        Kiểm tra tính toàn vẹn: Tọa độ, giới hạn VN, bounding box Tỉnh, và không phải tọa độ giả mạo.
+        """
+        if lat is None or lng is None:
+            return False, "Thiếu tọa độ địa lý định vị."
+
+        if abs(lat) < 0.0001 and abs(lng) < 0.0001:
+            return False, "Tọa độ (0, 0) không hợp lệ."
+
+        if not (-90.0 <= lat <= 90.0 and -180.0 <= lng <= 180.0):
+            return False, "Tọa độ vượt ngoài giới hạn địa lý hợp lệ."
+
+        is_prov_valid, prov_msg = cls.validate_province_coordinates(province_code, lat, lng)
+        if not is_prov_valid:
+            return False, prov_msg
+
+        return True, "Địa chỉ đã được hệ thống xác minh hợp lệ"
 
     @classmethod
     def find_nearest_warehouses(
