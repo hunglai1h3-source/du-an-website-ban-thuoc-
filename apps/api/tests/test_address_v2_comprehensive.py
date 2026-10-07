@@ -541,6 +541,93 @@ class TestAddressV2Comprehensive(unittest.TestCase):
         self.assertTrue(order_db.is_verified)
         self.assertEqual(order_db.note, "Giao giờ hành chính, gọi trước khi đến")
 
+    # 16. Test Luồng Google Maps-like hoàn chỉnh theo Mục 20: FPT Polytechnic Trịnh Văn Bô
+    def test_16_fpt_polytechnic_google_like_flow(self):
+        # Bước 1: Kiểm tra báo cáo Provider Geocoding (Mục 16)
+        res_provider = self.client.get("/api/v1/addresses/provider-status")
+        self.assertEqual(res_provider.status_code, 200)
+        prov_info = res_provider.json()
+        self.assertIn("report", prov_info)
+        self.assertIn("FALLBACK", prov_info["report"])
+
+        # Bước 2: User gõ 'FPT Polytechnic Trịnh Văn Bô' (Mục 1 & 2)
+        res_suggest = self.client.get("/api/v1/addresses/places/autocomplete", params={"q": "FPT Polytechnic Trịnh Văn Bô"})
+        self.assertEqual(res_suggest.status_code, 200)
+        items = res_suggest.json()
+        self.assertGreater(len(items), 0, "Phải trả về ít nhất 1 gợi ý cho FPT Polytechnic Trịnh Văn Bô")
+        fpt_item = items[0]
+        self.assertIn("FPT Polytechnic", fpt_item["name"])
+        self.assertIn("Trịnh Văn Bô", fpt_item["formatted_address"])
+        self.assertEqual(fpt_item["province_code"], "01")  # Hà Nội
+        self.assertEqual(fpt_item["commune_code"], "011051")  # Phường Xuân Phương
+
+        # Bước 3: User chọn địa điểm, sau đó kéo ghim hoặc click map tới cổng giao hàng (Mục 5, 6, 7)
+        gate_lat = 21.0382
+        gate_lng = 105.7471
+        res_rev = self.client.get("/api/v1/addresses/reverse-geocode", params={"lat": gate_lat, "lng": gate_lng})
+        self.assertEqual(res_rev.status_code, 200)
+        rev_data = res_rev.json()
+        self.assertTrue(rev_data["is_verified"])
+        self.assertEqual(rev_data["province_code"], "01")
+        self.assertIsNotNone(rev_data["formatted_address"])
+
+        # Bước 4: User nhập thông tin người nhận + số điện thoại và Lưu địa chỉ (Mục 10 & 11)
+        save_payload = {
+            "recipient_name": "Nguyễn Văn Sinh Viên",
+            "phone": "0912 345 678",  # Kiểm tra chuẩn hóa số điện thoại
+            "province_code": rev_data["province_code"],
+            "commune_code": rev_data.get("commune_code") or "011051",
+            "address_line": "Cổng số 1, Cao đẳng FPT Polytechnic, Phố Trịnh Văn Bô",
+            "lat": gate_lat,
+            "lng": gate_lng,
+            "delivery_note": "Giao tại cổng trường, gọi trước 5 phút",
+            "is_default": True,
+        }
+        res_save = self.client.post("/api/v1/customer/addresses", json=save_payload, headers=self.headers_a)
+        self.assertIn(res_save.status_code, [200, 201])
+        addr_saved = res_save.json()
+
+        # Bước 5: Backend tự động xác minh địa chỉ (Mục 15 của V2)
+        self.assertEqual(addr_saved["phone"], "0912345678")
+        self.assertTrue(addr_saved["is_verified"])
+        self.assertIsNotNone(addr_saved["verified_at"])
+        self.assertTrue(addr_saved["is_default"])
+
+        # Bước 6: Checkout sử dụng địa chỉ này và kiểm tra Snapshot đơn hàng
+        checkout_payload = {
+            "customer_name": addr_saved["recipient_name"],
+            "customer_phone": addr_saved["phone"],
+            "shipping_address": addr_saved["formatted_address"],
+            "shipping_city": addr_saved["province_name"],
+            "payment_method": "COD",
+            "note": addr_saved["delivery_note"],
+            "fulfillment_type": "DELIVERY",
+            "province_code": addr_saved["province_code"],
+            "commune_code": addr_saved["commune_code"],
+            "address_line": addr_saved["address_line"],
+            "formatted_address": addr_saved["formatted_address"],
+            "lat": addr_saved["lat"],
+            "lng": addr_saved["lng"],
+            "is_verified": True,
+            "items": [{"product_id": self.test_prod_id, "quantity": 1}],
+        }
+        res_checkout = self.client.post("/api/v1/store/orders/checkout", json=checkout_payload)
+        self.assertEqual(res_checkout.status_code, 200)
+        order_data = res_checkout.json()
+        order_code = order_data["order_code"]
+
+        # Bước 7: Xác thực snapshot lưu trữ trong cơ sở dữ liệu
+        order_db = self.db.scalar(select(Order).where(Order.order_code == order_code))
+        self.assertIsNotNone(order_db)
+        self.assertEqual(order_db.customer_name, "Nguyễn Văn Sinh Viên")
+        self.assertEqual(order_db.customer_phone, "0912345678")
+        self.assertEqual(order_db.province_code, "01")
+        self.assertEqual(order_db.commune_code_current, "011051")
+        self.assertEqual(order_db.lat, gate_lat)
+        self.assertEqual(order_db.lng, gate_lng)
+        self.assertTrue(order_db.is_verified)
+        self.assertEqual(order_db.note, "Giao tại cổng trường, gọi trước 5 phút")
+
 
 if __name__ == "__main__":
     unittest.main()

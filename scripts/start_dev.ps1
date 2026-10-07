@@ -2,7 +2,7 @@
 $env:PYTHONPATH = "apps/api"
 
 Write-Host ">>> Starting H4CARE Backend (FastAPI on port 8000)..."
-$apiProcess = Start-Process -FilePath ".\.venv\Scripts\python.exe" -ArgumentList "-m uvicorn app.main:app --host 127.0.0.1 --port 8000" -PassThru
+$apiProcess = Start-Process -FilePath ".\.venv\Scripts\python.exe" -ArgumentList "-m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload" -PassThru
 
 Write-Host ">>> Starting H4CARE Storefront (Next.js on port 3000)..."
 $webProcess = Start-Process -FilePath "npm.cmd" -ArgumentList "run dev" -WorkingDirectory "apps\storefront" -PassThru
