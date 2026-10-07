@@ -153,6 +153,7 @@ export default function DeliveryRealMap({
       } else {
         customerMarkerRef.current.setLatLng(custLatLng);
       }
+      map.panTo(custLatLng, { animate: true });
     } else {
       if (customerMarkerRef.current) {
         customerMarkerRef.current.remove();

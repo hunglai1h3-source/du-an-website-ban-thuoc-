@@ -19,6 +19,7 @@ from app.services.geo_service import (
     calculate_haversine_distance,
 )
 from app.services.shipping_service import ShippingService
+from app.services.places_service import PlacesService
 
 
 addresses_router = APIRouter(prefix="/addresses", tags=["Địa chỉ & Bản đồ định vị"])
@@ -374,6 +375,42 @@ def calculate_shipping_fee(
         district_code=payload.district_code,
         order_total=payload.order_total,
     )
+
+
+@addresses_router.get("/places/autocomplete")
+async def autocomplete_places(
+    q: str = Query(..., min_length=2, description="Tên địa điểm, tòa nhà, trường học, bệnh viện, số nhà, tên đường"),
+    limit: int = Query(5, ge=1, le=10),
+    lat: Optional[float] = Query(None, ge=-90, le=90),
+    lng: Optional[float] = Query(None, ge=-180, le=180),
+):
+    """
+    Tìm kiếm địa điểm toàn diện Google Maps-like.
+    Cho phép tìm kiếm theo tên trường học, bệnh viện, tòa nhà, địa chỉ mà không bắt buộc chọn Tỉnh/Xã trước.
+    """
+    return await PlacesService.autocomplete_places(q=q, limit=limit, lat=lat, lng=lng)
+
+
+@addresses_router.get("/reverse-geocode")
+async def reverse_geocode(
+    lat: float = Query(..., ge=-90, le=90, description="Vĩ độ GPS"),
+    lng: float = Query(..., ge=-180, le=180, description="Kinh độ GPS"),
+):
+    """
+    Chuyển đổi tọa độ GPS thành địa chỉ và tự động map 2 cấp hành chính 2025.
+    Dùng khi: kéo ghim, click trực tiếp trên bản đồ, hoặc bấm 'Vị trí hiện tại của tôi'.
+    """
+    return await PlacesService.reverse_geocode(lat=lat, lng=lng)
+
+
+@addresses_router.get("/provider-status")
+def get_geocoding_provider_status():
+    """
+    Báo cáo trạng thái Provider Geocoding (Mục 16):
+    GOOGLE PLACES: CONFIGURED / NOT CONFIGURED
+    FALLBACK: OpenStreetMap / Nominatim + Photon + Internal 2-Tier GeoService
+    """
+    return PlacesService.get_provider_status()
 
 
 # ==============================================================================
