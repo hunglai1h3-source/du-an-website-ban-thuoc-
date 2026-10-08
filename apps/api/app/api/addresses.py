@@ -380,7 +380,7 @@ def calculate_shipping_fee(
 @addresses_router.get("/places/autocomplete")
 async def autocomplete_places(
     q: str = Query(..., min_length=2, description="Tên địa điểm, tòa nhà, trường học, bệnh viện, số nhà, tên đường"),
-    limit: int = Query(5, ge=1, le=10),
+    limit: int = Query(8, ge=1, le=15),
     lat: Optional[float] = Query(None, ge=-90, le=90),
     lng: Optional[float] = Query(None, ge=-180, le=180),
 ):

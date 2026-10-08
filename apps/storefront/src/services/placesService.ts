@@ -68,7 +68,7 @@ export const placesService = {
     try {
       const params = new URLSearchParams({
         q,
-        limit: String(options?.limit || 5),
+        limit: String(options?.limit || 8),
       });
       if (options?.lat !== undefined && options?.lng !== undefined) {
         params.append("lat", String(options.lat));

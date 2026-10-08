@@ -115,6 +115,8 @@ export default function AddressEditorV2({
   const [suggestions, setSuggestions] = useState<PlaceSuggestionItem[]>([]);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
   const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
+  const [activeSuggestionIndex, setActiveSuggestionIndex] = useState<number>(-1);
+  const [searchError, setSearchError] = useState<string | null>(null);
 
   // 2-tier dropdown states
   const [provinceSearch, setProvinceSearch] = useState("");
@@ -183,37 +185,70 @@ export default function AddressEditorV2({
     return administrativeService.getCommunes(selectedProvince.code, undefined, communeSearch);
   }, [selectedProvince, communeSearch]);
 
-  // Debounced Place Search (Requirement 1 & 2)
+  // Debounced Place Search (Requirement 1, 2, 8, 11)
   useEffect(() => {
     const clean = searchQuery.trim();
     if (clean.length < 2) {
       setSuggestions([]);
+      setIsSuggestionsOpen(false);
+      setSearchError(null);
+      setActiveSuggestionIndex(-1);
       return;
     }
 
     const timer = setTimeout(async () => {
       setIsLoadingSuggestions(true);
+      setSearchError(null);
+      setActiveSuggestionIndex(-1);
       try {
         const results = await placesService.searchPlaces(clean, {
-          lat: selectedProvince ? lat : undefined,
-          lng: selectedProvince ? lng : undefined,
-          limit: 5,
+          limit: 8,
         });
         setSuggestions(results);
-        setIsSuggestionsOpen(results.length > 0);
+        setIsSuggestionsOpen(true);
       } catch (e) {
         setSuggestions([]);
+        setSearchError("Không thể tải gợi ý địa chỉ lúc này. Vui lòng thử lại.");
+        setIsSuggestionsOpen(true);
       } finally {
         setIsLoadingSuggestions(false);
       }
     }, 350);
 
     return () => clearTimeout(timer);
-  }, [searchQuery, selectedProvince, lat, lng]);
+  }, [searchQuery]);
+
+  // Keyboard navigation for suggestions
+  const handleKeyDownSearch = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!isSuggestionsOpen) {
+      if (e.key === "ArrowDown" && suggestions.length > 0) {
+        setIsSuggestionsOpen(true);
+        e.preventDefault();
+      }
+      return;
+    }
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActiveSuggestionIndex((prev) => (prev < suggestions.length - 1 ? prev + 1 : 0));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActiveSuggestionIndex((prev) => (prev > 0 ? prev - 1 : suggestions.length - 1));
+    } else if (e.key === "Enter") {
+      if (activeSuggestionIndex >= 0 && activeSuggestionIndex < suggestions.length) {
+        e.preventDefault();
+        handleSelectSuggestion(suggestions[activeSuggestionIndex]);
+      }
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      setIsSuggestionsOpen(false);
+    }
+  };
 
   // Handle Suggestion Click (Requirement 3 & 4)
   const handleSelectSuggestion = (item: PlaceSuggestionItem) => {
     setIsSuggestionsOpen(false);
+    setActiveSuggestionIndex(-1);
     setSearchQuery(item.name);
     setErrorMessage(null);
     setIsVerified(false); // Invalidate per Requirement 18
@@ -438,10 +473,11 @@ export default function AddressEditorV2({
               setSearchQuery(e.target.value);
               setIsVerified(false);
             }}
+            onKeyDown={handleKeyDownSearch}
             onFocus={() => {
-              if (suggestions.length > 0) setIsSuggestionsOpen(true);
+              if (suggestions.length > 0 || searchError) setIsSuggestionsOpen(true);
             }}
-            placeholder="Nhập: FPT Polytechnic Trịnh Văn Bô, Keangnam, 72 Trần Duy Hưng, Chợ Rẫy..."
+            placeholder="Nhập địa chỉ, số nhà, tòa nhà, trường học, bệnh viện, khu dân cư..."
             className="w-full pl-9 pr-24 py-2.5 rounded-xl border border-slate-300 bg-white text-sm focus:outline-hidden focus:ring-2 focus:ring-brand-blue-500/20 focus:border-brand-blue-600 transition-all text-slate-900 placeholder:text-slate-400 font-medium"
           />
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
@@ -463,36 +499,73 @@ export default function AddressEditorV2({
           </button>
         </div>
 
-        {/* Suggestions Dropdown (Google Maps style) */}
-        {isSuggestionsOpen && suggestions.length > 0 && (
-          <div className="absolute z-40 left-0 right-0 top-full mt-1.5 bg-white rounded-xl border border-slate-200 shadow-xl overflow-hidden divide-y divide-slate-100 max-h-60 overflow-y-auto">
-            {suggestions.map((item) => (
-              <button
-                key={item.place_id}
-                type="button"
-                onClick={() => handleSelectSuggestion(item)}
-                className="w-full px-3.5 py-2.5 text-left text-xs hover:bg-brand-blue-50 flex items-start gap-2.5 transition-colors group"
-              >
-                <div className="p-1 rounded-lg bg-slate-100 group-hover:bg-brand-blue-100 shrink-0 mt-0.5">
-                  {getCategoryIcon(item.category)}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-slate-900 truncate">
-                      {item.name}
-                    </span>
-                    {item.provider && (
-                      <span className="text-[9.5px] px-1.5 py-0.2 rounded-sm bg-slate-100 text-slate-500 font-mono">
-                        {item.provider}
-                      </span>
-                    )}
+        {/* Suggestions Dropdown (Google Maps style - Requirement 10, 11, 21, 22) */}
+        {isSuggestionsOpen && (
+          <div className="absolute z-40 left-0 right-0 top-full mt-1.5 bg-white rounded-xl border border-slate-200 shadow-xl overflow-hidden divide-y divide-slate-100 max-h-80 overflow-y-auto">
+            {/* Loading indicator */}
+            {isLoadingSuggestions && (
+              <div className="p-3 text-center text-xs text-slate-500 flex items-center justify-center gap-2 bg-slate-50/50">
+                <Loader2 className="w-4 h-4 animate-spin text-brand-blue-600" />
+                <span>Đang tìm kiếm địa điểm trên toàn Việt Nam...</span>
+              </div>
+            )}
+
+            {/* Error state (Requirement 22) */}
+            {!isLoadingSuggestions && searchError && (
+              <div className="p-3.5 text-center text-xs text-rose-600 bg-rose-50/50 flex items-center justify-center gap-2">
+                <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
+                <span>{searchError}</span>
+              </div>
+            )}
+
+            {/* Empty state (Requirement 21) */}
+            {!isLoadingSuggestions && !searchError && suggestions.length === 0 && searchQuery.trim().length >= 2 && (
+              <div className="p-4 text-center text-xs text-slate-500 bg-white">
+                <MapPin className="w-5 h-5 text-slate-300 mx-auto mb-1.5" />
+                <p className="font-semibold text-slate-700">Không tìm thấy địa điểm phù hợp.</p>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  Hãy thử nhập tên đường, số nhà hoặc địa danh khác.
+                </p>
+              </div>
+            )}
+
+            {/* Suggestions list (Requirement 1, 2, 3, 10, 11) */}
+            {!isLoadingSuggestions && suggestions.map((item, idx) => {
+              const isSelected = idx === activeSuggestionIndex;
+              return (
+                <button
+                  key={`${item.place_id}_${idx}`}
+                  type="button"
+                  onClick={() => handleSelectSuggestion(item)}
+                  className={`w-full px-3.5 py-2.5 text-left text-xs flex items-start gap-2.5 transition-colors group ${
+                    isSelected ? "bg-brand-blue-50/80 text-brand-blue-900" : "hover:bg-slate-50 text-slate-700"
+                  }`}
+                >
+                  <div
+                    className={`p-1.5 rounded-lg shrink-0 mt-0.5 transition-colors ${
+                      isSelected ? "bg-brand-blue-100 text-brand-blue-700" : "bg-slate-100 text-slate-600 group-hover:bg-brand-blue-50"
+                    }`}
+                  >
+                    {getCategoryIcon(item.category)}
                   </div>
-                  <p className="text-[11px] text-slate-500 line-clamp-1 mt-0.5">
-                    {item.short_address || item.formatted_address}
-                  </p>
-                </div>
-              </button>
-            ))}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-slate-900 truncate">
+                        {item.name}
+                      </span>
+                      {item.provider && (
+                        <span className="text-[9px] px-1.5 py-0.2 rounded-sm bg-slate-100 text-slate-500 font-mono">
+                          {item.provider}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-slate-500 line-clamp-1 mt-0.5">
+                      {item.short_address || item.formatted_address}
+                    </p>
+                  </div>
+                </button>
+              );
+            })}
           </div>
         )}
       </div>
@@ -677,7 +750,7 @@ export default function AddressEditorV2({
               setStreetAddress(e.target.value);
               setIsVerified(false); // Invalidate per Requirement 18
             }}
-            placeholder="Ví dụ: Số 25 Lê Duẩn hoặc Cổng số 2 Cao đẳng FPT Polytechnic..."
+            placeholder="Ví dụ: Số 25 Lê Duẩn, Số 72 Trần Duy Hưng hoặc Tòa nhà Landmark..."
             className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-hidden focus:ring-2 focus:ring-brand-blue-500/20 focus:border-brand-blue-600 transition-all text-slate-800 placeholder:text-slate-400"
           />
           <Building className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
