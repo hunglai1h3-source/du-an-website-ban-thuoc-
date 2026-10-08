@@ -9,6 +9,7 @@ Mô hình 2 cấp:
 """
 
 import json
+import re
 import unicodedata
 from pathlib import Path
 from typing import Any, Optional
@@ -83,13 +84,32 @@ class AdministrativeDataService:
             return provinces
 
         search_clean = remove_accents(search.strip())
+        clean_keyword = re.sub(r"^(tinh|thanh pho|tp\.?|t\.)\s*", "", search_clean).strip()
         results = []
         for p in provinces:
             p_name_clean = remove_accents(p["name"])
             p_full_clean = remove_accents(p["fullName"])
-            alias_match = any(search_clean in remove_accents(a) for a in p.get("aliases", []))
-            if search_clean in p_name_clean or search_clean in p_full_clean or alias_match:
+            alias_match = any(
+                search_clean in remove_accents(a) or (clean_keyword and clean_keyword in remove_accents(a))
+                for a in p.get("aliases", [])
+            )
+            if (
+                search_clean in p_name_clean
+                or search_clean in p_full_clean
+                or (clean_keyword and (clean_keyword in p_name_clean or clean_keyword in p_full_clean))
+                or alias_match
+            ):
                 results.append(p)
+
+        # Bổ sung tra cứu từ VietnamAdministrativeResolver cho các tỉnh cũ sau sáp nhập 2025
+        try:
+            from app.services.administrative_resolver import VietnamAdministrativeResolver
+            legacy_target = VietnamAdministrativeResolver.resolve_legacy_province(search)
+            if legacy_target and not any(r["code"] == legacy_target["code"] for r in results):
+                results.insert(0, legacy_target)
+        except Exception:
+            pass
+
         return results
 
     @classmethod
@@ -118,18 +138,41 @@ class AdministrativeDataService:
             return communes
 
         search_clean = remove_accents(search.strip())
+        clean_keyword = re.sub(r"^(phuong|xa|thi tran|p\.|x\.|tt\.)\s*", "", search_clean).strip()
+        search_parts = [p.strip() for p in search_clean.split(",") if p.strip()]
+
         results = []
         for c in communes:
             c_name_clean = remove_accents(c["name"])
             c_full_clean = remove_accents(c["fullName"])
             legacy_dist_clean = remove_accents(c.get("legacyDistrictName", ""))
-            alias_match = any(search_clean in remove_accents(a) for a in c.get("aliases", []))
-            if (
+            
+            alias_match = any(
+                search_clean in remove_accents(a)
+                or (clean_keyword and clean_keyword in remove_accents(a))
+                or any(part in remove_accents(a) for part in search_parts)
+                for a in c.get("aliases", [])
+            )
+            
+            name_match = (
                 search_clean in c_name_clean
-                or search_clean in c_full_clean
-                or search_clean in legacy_dist_clean
-                or alias_match
-            ):
+                or (clean_keyword and clean_keyword in c_name_clean)
+                or any(part in c_name_clean for part in search_parts)
+            )
+            
+            full_match = (
+                search_clean in c_full_clean
+                or (clean_keyword and clean_keyword in c_full_clean)
+                or any(part in c_full_clean for part in search_parts)
+            )
+
+            legacy_match = (
+                search_clean in legacy_dist_clean
+                or (clean_keyword and clean_keyword in legacy_dist_clean)
+                or any(part in legacy_dist_clean for part in search_parts)
+            )
+
+            if name_match or full_match or legacy_match or alias_match:
                 results.append(c)
         return results
 

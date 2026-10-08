@@ -76,12 +76,14 @@ class AdministrativeDataService {
   private provinces: ProvinceUnit[] = [];
   private communes: CommuneUnit[] = [];
   private communesByProvince: Map<string, CommuneUnit[]> = new Map();
+  private mergerGroups: any[] = [];
   private metadata: AdministrativeMetadata;
 
   constructor() {
     this.metadata = (rawDataset as any).metadata;
     this.provinces = (rawDataset as any).provinces || [];
     this.communes = (rawDataset as any).communes || [];
+    this.mergerGroups = (rawDataset as any).mergerGroups || [];
 
     for (const c of this.communes) {
       const list = this.communesByProvince.get(c.provinceCode) || [];
@@ -94,17 +96,27 @@ class AdministrativeDataService {
     return this.metadata;
   }
 
+  public getMergerGroups(): any[] {
+    return this.mergerGroups;
+  }
+
   public getProvinces(search?: string): ProvinceUnit[] {
     if (!search || !search.trim()) {
       return this.provinces;
     }
     const cleanSearch = removeVietnameseAccents(search);
+    const cleanKeyword = cleanSearch.replace(/^(tinh|thanh pho|tp\.?|t\.)\s*/, "").trim();
     return this.provinces.filter((p) => {
-      const nameMatch = removeVietnameseAccents(p.name).includes(cleanSearch);
-      const fullNameMatch = removeVietnameseAccents(p.fullName).includes(cleanSearch);
-      const aliasMatch = p.aliases?.some((a) =>
-        removeVietnameseAccents(a).includes(cleanSearch)
-      );
+      const nameMatch =
+        removeVietnameseAccents(p.name).includes(cleanSearch) ||
+        (cleanKeyword ? removeVietnameseAccents(p.name).includes(cleanKeyword) : false);
+      const fullNameMatch =
+        removeVietnameseAccents(p.fullName).includes(cleanSearch) ||
+        (cleanKeyword ? removeVietnameseAccents(p.fullName).includes(cleanKeyword) : false);
+      const aliasMatch = p.aliases?.some((a) => {
+        const aClean = removeVietnameseAccents(a);
+        return aClean.includes(cleanSearch) || (cleanKeyword ? aClean.includes(cleanKeyword) : false);
+      });
       return nameMatch || fullNameMatch || aliasMatch;
     });
   }
@@ -127,15 +139,35 @@ class AdministrativeDataService {
 
     if (search && search.trim()) {
       const cleanSearch = removeVietnameseAccents(search);
+      const cleanKeyword = cleanSearch.replace(/^(phuong|xa|thi tran|p\.|x\.|tt\.)\s*/, "").trim();
+      const searchParts = cleanSearch.split(",").map((s) => s.trim()).filter(Boolean);
+
       list = list.filter((c) => {
-        const nameMatch = removeVietnameseAccents(c.name).includes(cleanSearch);
-        const fullNameMatch = removeVietnameseAccents(c.fullName).includes(cleanSearch);
+        const nameMatch =
+          removeVietnameseAccents(c.name).includes(cleanSearch) ||
+          (cleanKeyword ? removeVietnameseAccents(c.name).includes(cleanKeyword) : false) ||
+          searchParts.some((part) => removeVietnameseAccents(c.name).includes(part));
+
+        const fullNameMatch =
+          removeVietnameseAccents(c.fullName).includes(cleanSearch) ||
+          (cleanKeyword ? removeVietnameseAccents(c.fullName).includes(cleanKeyword) : false) ||
+          searchParts.some((part) => removeVietnameseAccents(c.fullName).includes(part));
+
         const legacyDistrictMatch = c.legacyDistrictName
-          ? removeVietnameseAccents(c.legacyDistrictName).includes(cleanSearch)
+          ? removeVietnameseAccents(c.legacyDistrictName).includes(cleanSearch) ||
+            (cleanKeyword ? removeVietnameseAccents(c.legacyDistrictName).includes(cleanKeyword) : false) ||
+            searchParts.some((part) => removeVietnameseAccents(c.legacyDistrictName!).includes(part))
           : false;
-        const aliasMatch = c.aliases?.some((a) =>
-          removeVietnameseAccents(a).includes(cleanSearch)
-        );
+
+        const aliasMatch = c.aliases?.some((a) => {
+          const aClean = removeVietnameseAccents(a);
+          return (
+            aClean.includes(cleanSearch) ||
+            (cleanKeyword ? aClean.includes(cleanKeyword) : false) ||
+            searchParts.some((part) => aClean.includes(part))
+          );
+        });
+
         return nameMatch || fullNameMatch || legacyDistrictMatch || aliasMatch;
       });
     }

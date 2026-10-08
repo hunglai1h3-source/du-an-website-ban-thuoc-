@@ -726,6 +726,25 @@ export default function AddressEditorV2({
                             (Thuộc {c.legacyDistrictName})
                           </span>
                         )}
+                        {(() => {
+                          if (!communeSearch.trim()) return null;
+                          const cleanQ = removeVietnameseAccents(communeSearch);
+                          const matchedAlias = c.aliases?.find(
+                            (a) =>
+                              removeVietnameseAccents(a).includes(cleanQ) &&
+                              removeVietnameseAccents(a) !== removeVietnameseAccents(c.name) &&
+                              removeVietnameseAccents(a) !== removeVietnameseAccents(c.fullName) &&
+                              !removeVietnameseAccents(c.name).includes(removeVietnameseAccents(a))
+                          );
+                          if (matchedAlias) {
+                            return (
+                              <span className="text-[10px] text-emerald-600 font-medium block">
+                                (Địa danh cũ: {matchedAlias} - Hiện thuộc {c.fullName})
+                              </span>
+                            );
+                          }
+                          return null;
+                        })()}
                       </div>
                       {isSelected && <Check className="w-3.5 h-3.5 text-brand-blue-600" />}
                     </button>

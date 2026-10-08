@@ -199,7 +199,15 @@ PROVINCES_DATA = [
         "name": "Ninh Bình",
         "fullName": "Tỉnh Ninh Bình",
         "type": "province",
-        "aliases": ["Ninh Binh", "Hà Nam", "Ha Nam", "Nam Định", "Nam Dinh"],
+        "aliases": [
+            "Ninh Bình", "Ninh Binh", "Hà Nam", "Ha Nam", "Nam Định", "Nam Dinh",
+            "Tỉnh Ninh Bình", "Tinh Ninh Binh",
+            "Tỉnh Nam Định", "Tinh Nam Dinh",
+            "Tỉnh Hà Nam", "Tinh Ha Nam",
+            "Thành phố Nam Định", "TP Nam Định", "TP. Nam Định",
+            "Thành phố Phủ Lý", "TP Phủ Lý", "TP. Phủ Lý",
+            "Thành phố Ninh Bình", "TP Ninh Bình", "TP. Ninh Bình"
+        ],
         "boundingBox": {"minLat": 19.9, "maxLat": 20.7, "minLng": 105.5, "maxLng": 106.6}
     },
     {
@@ -647,6 +655,199 @@ HCM_CORE = [
     ("Phú Mỹ BRVT", "ward", "Bà Rịa - Vũng Tàu (cũ)")
 ]
 
+NINH_BINH_CORE = [
+    # --- 8 PHƯỜNG CỐT LÕI KHU VỰC THÀNH PHỐ NAM ĐỊNH CŨ (BẮT BUỘC THEO QUY HOẠCH SÁP NHẬP) ---
+    (
+        "Nam Định",
+        "ward",
+        "TP. Nam Định (cũ)",
+        ["Quang Trung", "Vị Xuyên", "Lộc Vượng", "Cửa Bắc", "Trần Hưng Đạo", "Năng Tĩnh", "Cửa Nam", "Mỹ Phúc", "Thành phố Nam Định", "TP Nam Định", "Nam Định"]
+    ),
+    (
+        "Thiên Trường",
+        "ward",
+        "TP. Nam Định (cũ)",
+        ["Lộc Hạ", "Mỹ Tân", "Mỹ Trung", "Thiên Trường"]
+    ),
+    (
+        "Đông A",
+        "ward",
+        "TP. Nam Định (cũ)",
+        ["Lộc Hòa", "Mỹ Thắng", "Mỹ Hà", "Đông A"]
+    ),
+    (
+        "Vị Khê",
+        "ward",
+        "TP. Nam Định (cũ)",
+        ["Nam Điền", "Nam Phong", "Vị Khê"]
+    ),
+    (
+        "Thành Nam",
+        "ward",
+        "TP. Nam Định (cũ)",
+        ["Mỹ Xá", "Đại An", "Thành Nam"]
+    ),
+    (
+        "Trường Thi",
+        "ward",
+        "TP. Nam Định (cũ)",
+        ["Trường Thi", "Thành Lợi"]
+    ),
+    (
+        "Hồng Quang",
+        "ward",
+        "TP. Nam Định (cũ)",
+        ["Hồng Quang", "Nghĩa An", "Nam Vân"]
+    ),
+    (
+        "Mỹ Lộc",
+        "ward",
+        "TP. Nam Định (cũ)",
+        ["Hưng Lộc", "Mỹ Thuận", "Thị trấn Mỹ Lộc", "Mỹ Lộc", "Huyện Mỹ Lộc"]
+    ),
+
+    # --- KHU VỰC CÁC HUYỆN NAM ĐỊNH CŨ (36 ĐƠN VỊ) ---
+    # Huyện Giao Thủy (cũ) - 6 đơn vị
+    ("Ngô Đồng", "ward", "Huyện Giao Thủy (cũ)", ["Thị trấn Ngô Đồng", "Giao Thủy"]),
+    ("Quất Lâm", "ward", "Huyện Giao Thủy (cũ)", ["Thị trấn Quất Lâm", "Bãi biển Quất Lâm", "Giao Thủy"]),
+    ("Giao Thiện", "commune", "Huyện Giao Thủy (cũ)", ["Vườn quốc gia Xuân Thủy", "Giao Thủy"]),
+    ("Giao An", "commune", "Huyện Giao Thủy (cũ)", ["Giao An", "Giao Thủy"]),
+    ("Giao Lạc", "commune", "Huyện Giao Thủy (cũ)", ["Giao Lạc", "Giao Thủy"]),
+    ("Giao Xuân", "commune", "Huyện Giao Thủy (cũ)", ["Giao Xuân", "Giao Thủy"]),
+
+    # Huyện Hải Hậu (cũ) - 6 đơn vị
+    ("Yên Định", "ward", "Huyện Hải Hậu (cũ)", ["Thị trấn Yên Định", "Hải Hậu"]),
+    ("Cồn", "ward", "Huyện Hải Hậu (cũ)", ["Thị trấn Cồn", "Hải Hậu"]),
+    ("Thịnh Long", "ward", "Huyện Hải Hậu (cũ)", ["Thị trấn Thịnh Long", "Bãi biển Thịnh Long", "Hải Hậu"]),
+    ("Hải Anh", "commune", "Huyện Hải Hậu (cũ)", ["Cầu ngói Chùa Lương", "Hải Anh", "Hải Hậu"]),
+    ("Hải Trung", "commune", "Huyện Hải Hậu (cũ)", ["Hải Trung", "Hải Hậu"]),
+    ("Hải Đông", "commune", "Huyện Hải Hậu (cũ)", ["Hải Đông", "Hải Hậu"]),
+
+    # Huyện Nghĩa Hưng (cũ) - 5 đơn vị
+    ("Liễu Đề", "ward", "Huyện Nghĩa Hưng (cũ)", ["Thị trấn Liễu Đề", "Nghĩa Hưng"]),
+    ("Rạng Đông", "ward", "Huyện Nghĩa Hưng (cũ)", ["Thị trấn Rạng Đông", "KCN Dệt may Rạng Đông", "Nghĩa Hưng"]),
+    ("Nghĩa Đồng", "commune", "Huyện Nghĩa Hưng (cũ)", ["Nghĩa Đồng", "Nghĩa Hưng"]),
+    ("Nghĩa Minh", "commune", "Huyện Nghĩa Hưng (cũ)", ["Nghĩa Minh", "Nghĩa Hưng"]),
+    ("Nghĩa Thái", "commune", "Huyện Nghĩa Hưng (cũ)", ["Nghĩa Thái", "Nghĩa Hưng"]),
+
+    # Huyện Nam Trực (cũ) - 5 đơn vị
+    ("Nam Giang", "ward", "Huyện Nam Trực (cũ)", ["Thị trấn Nam Giang", "Làng rèn Vân Chàng", "Nam Trực"]),
+    ("Nam Cường", "commune", "Huyện Nam Trực (cũ)", ["Nam Cường", "Nam Trực"]),
+    ("Nam Hồng", "commune", "Huyện Nam Trực (cũ)", ["Nam Hồng", "Nam Trực"]),
+    ("Nam Hùng", "commune", "Huyện Nam Trực (cũ)", ["Nam Hùng", "Nam Trực"]),
+    ("Nam Hoa", "commune", "Huyện Nam Trực (cũ)", ["Nam Hoa", "Làng hoa Vị Khê", "Nam Trực"]),
+
+    # Huyện Trực Ninh (cũ) - 5 đơn vị
+    ("Cổ Lễ", "ward", "Huyện Trực Ninh (cũ)", ["Thị trấn Cổ Lễ", "Chùa Cổ Lễ", "Trực Ninh"]),
+    ("Cát Thành", "ward", "Huyện Trực Ninh (cũ)", ["Thị trấn Cát Thành", "Trực Ninh"]),
+    ("Trực Chính", "commune", "Huyện Trực Ninh (cũ)", ["Trực Chính", "Trực Ninh"]),
+    ("Trực Khang", "commune", "Huyện Trực Ninh (cũ)", ["Trực Khang", "Trực Ninh"]),
+    ("Trực Nội", "commune", "Huyện Trực Ninh (cũ)", ["Trực Nội", "Trực Ninh"]),
+
+    # Huyện Xuân Trường (cũ) - 4 đơn vị
+    ("Xuân Trường", "ward", "Huyện Xuân Trường (cũ)", ["Thị trấn Xuân Trường", "Xuân Trường"]),
+    ("Xuân Kiên", "commune", "Huyện Xuân Trường (cũ)", ["Xuân Kiên", "Xuân Trường"]),
+    ("Xuân Bắc", "commune", "Huyện Xuân Trường (cũ)", ["Xuân Bắc", "Xuân Trường"]),
+    ("Xuân Hồng", "commune", "Huyện Xuân Trường (cũ)", ["Làng Hành Thiện", "Xuân Hồng", "Xuân Trường"]),
+
+    # Huyện Ý Yên (cũ) - 5 đơn vị
+    ("Lâm", "ward", "Huyện Ý Yên (cũ)", ["Thị trấn Lâm", "Đúc đồng Ý Yên", "Tống Xá", "Ý Yên"]),
+    ("Yên Cường", "commune", "Huyện Ý Yên (cũ)", ["Yên Cường", "Ý Yên"]),
+    ("Yên Đồng", "commune", "Huyện Ý Yên (cũ)", ["Yên Đồng", "Ý Yên"]),
+    ("Yên Lương", "commune", "Huyện Ý Yên (cũ)", ["Yên Lương", "Ý Yên"]),
+    ("Yên Phong", "commune", "Huyện Ý Yên (cũ)", ["Yên Phong", "Ý Yên"]),
+
+    # --- KHU VỰC HÀ NAM CŨ (28 ĐƠN VỊ) ---
+    # TP. Phủ Lý (cũ) - 7 đơn vị
+    ("Liêm Chính", "ward", "TP. Phủ Lý (cũ)", ["Phủ Lý", "Liêm Chính"]),
+    ("Minh Khai", "ward", "TP. Phủ Lý (cũ)", ["Phủ Lý", "Minh Khai"]),
+    ("Hai Bà Trưng", "ward", "TP. Phủ Lý (cũ)", ["Phủ Lý", "Hai Bà Trưng Phủ Lý"]),
+    ("Lương Khánh Thiện", "ward", "TP. Phủ Lý (cũ)", ["Phủ Lý", "Lương Khánh Thiện"]),
+    ("Châu Sơn", "ward", "TP. Phủ Lý (cũ)", ["Phủ Lý", "Châu Sơn"]),
+    ("Lam Hạ", "ward", "TP. Phủ Lý (cũ)", ["Phủ Lý", "Lam Hạ"]),
+    ("Thanh Tuyền", "ward", "TP. Phủ Lý (cũ)", ["Phủ Lý", "Thanh Tuyền"]),
+
+    # Thị xã Duy Tiên (cũ) - 5 đơn vị
+    ("Đồng Văn", "ward", "Thị xã Duy Tiên (cũ)", ["KCN Đồng Văn", "Duy Tiên"]),
+    ("Hòa Mạc", "ward", "Thị xã Duy Tiên (cũ)", ["Thị trấn Hòa Mạc", "Duy Tiên"]),
+    ("Châu Giang", "ward", "Thị xã Duy Tiên (cũ)", ["Châu Giang", "Duy Tiên"]),
+    ("Hoàng Đông", "ward", "Thị xã Duy Tiên (cũ)", ["Hoàng Đông", "Duy Tiên"]),
+    ("Bạch Thượng", "ward", "Thị xã Duy Tiên (cũ)", ["Bạch Thượng", "Duy Tiên"]),
+
+    # Huyện Kim Bảng (cũ) - 4 đơn vị
+    ("Quế", "ward", "Huyện Kim Bảng (cũ)", ["Thị trấn Quế", "Kim Bảng"]),
+    ("Ba Sao", "ward", "Huyện Kim Bảng (cũ)", ["Khu du lịch Tam Chúc", "Chùa Tam Chúc", "Thị trấn Ba Sao", "Kim Bảng"]),
+    ("Đồng Hóa", "commune", "Huyện Kim Bảng (cũ)", ["Đồng Hóa", "Kim Bảng"]),
+    ("Tượng Lĩnh", "commune", "Huyện Kim Bảng (cũ)", ["Tượng Lĩnh", "Kim Bảng"]),
+
+    # Huyện Thanh Liêm (cũ) - 4 đơn vị
+    ("Kiện Khê", "ward", "Huyện Thanh Liêm (cũ)", ["Thị trấn Kiện Khê", "Thanh Liêm"]),
+    ("Liêm Cần", "commune", "Huyện Thanh Liêm (cũ)", ["Liêm Cần", "Thanh Liêm"]),
+    ("Liêm Thuận", "commune", "Huyện Thanh Liêm (cũ)", ["Liêm Thuận", "Thanh Liêm"]),
+    ("Thanh Hà", "commune", "Huyện Thanh Liêm (cũ)", ["Thanh Hà", "Thanh Liêm"]),
+
+    # Huyện Lý Nhân (cũ) - 4 đơn vị
+    ("Vĩnh Trụ", "ward", "Huyện Lý Nhân (cũ)", ["Thị trấn Vĩnh Trụ", "Lý Nhân"]),
+    ("Nhân Chính", "commune", "Huyện Lý Nhân (cũ)", ["Làng Vũ Đại", "Nhân Chính", "Lý Nhân"]),
+    ("Bắc Lý", "commune", "Huyện Lý Nhân (cũ)", ["Bắc Lý", "Lý Nhân"]),
+    ("Đạo Lý", "commune", "Huyện Lý Nhân (cũ)", ["Đạo Lý", "Lý Nhân"]),
+
+    # Huyện Bình Lục (cũ) - 4 đơn vị
+    ("Bình Mỹ", "ward", "Huyện Bình Lục (cũ)", ["Thị trấn Bình Mỹ", "Bình Lục"]),
+    ("An Lão", "commune", "Huyện Bình Lục (cũ)", ["An Lão", "Bình Lục"]),
+    ("An Mỹ", "commune", "Huyện Bình Lục (cũ)", ["An Mỹ", "Bình Lục"]),
+    ("Đồn Xá", "commune", "Huyện Bình Lục (cũ)", ["Đồn Xá", "Bình Lục"]),
+
+    # --- KHU VỰC NINH BÌNH CŨ (32 ĐƠN VỊ) ---
+    # TP. Ninh Bình (cũ) - 10 đơn vị
+    ("Vân Giang", "ward", "TP. Ninh Bình (cũ)", ["Vân Giang", "Ninh Bình"]),
+    ("Thanh Bình", "ward", "TP. Ninh Bình (cũ)", ["Thanh Bình", "Ninh Bình"]),
+    ("Nam Bình", "ward", "TP. Ninh Bình (cũ)", ["Nam Bình", "Ninh Bình"]),
+    ("Bích Đào", "ward", "TP. Ninh Bình (cũ)", ["Bích Đào", "Ninh Bình"]),
+    ("Đông Thành", "ward", "TP. Ninh Bình (cũ)", ["Đông Thành", "Ninh Bình"]),
+    ("Tân Thành", "ward", "TP. Ninh Bình (cũ)", ["Tân Thành", "Ninh Bình"]),
+    ("Phúc Thành", "ward", "TP. Ninh Bình (cũ)", ["Phúc Thành", "Ninh Bình"]),
+    ("Nam Thành", "ward", "TP. Ninh Bình (cũ)", ["Nam Thành", "Ninh Bình"]),
+    ("Ninh Khánh", "ward", "TP. Ninh Bình (cũ)", ["Ninh Khánh", "Ninh Bình"]),
+    ("Ninh Phong", "ward", "TP. Ninh Bình (cũ)", ["Ninh Phong", "Ninh Bình"]),
+
+    # TP. Tam Điệp (cũ) - 4 đơn vị
+    ("Bắc Sơn", "ward", "TP. Tam Điệp (cũ)", ["Bắc Sơn", "Tam Điệp"]),
+    ("Trung Sơn", "ward", "TP. Tam Điệp (cũ)", ["Trung Sơn", "Tam Điệp"]),
+    ("Nam Sơn", "ward", "TP. Tam Điệp (cũ)", ["Nam Sơn", "Tam Điệp"]),
+    ("Tây Sơn", "ward", "TP. Tam Điệp (cũ)", ["Tây Sơn", "Tam Điệp"]),
+
+    # Huyện Hoa Lư (cũ) - 4 đơn vị
+    ("Thiên Tôn", "ward", "Huyện Hoa Lư (cũ)", ["Thị trấn Thiên Tôn", "Hoa Lư"]),
+    ("Ninh Hải", "commune", "Huyện Hoa Lư (cũ)", ["Tam Cốc", "Bích Động", "Tam Cốc - Bích Động", "Hoa Lư"]),
+    ("Ninh Xuân", "commune", "Huyện Hoa Lư (cũ)", ["Tràng An", "Khu du lịch Tràng An", "Hoa Lư"]),
+    ("Trường Yên", "commune", "Huyện Hoa Lư (cũ)", ["Cố đô Hoa Lư", "Đền Vua Đinh", "Hoa Lư"]),
+
+    # Huyện Gia Viễn (cũ) - 4 đơn vị
+    ("Me", "ward", "Huyện Gia Viễn (cũ)", ["Thị trấn Me", "Gia Viễn"]),
+    ("Gia Sinh", "commune", "Huyện Gia Viễn (cũ)", ["Chùa Bái Đính", "Bái Đính", "Gia Viễn"]),
+    ("Gia Vân", "commune", "Huyện Gia Viễn (cũ)", ["Đầm Vân Long", "Khu bảo tồn Vân Long", "Gia Viễn"]),
+    ("Gia Trấn", "commune", "Huyện Gia Viễn (cũ)", ["Gia Trấn", "Gia Viễn"]),
+
+    # Huyện Nho Quan (cũ) - 2 đơn vị
+    ("Nho Quan", "ward", "Huyện Nho Quan (cũ)", ["Thị trấn Nho Quan", "Nho Quan"]),
+    ("Cúc Phương", "commune", "Huyện Nho Quan (cũ)", ["Vườn quốc gia Cúc Phương", "Rừng Cúc Phương", "Nho Quan"]),
+
+    # Huyện Kim Sơn (cũ) - 3 đơn vị
+    ("Phát Diệm", "ward", "Huyện Kim Sơn (cũ)", ["Nhà thờ đá Phát Diệm", "Thị trấn Phát Diệm", "Kim Sơn"]),
+    ("Bình Minh", "ward", "Huyện Kim Sơn (cũ)", ["Thị trấn Bình Minh Kim Sơn", "Kim Sơn"]),
+    ("Quang Thiện", "commune", "Huyện Kim Sơn (cũ)", ["Quang Thiện", "Kim Sơn"]),
+
+    # Huyện Yên Khánh (cũ) - 2 đơn vị
+    ("Yên Ninh", "ward", "Huyện Yên Khánh (cũ)", ["Thị trấn Yên Ninh", "Yên Khánh"]),
+    ("Khánh Thiện", "commune", "Huyện Yên Khánh (cũ)", ["Khánh Thiện", "Yên Khánh"]),
+
+    # Huyện Yên Mô (cũ) - 3 đơn vị
+    ("Yên Thịnh", "ward", "Huyện Yên Mô (cũ)", ["Thị trấn Yên Thịnh", "Yên Mô"]),
+    ("Yên Hòa", "commune", "Huyện Yên Mô (cũ)", ["Yên Hòa", "Yên Mô"]),
+    ("Yên Từ", "commune", "Huyện Yên Mô (cũ)", ["Yên Từ", "Yên Mô"]),
+]
+
 
 def generate_all_communes():
     all_communes = []
@@ -677,8 +878,16 @@ def generate_all_communes():
             core_list = HA_NOI_CORE
         elif p_code == "79":
             core_list = HCM_CORE
+        elif p_code == "37":
+            core_list = NINH_BINH_CORE
 
-        for name, unit_type, legacy_dist in core_list:
+        for item in core_list:
+            if len(item) == 4:
+                name, unit_type, legacy_dist, custom_aliases = item
+            else:
+                name, unit_type, legacy_dist = item
+                custom_aliases = []
+
             if len(p_communes) >= target_count:
                 break
             code_seq += 1
@@ -697,6 +906,10 @@ def generate_all_communes():
                 p_name,
                 remove_accents(p_name)
             ]
+            for ca in custom_aliases:
+                aliases.append(ca)
+                aliases.append(remove_accents(ca))
+
             p_communes.append({
                 "code": code_str,
                 "name": name,

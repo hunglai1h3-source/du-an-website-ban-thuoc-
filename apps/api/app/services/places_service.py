@@ -27,6 +27,40 @@ VIETNAM_BBOX = "102.0,8.0,110.0,24.0"
 # Header tiêu chuẩn cho kết nối Geocoding bên ngoài
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 H4Care/2.0"
 
+# Bảng mapping địa danh cũ khu vực Nam Định sang 8 phường hiện hành Tỉnh Ninh Bình (mã 37)
+LEGACY_NAM_DINH_MAPPING: dict[str, tuple[str, str, float, float]] = {
+    "my phuc": ("Mỹ Phúc", "Nam Định", 20.4335, 106.1775),
+    "vi xuyen": ("Vị Xuyên", "Nam Định", 20.4310, 106.1760),
+    "quang trung": ("Quang Trung", "Nam Định", 20.4300, 106.1740),
+    "loc vuong": ("Lộc Vượng", "Nam Định", 20.4420, 106.1730),
+    "cua bac": ("Cửa Bắc", "Nam Định", 20.4350, 106.1700),
+    "tran hung dao": ("Trần Hưng Đạo", "Nam Định", 20.4280, 106.1750),
+    "nang tinh": ("Năng Tĩnh", "Nam Định", 20.4220, 106.1710),
+    "cua nam": ("Cửa Nam", "Nam Định", 20.4180, 106.1790),
+    "loc ha": ("Lộc Hạ", "Thiên Trường", 20.4480, 106.1850),
+    "my tan": ("Mỹ Tân", "Thiên Trường", 20.4550, 106.1950),
+    "my trung": ("Mỹ Trung", "Thiên Trường", 20.4600, 106.1800),
+    "thien truong": ("Thiên Trường", "Thiên Trường", 20.4480, 106.1850),
+    "loc hoa": ("Lộc Hòa", "Đông A", 20.4420, 106.1520),
+    "my thang": ("Mỹ Thắng", "Đông A", 20.4550, 106.1480),
+    "my ha": ("Mỹ Hà", "Đông A", 20.4650, 106.1550),
+    "dong a": ("Đông A", "Đông A", 20.4420, 106.1520),
+    "nam dien": ("Nam Điền", "Vị Khê", 20.4100, 106.1950),
+    "nam phong": ("Nam Phong", "Vị Khê", 20.4150, 106.1850),
+    "vi khe": ("Vị Khê", "Vị Khê", 20.4100, 106.1950),
+    "my xa": ("Mỹ Xá", "Thành Nam", 20.4180, 106.1420),
+    "dai an": ("Đại An", "Thành Nam", 20.4120, 106.1350),
+    "thanh nam": ("Thành Nam", "Thành Nam", 20.4180, 106.1420),
+    "truong thi": ("Trường Thi", "Trường Thi", 20.4250, 106.1600),
+    "thanh loi": ("Thành Lợi", "Trường Thi", 20.4320, 106.1530),
+    "hong quang": ("Hồng Quang", "Hồng Quang", 20.3950, 106.1700),
+    "nghia an": ("Nghĩa An", "Hồng Quang", 20.3880, 106.1620),
+    "nam van": ("Nam Vân", "Hồng Quang", 20.4020, 106.1800),
+    "hung loc": ("Hưng Lộc", "Mỹ Lộc", 20.4650, 106.1400),
+    "my thuan": ("Mỹ Thuận", "Mỹ Lộc", 20.4700, 106.1300),
+    "my loc": ("Mỹ Lộc", "Mỹ Lộc", 20.4600, 106.1350),
+}
+
 
 class PlacesService:
     @classmethod
@@ -60,10 +94,27 @@ class PlacesService:
         full_text: Optional[str] = None,
     ) -> tuple[Optional[dict[str, Any]], Optional[dict[str, Any]]]:
         """
-        Đối chiếu thông tin từ provider với AdministrativeDataService 2 cấp 2025.
+        Đối chiếu thông tin từ provider với AdministrativeDataService & VietnamAdministrativeResolver 2 cấp 2025.
         """
         matched_province = None
         matched_commune = None
+
+        # 0. Ưu tiên giải quyết qua VietnamAdministrativeResolver (bao trọn 23 nhóm sáp nhập và 7 đặc khu)
+        try:
+            from app.services.administrative_resolver import VietnamAdministrativeResolver
+            comp_res = VietnamAdministrativeResolver.resolve_provider_components({
+                "province": state_hint,
+                "district": district_hint,
+                "city": city_hint,
+                "display_name": full_text
+            })
+            if comp_res.get("is_resolved") and comp_res.get("province_code"):
+                p = AdministrativeDataService.get_province_by_code(comp_res["province_code"])
+                c = AdministrativeDataService.get_commune_by_code(comp_res["commune_code"]) if comp_res.get("commune_code") else None
+                if p:
+                    return p, c
+        except Exception:
+            pass
 
         # 1. Tìm tỉnh qua tọa độ GPS (Bounding Box)
         if lat is not None and lng is not None:
@@ -88,15 +139,26 @@ class PlacesService:
         # 3. Tìm xã/phường trong phạm vi tỉnh đã xác định
         if matched_province:
             p_code = matched_province["code"]
-            for c_hint in [district_hint, full_text]:
-                if c_hint:
-                    clean_hint = re.sub(
-                        r"^(phường|xã|thị trấn|p\.|x\.)\s*", "", c_hint, flags=re.IGNORECASE
-                    ).strip()
-                    comms = AdministrativeDataService.get_communes(p_code, search=clean_hint)
-                    if comms:
-                        matched_commune = comms[0]
-                        break
+            hints_to_try = []
+            if district_hint:
+                hints_to_try.append(district_hint)
+            if full_text:
+                hints_to_try.append(full_text)
+                for part in full_text.split(","):
+                    p_clean = part.strip()
+                    if p_clean and len(p_clean) >= 2 and p_clean not in hints_to_try:
+                        hints_to_try.append(p_clean)
+
+            for c_hint in hints_to_try:
+                clean_hint = re.sub(
+                    r"^(phường|xã|thị trấn|p\.|x\.)\s*", "", c_hint, flags=re.IGNORECASE
+                ).strip()
+                if not clean_hint:
+                    continue
+                comms = AdministrativeDataService.get_communes(p_code, search=clean_hint)
+                if comms:
+                    matched_commune = comms[0]
+                    break
 
         return matched_province, matched_commune
 
@@ -158,6 +220,113 @@ class PlacesService:
                         return results[:search_limit]
             except Exception:
                 pass
+
+        # 1.5. Legacy Nam Định & địa danh sáp nhập sau 2025 (Ưu tiên gợi ý chính xác theo mô hình 2 cấp)
+        q_norm = remove_accents(query_clean)
+        clean_kw = re.sub(r"^(tinh|thanh pho|tp\.?|t\.|phuong|xa|thi tran|p\.|x\.|tt\.)\s*", "", q_norm).strip()
+        
+        # Nếu người dùng tìm kiếm toàn tỉnh/thành Nam Định
+        if q_norm in ["nam dinh", "tinh nam dinh", "tp nam dinh", "thanh pho nam dinh"] or clean_kw == "nam dinh":
+            c_nd_list = AdministrativeDataService.get_communes("37", search="Nam Định")
+            if c_nd_list:
+                c_nd = c_nd_list[0]
+                results.append({
+                    "place_id": f"admin_c_37_{c_nd['code']}",
+                    "name": "Phường Nam Định, Tỉnh Ninh Bình",
+                    "short_address": "Phường Nam Định, Tỉnh Ninh Bình",
+                    "formatted_address": "Phường Nam Định, Tỉnh Ninh Bình (Khu vực trung tâm TP. Nam Định cũ)",
+                    "street_address": "Phường Nam Định",
+                    "lat": 20.4335,
+                    "lng": 106.1775,
+                    "province_code": "37",
+                    "province_name": "Tỉnh Ninh Bình",
+                    "commune_code": c_nd["code"],
+                    "commune_name": c_nd["fullName"],
+                    "district_name": "TP. Nam Định (cũ)",
+                    "provider": "administrative",
+                    "category": "administrative",
+                    "verified": True,
+                })
+            results.append({
+                "place_id": "admin_p_37_nam_dinh",
+                "name": "Tỉnh Ninh Bình (Khu vực Nam Định cũ)",
+                "short_address": "Tỉnh Ninh Bình",
+                "formatted_address": "Tỉnh Ninh Bình (sau sáp nhập gồm Nam Định, Hà Nam, Ninh Bình cũ), Việt Nam",
+                "street_address": "Tỉnh Ninh Bình",
+                "lat": 20.4285,
+                "lng": 106.1685,
+                "province_code": "37",
+                "province_name": "Tỉnh Ninh Bình",
+                "provider": "administrative",
+                "category": "administrative",
+                "verified": True,
+            })
+            for core_w_name in ["Thiên Trường", "Đông A", "Thành Nam"]:
+                w_found = AdministrativeDataService.get_communes("37", search=core_w_name)
+                if w_found:
+                    cw = w_found[0]
+                    results.append({
+                        "place_id": f"admin_c_37_{cw['code']}",
+                        "name": f"{cw['fullName']}, Tỉnh Ninh Bình",
+                        "short_address": f"{cw['fullName']}, Tỉnh Ninh Bình",
+                        "formatted_address": f"{cw['fullName']}, Tỉnh Ninh Bình",
+                        "street_address": cw["fullName"],
+                        "lat": 20.4350,
+                        "lng": 106.1700,
+                        "province_code": "37",
+                        "province_name": "Tỉnh Ninh Bình",
+                        "commune_code": cw["code"],
+                        "commune_name": cw["fullName"],
+                        "district_name": cw.get("legacyDistrictName"),
+                        "provider": "administrative",
+                        "category": "administrative",
+                        "verified": True,
+                    })
+
+        # Nếu người dùng tìm địa danh cũ cụ thể (vd: "Mỹ Phúc, Nam Định", "Vị Xuyên Nam Định", "Lộc Hạ", "Mỹ Xá", ...)
+        else:
+            for legacy_key, (legacy_title, target_ward, w_lat, w_lng) in LEGACY_NAM_DINH_MAPPING.items():
+                if legacy_key in q_norm or (clean_kw and legacy_key in clean_kw):
+                    comms = AdministrativeDataService.get_communes("37", search=target_ward)
+                    if comms:
+                        target_commune = comms[0]
+                        # 1. Gợi ý kèm chú thích địa danh cũ rõ ràng theo Requirement 4 & 5
+                        results.append({
+                            "place_id": f"legacy_nd_{target_commune['code']}_{legacy_key.replace(' ', '_')}",
+                            "name": f"{legacy_title} (Địa danh cũ)",
+                            "short_address": f"{target_commune['fullName']}, Tỉnh Ninh Bình",
+                            "formatted_address": f"{legacy_title} (địa danh cũ) - Hiện thuộc {target_commune['fullName']}, Tỉnh Ninh Bình",
+                            "street_address": target_commune["fullName"],
+                            "lat": w_lat,
+                            "lng": w_lng,
+                            "province_code": "37",
+                            "province_name": "Tỉnh Ninh Bình",
+                            "commune_code": target_commune["code"],
+                            "commune_name": target_commune["fullName"],
+                            "district_name": target_commune.get("legacyDistrictName"),
+                            "provider": "legacy_administrative",
+                            "category": "administrative",
+                            "verified": True,
+                        })
+                        # 2. Gợi ý phường hiện hành tương ứng
+                        results.append({
+                            "place_id": f"admin_c_37_{target_commune['code']}",
+                            "name": f"{target_commune['fullName']}, Tỉnh Ninh Bình",
+                            "short_address": f"{target_commune['fullName']}, Tỉnh Ninh Bình",
+                            "formatted_address": f"{target_commune['fullName']}, Tỉnh Ninh Bình (Khu vực {legacy_title} cũ)",
+                            "street_address": target_commune["fullName"],
+                            "lat": w_lat,
+                            "lng": w_lng,
+                            "province_code": "37",
+                            "province_name": "Tỉnh Ninh Bình",
+                            "commune_code": target_commune["code"],
+                            "commune_name": target_commune["fullName"],
+                            "district_name": target_commune.get("legacyDistrictName"),
+                            "provider": "administrative",
+                            "category": "administrative",
+                            "verified": True,
+                        })
+                        break
 
         # 2. OpenStreetMap / Photon Geocoding Engine trên toàn lãnh thổ Việt Nam
         # Mở rộng truy vấn thông minh cho các tên viết tắt / địa danh phổ biến

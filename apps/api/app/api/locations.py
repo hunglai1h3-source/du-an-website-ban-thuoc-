@@ -142,3 +142,40 @@ async def suggest_address(
         })
 
     return suggestions
+
+
+@locations_router.get("/mergers")
+def get_merger_groups():
+    """
+    Danh sách 23 nhóm sáp nhập cấp tỉnh theo Nghị quyết 202/2025/QH15 và QĐ 19/2025/QĐ-TTg.
+    """
+    from app.services.administrative_resolver import VietnamAdministrativeResolver
+    VietnamAdministrativeResolver._ensure_loaded()
+    return VietnamAdministrativeResolver._merger_groups
+
+
+@locations_router.get("/resolve")
+def resolve_location(
+    q: str = Query(..., min_length=1, description="Tên tỉnh cũ, quận/huyện cũ, địa danh hoặc địa chỉ đầy đủ"),
+    provinceCode: Optional[str] = Query(None, description="Mã tỉnh (nếu đã chọn)"),
+):
+    """
+    Ánh xạ thông minh từ bất kỳ địa danh cũ hoặc thành phần địa chỉ sang ĐVHC 2 cấp hiện hành 2025.
+    """
+    from app.services.administrative_resolver import VietnamAdministrativeResolver
+    # 1. Thử resolve components
+    comp_res = VietnamAdministrativeResolver.resolve_provider_components({
+        "display_name": q,
+        "province": q,
+    })
+    # 2. Thử resolve province
+    prov = VietnamAdministrativeResolver.resolve_province(q)
+    # 3. Thử resolve commune
+    comm = VietnamAdministrativeResolver.resolve_commune(provinceCode, q) if provinceCode else None
+
+    return {
+        "query": q,
+        "resolved_components": comp_res,
+        "resolved_province": prov,
+        "resolved_commune": comm,
+    }
