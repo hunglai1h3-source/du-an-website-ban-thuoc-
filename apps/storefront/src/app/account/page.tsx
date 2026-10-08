@@ -28,8 +28,12 @@ import {
   Edit3,
   Truck,
   PhoneCall,
+  RotateCcw,
+  RefreshCw,
 } from "lucide-react";
 import { CustomerAddressBook } from "@/components/account/CustomerAddressBook";
+import { CustomerReturnsSection } from "@/components/returns/CustomerReturnsSection";
+import { ReturnWizardModal } from "@/components/returns/ReturnWizardModal";
 
 interface CustomerOrder {
   id: number;
@@ -59,6 +63,7 @@ export default function AccountPage() {
 
   // Modal states
   const [selectedOrder, setSelectedOrder] = useState<CustomerOrder | null>(null);
+  const [returnWizardOrderCode, setReturnWizardOrderCode] = useState<string | null>(null);
   const [isEditingProfile, setIsEditingProfile] = useState<boolean>(false);
   const [editName, setEditName] = useState<string>("");
   const [editEmail, setEditEmail] = useState<string>("");
@@ -338,6 +343,17 @@ export default function AccountPage() {
               <ChevronRight className="w-4 h-4 text-slate-400" />
             </a>
 
+            <a
+              href="#returns"
+              className="flex items-center justify-between p-3 rounded-xl text-slate-700 hover:bg-slate-50 font-medium text-xs transition-colors"
+            >
+              <div className="flex items-center gap-2.5">
+                <RotateCcw className="w-4 h-4 text-brand-blue-600" />
+                <span className="font-bold text-slate-800">Đổi trả & Hoàn tiền</span>
+              </div>
+              <ChevronRight className="w-4 h-4 text-slate-400" />
+            </a>
+
             <div className="pt-3 mt-2 border-t border-slate-100">
               <button
                 onClick={() => {
@@ -474,6 +490,14 @@ export default function AccountPage() {
               )}
             </div>
 
+            {/* Customer Returns & Refunds Section */}
+            <div id="returns" className="bg-white rounded-2xl p-6 border border-slate-200 shadow-xs">
+              <CustomerReturnsSection
+                userPhone={user.phone}
+                userName={user.fullName}
+              />
+            </div>
+
           </div>
 
         </div>
@@ -550,6 +574,22 @@ export default function AccountPage() {
               <span className="text-xs text-slate-500 font-medium">Tổng thanh toán:</span>
               <span className="text-base font-black text-brand-blue-600">{selectedOrder.total_amount.toLocaleString("vi-VN")} đ</span>
             </div>
+
+            {/* Return / Exchange Action */}
+            {selectedOrder.order_status !== "CANCELLED" && (
+              <button
+                type="button"
+                onClick={() => {
+                  const code = selectedOrder.order_code;
+                  setSelectedOrder(null);
+                  setReturnWizardOrderCode(code);
+                }}
+                className="w-full mb-3 py-2.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 font-bold text-xs flex items-center justify-center gap-2 transition-colors shadow-xs"
+              >
+                <RotateCcw className="w-4 h-4 text-amber-700" />
+                <span>Yêu cầu Đổi / Trả Hàng (Bảo hành 7 ngày)</span>
+              </button>
+            )}
 
             <div className="flex items-center gap-2">
               <a
@@ -651,6 +691,18 @@ export default function AccountPage() {
             </form>
           </div>
         </div>
+      {/* Return Wizard Modal */}
+      {returnWizardOrderCode && (
+        <ReturnWizardModal
+          orderCode={returnWizardOrderCode}
+          customerPhone={user.phone}
+          onClose={() => setReturnWizardOrderCode(null)}
+          onSuccess={() => {
+            setReturnWizardOrderCode(null);
+            // Auto reload to see new return in CustomerReturnsSection
+            window.location.hash = "returns";
+          }}
+        />
       )}
 
       <Footer />

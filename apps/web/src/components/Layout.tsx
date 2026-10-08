@@ -18,11 +18,14 @@ import {
   Menu,
   MessageSquare,
   RefreshCw,
+  Repeat,
+  RotateCcw,
   ShieldCheck,
   ShoppingBag,
   ThermometerSnowflake,
   Users,
   X,
+  Banknote,
 } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { NavLink } from 'react-router-dom'
@@ -59,6 +62,14 @@ const navGroups: NavGroup[] = [
       { to: '/campaigns', label: 'Chiến dịch mùa bệnh', icon: ThermometerSnowflake },
       { to: '/candidates', label: 'Thuốc mới chờ duyệt', icon: FlaskConical },
       { to: '/conflicts', label: 'Mâu thuẫn dữ liệu', icon: AlertTriangle },
+    ],
+  },
+  {
+    groupLabel: 'HẬU MÃI & ĐỔI TRẢ',
+    items: [
+      { to: '/returns', label: 'Quản lý Đổi/Trả hàng', icon: RotateCcw },
+      { to: '/refunds', label: 'Hoàn tiền & Đối soát', icon: Banknote },
+      { to: '/exchanges', label: 'Đơn đổi hàng (Exchanges)', icon: Repeat },
     ],
   },
   {

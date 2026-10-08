@@ -104,9 +104,9 @@ export const Footer: React.FC = () => {
                 </span>
               </li>
               <li>
-                <span className="text-slate-400 hover:text-slate-300 transition-colors cursor-default">
-                  Chính sách đổi trả linh hoạt
-                </span>
+                <Link href="/chinh-sach-doi-tra" className="hover:text-cyan-300 transition-colors inline-block hover:translate-x-0.5 transform duration-150">
+                  Chính sách đổi trả & hoàn tiền
+                </Link>
               </li>
               <li>
                 <span className="text-slate-400 hover:text-slate-300 transition-colors cursor-default">

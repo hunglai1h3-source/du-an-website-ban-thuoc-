@@ -1,5 +1,8 @@
 from fastapi import APIRouter
 from app.api import (
+    admin_exchanges,
+    admin_refunds,
+    admin_returns,
     addresses,
     auth,
     campaigns,
@@ -14,6 +17,7 @@ from app.api import (
     orders,
     payments,
     products,
+    returns,
     reviews,
     sources,
     storefront,
@@ -46,5 +50,9 @@ api_router.include_router(imports.router)
 api_router.include_router(exports.router)
 api_router.include_router(locations.locations_router)
 api_router.include_router(dashboard.router)
+api_router.include_router(returns.router)
+api_router.include_router(admin_returns.router)
+api_router.include_router(admin_refunds.router)
+api_router.include_router(admin_exchanges.router)
 
 

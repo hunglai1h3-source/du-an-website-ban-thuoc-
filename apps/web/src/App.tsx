@@ -24,6 +24,9 @@ const BatchesPage = lazy(() => import('./pages/BatchesPage').then(module => ({ d
 const EmailsPage = lazy(() => import('./pages/EmailsPage').then(module => ({ default: module.EmailsPage })))
 const ReviewsPage = lazy(() => import('./pages/ReviewsPage').then(module => ({ default: module.ReviewsPage })))
 const CampaignsPage = lazy(() => import('./pages/CampaignsPage').then(module => ({ default: module.CampaignsPage })))
+const ReturnsPage = lazy(() => import('./pages/ReturnsPage').then(module => ({ default: module.ReturnsPage })))
+const RefundsPage = lazy(() => import('./pages/RefundsPage').then(module => ({ default: module.RefundsPage })))
+const ExchangesPage = lazy(() => import('./pages/ExchangesPage').then(module => ({ default: module.ExchangesPage })))
 
 function ProtectedLayout() {
   const { user, loading } = useAuth()
@@ -47,6 +50,9 @@ export default function App() {
           <Route path="products" element={<ProductsPage />} />
           <Route path="products/:id" element={<ProductDetailPage />} />
           <Route path="orders" element={<OrdersPage />} />
+          <Route path="returns" element={<ReturnsPage />} />
+          <Route path="refunds" element={<RefundsPage />} />
+          <Route path="exchanges" element={<ExchangesPage />} />
           <Route path="reviews" element={<ReviewsPage />} />
           <Route path="campaigns" element={<CampaignsPage />} />
           <Route path="warehouses" element={<WarehousesPage />} />

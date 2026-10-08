@@ -392,6 +392,7 @@ class Order(TimestampMixin, Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     order_code: Mapped[str] = mapped_column(String(50), unique=True, index=True)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     customer_name: Mapped[str] = mapped_column(String(255))
     customer_phone: Mapped[str] = mapped_column(String(50), index=True)
     customer_email: Mapped[str | None] = mapped_column(String(255), nullable=True)

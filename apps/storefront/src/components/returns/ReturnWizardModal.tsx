@@ -1,0 +1,491 @@
+"use client";
+
+import React, { useEffect, useState } from "react";
+import {
+  X,
+  RotateCcw,
+  RefreshCw,
+  AlertCircle,
+  CheckCircle2,
+  Upload,
+  Truck,
+  ShieldCheck,
+  ChevronRight,
+  ArrowRight,
+} from "lucide-react";
+
+interface EligibilityItem {
+  order_item_id: number;
+  product_id: number;
+  product_name: string;
+  purchased_quantity: number;
+  returned_quantity: number;
+  returnable_quantity: number;
+  is_rx: boolean;
+  is_eligible: boolean;
+  reason_code: string;
+  message: string;
+  net_unit_price: number;
+}
+
+interface EligibilityData {
+  order_code: string;
+  order_status: string;
+  payment_status: string;
+  total_amount: number;
+  shipping_fee: number;
+  can_request_return: boolean;
+  can_request_exchange: boolean;
+  rejection_reason?: string;
+  items: EligibilityItem[];
+  free_return_shipping_reasons: string[];
+}
+
+interface ReturnWizardModalProps {
+  orderCode: string;
+  customerPhone?: string;
+  onClose: () => void;
+  onSuccess: (returnCode: string) => void;
+}
+
+const REASONS = [
+  { code: "WRONG_ITEM", text: "Giao sai sản phẩm / sai quy cách", isMerchantFault: true },
+  { code: "DEFECTIVE", text: "Sản phẩm hỏng hóc, bể vỡ khi nhận", isMerchantFault: true },
+  { code: "EXPIRED_DELIVERED", text: "Sản phẩm cận date / hết hạn sử dụng", isMerchantFault: true },
+  { code: "ORDERED_WRONG", text: "Tôi đặt nhầm sản phẩm cần mua", isMerchantFault: false },
+  { code: "CHANGED_MIND", text: "Đổi ý, không còn nhu cầu sử dụng (còn nguyên seal)", isMerchantFault: false },
+  { code: "OTHER", text: "Lý do khác", isMerchantFault: false },
+];
+
+export function ReturnWizardModal({
+  orderCode,
+  customerPhone,
+  onClose,
+  onSuccess,
+}: ReturnWizardModalProps) {
+  const [eligibility, setEligibility] = useState<EligibilityData | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Form states
+  const [requestType, setRequestType] = useState<"RETURN" | "EXCHANGE">("RETURN");
+  const [selectedItems, setSelectedItems] = useState<{ [itemId: number]: number }>({});
+  const [reasonCode, setReasonCode] = useState<string>("WRONG_ITEM");
+  const [customerNote, setCustomerNote] = useState<string>("");
+  const [phoneVerify, setPhoneVerify] = useState<string>(customerPhone || "");
+  const [uploadedImages, setUploadedImages] = useState<string[]>([]);
+  const [uploadingImage, setUploadingImage] = useState<boolean>(false);
+  const [submitting, setSubmitting] = useState<boolean>(false);
+
+  useEffect(() => {
+    setLoading(true);
+    fetch(`http://localhost:8000/api/v1/returns/eligibility/${encodeURIComponent(orderCode)}`)
+      .then((res) => {
+        if (!res.ok) throw new Error("Không thể kiểm tra điều kiện đổi trả.");
+        return res.json();
+      })
+      .then((data: EligibilityData) => {
+        setEligibility(data);
+        // Default select first eligible item
+        const initialSelected: { [itemId: number]: number } = {};
+        data.items.forEach((it) => {
+          if (it.is_eligible && it.returnable_quantity > 0) {
+            initialSelected[it.order_item_id] = 1;
+          }
+        });
+        setSelectedItems(initialSelected);
+      })
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
+  }, [orderCode]);
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    const file = e.target.files[0];
+    setUploadingImage(true);
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const res = await fetch("http://localhost:8000/api/v1/returns/upload-evidence", {
+        method: "POST",
+        body: formData,
+      });
+      if (!res.ok) throw new Error("Tải ảnh thất bại.");
+      const data = await res.json();
+      setUploadedImages((prev) => [...prev, data.file_url]);
+    } catch (err: any) {
+      alert(err.message || "Lỗi tải ảnh");
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const calculateEstimate = () => {
+    if (!eligibility) return { itemsRefund: 0, shippingRefund: 0, totalRefund: 0 };
+    let itemsRefund = 0;
+    const selectedCount = Object.keys(selectedItems).length;
+
+    eligibility.items.forEach((it) => {
+      const qty = selectedItems[it.order_item_id] || 0;
+      if (qty > 0) {
+        itemsRefund += it.net_unit_price * qty;
+      }
+    });
+
+    const isMerchantFault = REASONS.find((r) => r.code === reasonCode)?.isMerchantFault || false;
+    const isFullReturn = selectedCount === eligibility.items.length;
+    const shippingRefund = isMerchantFault && isFullReturn ? eligibility.shipping_fee : 0;
+    const totalRefund = Math.min(itemsRefund + shippingRefund, eligibility.total_amount);
+
+    return { itemsRefund, shippingRefund, totalRefund };
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (Object.values(selectedItems).every((qty) => qty <= 0)) {
+      alert("Vui lòng chọn ít nhất một sản phẩm cần đổi/trả với số lượng lớn hơn 0.");
+      return;
+    }
+
+    const itemsPayload = Object.entries(selectedItems)
+      .filter(([_, qty]) => qty > 0)
+      .map(([itemIdStr, qty]) => ({
+        order_item_id: parseInt(itemIdStr, 10),
+        requested_quantity: qty,
+        customer_reason: customerNote,
+        condition_reported: "SEALED",
+      }));
+
+    const selectedReasonObj = REASONS.find((r) => r.code === reasonCode);
+
+    setSubmitting(true);
+    try {
+      const res = await fetch("http://localhost:8000/api/v1/returns", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          order_code: orderCode,
+          request_type: requestType,
+          reason_code: reasonCode,
+          reason_text: selectedReasonObj?.text || "Yêu cầu đổi trả",
+          customer_note: customerNote,
+          return_method: "CUSTOMER_SHIP",
+          items: itemsPayload,
+          evidence_urls: uploadedImages,
+          customer_phone_verify: phoneVerify.trim(),
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.detail || "Không thể gửi yêu cầu.");
+      }
+
+      onSuccess(data.return_code);
+    } catch (err: any) {
+      alert(err.message || "Gặp sự cố khi gửi yêu cầu.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const estimate = calculateEstimate();
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-150">
+      <div className="bg-white rounded-3xl max-w-2xl w-full p-6 sm:p-8 border border-slate-200 shadow-2xl relative my-8">
+        <button
+          onClick={onClose}
+          className="absolute top-5 right-5 p-2 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors"
+        >
+          <X className="w-5 h-5" />
+        </button>
+
+        {/* Header */}
+        <div className="flex items-center gap-3 mb-6 pb-4 border-b border-slate-100">
+          <div className="w-12 h-12 rounded-2xl bg-brand-blue-50 text-brand-blue-600 flex items-center justify-center font-bold">
+            <RotateCcw className="w-6 h-6" />
+          </div>
+          <div>
+            <h2 className="text-lg font-black text-slate-900 tracking-tight">
+              Tạo Yêu Cầu Đổi / Trả Hàng
+            </h2>
+            <p className="text-xs text-slate-500">
+              Đơn hàng: <strong className="text-slate-800">#{orderCode}</strong> • Tuân thủ chính sách Dược GPP & Bảo vệ người tiêu dùng
+            </p>
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="py-12 text-center text-xs text-slate-500">
+            Đang thẩm định điều kiện đổi trả của đơn thuốc...
+          </div>
+        ) : error ? (
+          <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-start gap-2.5">
+            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-bold">Không thể thực hiện yêu cầu</p>
+              <p className="mt-0.5">{error}</p>
+            </div>
+          </div>
+        ) : eligibility && !eligibility.can_request_return ? (
+          <div className="p-5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs space-y-2">
+            <div className="flex items-center gap-2 font-bold text-amber-800">
+              <AlertCircle className="w-4 h-4" />
+              <span>Đơn hàng chưa đủ điều kiện đổi trả tự động</span>
+            </div>
+            <p>{eligibility.rejection_reason}</p>
+            <div className="pt-2 border-t border-amber-200/60 text-[11px] text-amber-700">
+              Cần hỗ trợ đặc biệt? Quý khách vui lòng gọi Dược sĩ trực: <strong>1800 6868</strong>
+            </div>
+          </div>
+        ) : eligibility ? (
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Step 1: Chọn hình thức */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                1. Chọn hình thức giải quyết
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setRequestType("RETURN")}
+                  className={`p-3.5 rounded-2xl border text-left transition-all flex items-start gap-3 ${
+                    requestType === "RETURN"
+                      ? "border-brand-blue-600 bg-brand-blue-50/50 shadow-xs"
+                      : "border-slate-200 hover:bg-slate-50"
+                  }`}
+                >
+                  <div
+                    className={`w-4 h-4 rounded-full mt-0.5 shrink-0 border flex items-center justify-center ${
+                      requestType === "RETURN"
+                        ? "border-brand-blue-600 bg-brand-blue-600"
+                        : "border-slate-300"
+                    }`}
+                  >
+                    {requestType === "RETURN" && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                  </div>
+                  <div>
+                    <span className="font-extrabold text-xs text-slate-900 block">Trả hàng & Hoàn tiền</span>
+                    <span className="text-[11px] text-slate-500">Hoàn lại tiền vào tài khoản ngân hàng hoặc ví MoMo</span>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setRequestType("EXCHANGE")}
+                  className={`p-3.5 rounded-2xl border text-left transition-all flex items-start gap-3 ${
+                    requestType === "EXCHANGE"
+                      ? "border-brand-blue-600 bg-brand-blue-50/50 shadow-xs"
+                      : "border-slate-200 hover:bg-slate-50"
+                  }`}
+                >
+                  <div
+                    className={`w-4 h-4 rounded-full mt-0.5 shrink-0 border flex items-center justify-center ${
+                      requestType === "EXCHANGE"
+                        ? "border-brand-blue-600 bg-brand-blue-600"
+                        : "border-slate-300"
+                    }`}
+                  >
+                    {requestType === "EXCHANGE" && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                  </div>
+                  <div>
+                    <span className="font-extrabold text-xs text-slate-900 block">Đổi sang sản phẩm khác</span>
+                    <span className="text-[11px] text-slate-500">Đổi quy cách hoặc thuốc tương đương (bù trừ chênh lệch)</span>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            {/* Step 2: Chọn sản phẩm & số lượng */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                2. Chọn sản phẩm cần đổi / trả
+              </label>
+              <div className="space-y-2.5 max-h-48 overflow-y-auto pr-1">
+                {eligibility.items.map((it) => {
+                  const qty = selectedItems[it.order_item_id] || 0;
+                  return (
+                    <div
+                      key={it.order_item_id}
+                      className={`p-3.5 rounded-2xl border transition-all flex items-center justify-between gap-3 ${
+                        it.is_eligible
+                          ? qty > 0
+                            ? "border-brand-blue-300 bg-brand-blue-50/20"
+                            : "border-slate-200 bg-white"
+                          : "border-slate-200 bg-slate-50 opacity-60"
+                      }`}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="font-bold text-xs text-slate-900 truncate">{it.product_name}</p>
+                          {it.is_rx && (
+                            <span className="px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-rose-50 text-rose-700 border border-rose-200">
+                              Thuốc Rx
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-slate-500 mt-0.5">
+                          Đã mua: {it.purchased_quantity} • Có thể trả: <strong>{it.returnable_quantity}</strong> • Đơn giá ròng:{" "}
+                          <span className="text-brand-blue-600 font-bold">{it.net_unit_price.toLocaleString("vi-VN")} đ</span>
+                        </p>
+                        {!it.is_eligible && (
+                          <p className="text-[10px] text-rose-600 mt-0.5">{it.message}</p>
+                        )}
+                      </div>
+
+                      {it.is_eligible && (
+                        <div className="flex items-center gap-2">
+                          <label className="text-xs text-slate-500 font-semibold">Số lượng:</label>
+                          <select
+                            value={qty}
+                            onChange={(e) =>
+                              setSelectedItems((prev) => ({
+                                ...prev,
+                                [it.order_item_id]: parseInt(e.target.value, 10),
+                              }))
+                            }
+                            className="px-2.5 py-1 rounded-xl border border-slate-300 text-xs font-bold text-slate-800 bg-white focus:outline-brand-blue-600"
+                          >
+                            <option value={0}>0</option>
+                            {Array.from({ length: it.returnable_quantity }, (_, i) => i + 1).map((n) => (
+                              <option key={n} value={n}>
+                                {n}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Step 3: Lý do & Ghi chú */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  3. Lý do đổi / trả hàng
+                </label>
+                <select
+                  value={reasonCode}
+                  onChange={(e) => setReasonCode(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-bold text-slate-800 bg-white focus:outline-brand-blue-600"
+                >
+                  {REASONS.map((r) => (
+                    <option key={r.code} value={r.code}>
+                      {r.text} {r.isMerchantFault ? "(Miễn phí ship)" : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Số điện thoại xác thực
+                </label>
+                <input
+                  type="tel"
+                  value={phoneVerify}
+                  onChange={(e) => setPhoneVerify(e.target.value)}
+                  placeholder="Nhập SĐT đặt đơn hàng..."
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs text-slate-800 focus:outline-brand-blue-600"
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                Mô tả chi tiết tình trạng hàng
+              </label>
+              <textarea
+                value={customerNote}
+                onChange={(e) => setCustomerNote(e.target.value)}
+                placeholder="Vui lòng mô tả chi tiết lỗi, tình trạng nguyên seal, bao bì..."
+                rows={2}
+                className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs text-slate-800 focus:outline-brand-blue-600"
+              />
+            </div>
+
+            {/* Step 4: Tải lên hình ảnh bằng chứng */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                4. Hình ảnh thực tế của sản phẩm
+              </label>
+              <div className="flex flex-wrap items-center gap-3">
+                {uploadedImages.map((url, idx) => (
+                  <div key={idx} className="w-16 h-16 rounded-xl border border-slate-200 overflow-hidden relative group">
+                    <img src={url} alt="Bằng chứng" className="w-full h-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => setUploadedImages((prev) => prev.filter((_, i) => i !== idx))}
+                      className="absolute inset-0 bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+
+                <label className="w-16 h-16 rounded-xl border-2 border-dashed border-slate-300 hover:border-brand-blue-500 hover:bg-brand-blue-50/50 flex flex-col items-center justify-center cursor-pointer transition-colors text-slate-400 hover:text-brand-blue-600">
+                  <Upload className="w-5 h-5" />
+                  <span className="text-[9px] font-bold mt-1">Thêm ảnh</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    disabled={uploadingImage}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+              {uploadingImage && <p className="text-[11px] text-slate-400 mt-1">Đang tải ảnh lên...</p>}
+            </div>
+
+            {/* Step 5: Bảng tính toán hoàn tiền dự kiến */}
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2 text-xs">
+              <div className="flex items-center justify-between text-slate-600">
+                <span>Tiền hàng hoàn trả dự kiến:</span>
+                <span className="font-bold text-slate-800">{estimate.itemsRefund.toLocaleString("vi-VN")} đ</span>
+              </div>
+              <div className="flex items-center justify-between text-slate-600">
+                <span>Hoàn phí vận chuyển ban đầu:</span>
+                <span className="font-bold text-slate-800">
+                  {estimate.shippingRefund > 0
+                    ? `+${estimate.shippingRefund.toLocaleString("vi-VN")} đ (Lỗi nhà thuốc)`
+                    : "0 đ"}
+                </span>
+              </div>
+              <div className="pt-2 border-t border-slate-200 flex items-center justify-between text-sm font-black">
+                <span className="text-slate-900">Tổng tiền hoàn dự kiến:</span>
+                <span className="text-brand-blue-600">{estimate.totalRefund.toLocaleString("vi-VN")} đ</span>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-50 transition-colors"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="submit"
+                disabled={submitting}
+                className="px-6 py-2.5 rounded-xl bg-brand-blue-600 hover:bg-brand-blue-700 active:bg-brand-blue-800 text-white font-extrabold text-xs transition-colors shadow-xs disabled:opacity-50 flex items-center gap-1.5"
+              >
+                {submitting ? "Đang gửi yêu cầu..." : "Xác nhận gửi yêu cầu"}
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+          </form>
+        ) : null}
+      </div>
+    </div>
+  );
+}

@@ -40,3 +40,17 @@ def require_roles(*roles: UserRole) -> Callable:
 
     return dependency
 
+
+def get_optional_current_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+    db: Session = Depends(get_db),
+) -> User | None:
+    if not credentials:
+        return None
+    try:
+        payload = decode_token(credentials.credentials, "access")
+        user_id = int(payload["sub"])
+    except (jwt.PyJWTError, KeyError, ValueError):
+        return None
+    return db.scalar(select(User).where(User.id == user_id, User.is_active.is_(True)))
+
