@@ -5,20 +5,26 @@ import {
   Building2,
   Calendar,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
   Download,
   ExternalLink,
   FileSpreadsheet,
+  Filter,
   Layers,
   Package,
   PackageCheck,
   RefreshCw,
   RotateCcw,
+  Search,
   Sparkles,
   Tag,
   UploadCloud,
   X,
 } from 'lucide-react'
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { AdminPageHeader } from '../components/AdminPageHeader'
 import { api } from '../services/api'
@@ -104,6 +110,207 @@ const RECOGNIZED_COLUMNS = [
   'Phân loại thuốc (rx_otc / loai_thuoc)',
 ]
 
+interface PaginationBarProps {
+  currentPage: number
+  totalPages: number
+  pageSize: number
+  totalItems: number
+  filteredCount: number
+  onPageChange: (page: number) => void
+  onPageSizeChange: (size: number) => void
+  pageSizeOptions?: number[]
+}
+
+function PaginationBar({
+  currentPage,
+  totalPages,
+  pageSize,
+  totalItems,
+  filteredCount,
+  onPageChange,
+  onPageSizeChange,
+  pageSizeOptions = [15, 25, 50, 100],
+}: PaginationBarProps) {
+  const startItem = filteredCount === 0 ? 0 : (currentPage - 1) * pageSize + 1
+  const endItem = Math.min(currentPage * pageSize, filteredCount)
+
+  const getPageNumbers = () => {
+    if (totalPages <= 7) {
+      return Array.from({ length: totalPages }, (_, i) => i + 1)
+    }
+    if (currentPage <= 4) {
+      return [1, 2, 3, 4, 5, '...', totalPages]
+    }
+    if (currentPage >= totalPages - 3) {
+      return [1, '...', totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages]
+    }
+    return [1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages]
+  }
+
+  const pages = getPageNumbers()
+
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: 12,
+        padding: '12px 14px',
+        background: '#f8fafc',
+        borderTop: '1px solid #e2e8f0',
+        borderBottomLeftRadius: 8,
+        borderBottomRightRadius: 8,
+        fontSize: 13,
+      }}
+    >
+      {/* Items info and page size */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+        <span style={{ color: '#64748b' }}>
+          Hiển thị <strong>{startItem} - {endItem}</strong> trong <strong>{filteredCount.toLocaleString('vi-VN')}</strong>
+          {filteredCount !== totalItems ? ` (lọc từ ${totalItems.toLocaleString('vi-VN')} thuốc)` : ' thuốc'}
+        </span>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <label style={{ color: '#64748b', fontSize: 12.5 }}>Dòng/trang:</label>
+          <select
+            value={pageSize}
+            onChange={(e) => onPageSizeChange(Number(e.target.value))}
+            style={{
+              padding: '4px 8px',
+              borderRadius: 6,
+              border: '1px solid #cbd5e1',
+              background: '#ffffff',
+              fontSize: 12.5,
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            {pageSizeOptions.map((sz) => (
+              <option key={sz} value={sz}>
+                {sz}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* Page controls */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+        <button
+          type="button"
+          onClick={() => onPageChange(1)}
+          disabled={currentPage <= 1}
+          title="Trang đầu"
+          style={{
+            padding: '5px 8px',
+            borderRadius: 6,
+            border: '1px solid #cbd5e1',
+            background: currentPage <= 1 ? '#f1f5f9' : '#ffffff',
+            color: currentPage <= 1 ? '#94a3b8' : '#334155',
+            cursor: currentPage <= 1 ? 'not-allowed' : 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+          }}
+        >
+          <ChevronsLeft size={15} />
+        </button>
+
+        <button
+          type="button"
+          onClick={() => onPageChange(currentPage - 1)}
+          disabled={currentPage <= 1}
+          title="Trang trước"
+          style={{
+            padding: '5px 8px',
+            borderRadius: 6,
+            border: '1px solid #cbd5e1',
+            background: currentPage <= 1 ? '#f1f5f9' : '#ffffff',
+            color: currentPage <= 1 ? '#94a3b8' : '#334155',
+            cursor: currentPage <= 1 ? 'not-allowed' : 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+          }}
+        >
+          <ChevronLeft size={15} />
+        </button>
+
+        {pages.map((p, idx) => {
+          if (p === '...') {
+            return (
+              <span key={`dots-${idx}`} style={{ padding: '0 6px', color: '#94a3b8', fontWeight: 600 }}>
+                ...
+              </span>
+            )
+          }
+          const pageNum = p as number
+          const isActive = pageNum === currentPage
+          return (
+            <button
+              key={pageNum}
+              type="button"
+              onClick={() => onPageChange(pageNum)}
+              style={{
+                minWidth: 32,
+                height: 30,
+                padding: '0 6px',
+                borderRadius: 6,
+                border: isActive ? '1px solid #0284c7' : '1px solid #cbd5e1',
+                background: isActive ? '#0284c7' : '#ffffff',
+                color: isActive ? '#ffffff' : '#334155',
+                fontWeight: isActive ? 700 : 500,
+                cursor: 'pointer',
+                fontSize: 12.5,
+              }}
+            >
+              {pageNum}
+            </button>
+          )
+        })}
+
+        <button
+          type="button"
+          onClick={() => onPageChange(currentPage + 1)}
+          disabled={currentPage >= totalPages}
+          title="Trang kế tiếp"
+          style={{
+            padding: '5px 8px',
+            borderRadius: 6,
+            border: '1px solid #cbd5e1',
+            background: currentPage >= totalPages ? '#f1f5f9' : '#ffffff',
+            color: currentPage >= totalPages ? '#94a3b8' : '#334155',
+            cursor: currentPage >= totalPages ? 'not-allowed' : 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+          }}
+        >
+          <ChevronRight size={15} />
+        </button>
+
+        <button
+          type="button"
+          onClick={() => onPageChange(totalPages)}
+          disabled={currentPage >= totalPages}
+          title="Trang cuối"
+          style={{
+            padding: '5px 8px',
+            borderRadius: 6,
+            border: '1px solid #cbd5e1',
+            background: currentPage >= totalPages ? '#f1f5f9' : '#ffffff',
+            color: currentPage >= totalPages ? '#94a3b8' : '#334155',
+            cursor: currentPage >= totalPages ? 'not-allowed' : 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+          }}
+        >
+          <ChevronsRight size={15} />
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export function ImportsPage() {
   const [warehouses, setWarehouses] = useState<WarehouseItem[]>([])
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string>('')
@@ -130,6 +337,127 @@ export function ImportsPage() {
   const [importResult, setImportResult] = useState<ImportResponse | null>(null)
   const [error, setError] = useState('')
   const [downloadingTemplate, setDownloadingTemplate] = useState(false)
+
+  // Filter & Pagination state for Preview
+  const [previewTab, setPreviewTab] = useState<'ALL' | 'NEW' | 'EXISTING' | 'WARNING'>('ALL')
+  const [previewSearch, setPreviewSearch] = useState<string>('')
+  const [previewPage, setPreviewPage] = useState<number>(1)
+  const [previewPageSize, setPreviewPageSize] = useState<number>(25)
+
+  // Filter & Pagination state for Result
+  const [resultTab, setResultTab] = useState<'ALL' | 'CREATED' | 'UPDATED' | 'OTHER'>('ALL')
+  const [resultSearch, setResultSearch] = useState<string>('')
+  const [resultPage, setResultPage] = useState<number>(1)
+  const [resultPageSize, setResultPageSize] = useState<number>(25)
+
+  // Reset page when preview filter changes
+  useEffect(() => {
+    setPreviewPage(1)
+  }, [previewTab, previewSearch])
+
+  // Reset page when result filter changes
+  useEffect(() => {
+    setResultPage(1)
+  }, [resultTab, resultSearch])
+
+  // Count items by category in previewData
+  const previewCounts = useMemo(() => {
+    if (!previewData || !previewData.items) {
+      return { all: 0, new: 0, existing: 0, warning: 0 }
+    }
+    const items = previewData.items
+    let newCount = 0
+    let existingCount = 0
+    let warningCount = 0
+    for (const item of items) {
+      if (item.status === 'NEW') newCount++
+      else if (item.status === 'EXISTING') existingCount++
+      if (item.status === 'INVALID' || item.is_near_expiry) warningCount++
+    }
+    return {
+      all: items.length,
+      new: newCount,
+      existing: existingCount,
+      warning: warningCount,
+    }
+  }, [previewData])
+
+  // Filter preview items
+  const filteredPreviewItems = useMemo(() => {
+    if (!previewData || !previewData.items) return []
+    const q = previewSearch.trim().toLowerCase()
+    return previewData.items.filter((item) => {
+      // Tab filter
+      if (previewTab === 'NEW' && item.status !== 'NEW') return false
+      if (previewTab === 'EXISTING' && item.status !== 'EXISTING') return false
+      if (previewTab === 'WARNING' && !(item.status === 'INVALID' || item.is_near_expiry)) return false
+
+      // Search filter
+      if (q) {
+        const matchName = (item.name || '').toLowerCase().includes(q)
+        const matchReg = (item.registration_number || '').toLowerCase().includes(q)
+        const matchBatch = (item.batch_number || '').toLowerCase().includes(q)
+        const matchMfr = (item.manufacturer || '').toLowerCase().includes(q)
+        return matchName || matchReg || matchBatch || matchMfr
+      }
+      return true
+    })
+  }, [previewData, previewTab, previewSearch])
+
+  // Paginated preview items
+  const totalPreviewPages = Math.max(1, Math.ceil(filteredPreviewItems.length / previewPageSize))
+  const paginatedPreviewItems = useMemo(() => {
+    const start = (previewPage - 1) * previewPageSize
+    return filteredPreviewItems.slice(start, start + previewPageSize)
+  }, [filteredPreviewItems, previewPage, previewPageSize])
+
+  // Count items by category in importResult
+  const resultCounts = useMemo(() => {
+    if (!importResult || !importResult.items) {
+      return { all: 0, created: 0, updated: 0, other: 0 }
+    }
+    const items = importResult.items
+    let createdCount = 0
+    let updatedCount = 0
+    let otherCount = 0
+    for (const it of items) {
+      if (it.status === 'CREATED') createdCount++
+      else if (it.status === 'UPDATED') updatedCount++
+      else otherCount++
+    }
+    return {
+      all: items.length,
+      created: createdCount,
+      updated: updatedCount,
+      other: otherCount,
+    }
+  }, [importResult])
+
+  // Filter result items
+  const filteredResultItems = useMemo(() => {
+    if (!importResult || !importResult.items) return []
+    const q = resultSearch.trim().toLowerCase()
+    return importResult.items.filter((it) => {
+      if (resultTab === 'CREATED' && it.status !== 'CREATED') return false
+      if (resultTab === 'UPDATED' && it.status !== 'UPDATED') return false
+      if (resultTab === 'OTHER' && (it.status === 'CREATED' || it.status === 'UPDATED')) return false
+
+      if (q) {
+        const matchName = (it.name || '').toLowerCase().includes(q)
+        const matchReg = (it.registration_number || '').toLowerCase().includes(q)
+        const matchBatch = (it.batch_number || '').toLowerCase().includes(q)
+        return matchName || matchReg || matchBatch
+      }
+      return true
+    })
+  }, [importResult, resultTab, resultSearch])
+
+  // Paginated result items
+  const totalResultPages = Math.max(1, Math.ceil(filteredResultItems.length / resultPageSize))
+  const paginatedResultItems = useMemo(() => {
+    const start = (resultPage - 1) * resultPageSize
+    return filteredResultItems.slice(start, start + resultPageSize)
+  }, [filteredResultItems, resultPage, resultPageSize])
 
   // 1. Fetch warehouses on mount
   useEffect(() => {
@@ -179,6 +507,9 @@ export function ImportsPage() {
     setImportResult(null)
     setPreviewData(null)
     setError('')
+    setPreviewTab('ALL')
+    setPreviewSearch('')
+    setPreviewPage(1)
 
     if (!selectedFile) return
 
@@ -248,6 +579,12 @@ export function ImportsPage() {
     setPreviewData(null)
     setImportResult(null)
     setError('')
+    setPreviewTab('ALL')
+    setPreviewSearch('')
+    setPreviewPage(1)
+    setResultTab('ALL')
+    setResultSearch('')
+    setResultPage(1)
   }
 
   const selectedWarehouse = warehouses.find((w) => String(w.id) === selectedWarehouseId)
@@ -773,11 +1110,209 @@ export function ImportsPage() {
                 </div>
               </div>
 
-              {/* Preview Table */}
-              <div style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: 8 }}>
+              {/* Preview Filter Tabs & Search */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: 12,
+                  marginBottom: 12,
+                  background: '#f8fafc',
+                  padding: '10px 14px',
+                  borderRadius: 8,
+                  border: '1px solid #e2e8f0',
+                }}
+              >
+                {/* Tabs */}
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewTab('ALL')}
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: 6,
+                      border: previewTab === 'ALL' ? '1px solid #0284c7' : '1px solid #cbd5e1',
+                      background: previewTab === 'ALL' ? '#0284c7' : '#ffffff',
+                      color: previewTab === 'ALL' ? '#ffffff' : '#334155',
+                      fontWeight: previewTab === 'ALL' ? 700 : 500,
+                      fontSize: 12.5,
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                    }}
+                  >
+                    <span>Tất cả</span>
+                    <span
+                      style={{
+                        background: previewTab === 'ALL' ? 'rgba(255,255,255,0.25)' : '#e2e8f0',
+                        color: previewTab === 'ALL' ? '#ffffff' : '#1e293b',
+                        borderRadius: 999,
+                        padding: '1px 7px',
+                        fontSize: 11,
+                        fontWeight: 700,
+                      }}
+                    >
+                      {previewCounts.all}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setPreviewTab('NEW')}
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: 6,
+                      border: previewTab === 'NEW' ? '1px solid #16a34a' : '1px solid #cbd5e1',
+                      background: previewTab === 'NEW' ? '#16a34a' : '#ffffff',
+                      color: previewTab === 'NEW' ? '#ffffff' : '#334155',
+                      fontWeight: previewTab === 'NEW' ? 700 : 500,
+                      fontSize: 12.5,
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                    }}
+                  >
+                    <span>Thuốc tạo mới</span>
+                    <span
+                      style={{
+                        background: previewTab === 'NEW' ? 'rgba(255,255,255,0.25)' : '#dcfce7',
+                        color: previewTab === 'NEW' ? '#ffffff' : '#15803d',
+                        borderRadius: 999,
+                        padding: '1px 7px',
+                        fontSize: 11,
+                        fontWeight: 700,
+                      }}
+                    >
+                      {previewCounts.new}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setPreviewTab('EXISTING')}
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: 6,
+                      border: previewTab === 'EXISTING' ? '1px solid #2563eb' : '1px solid #cbd5e1',
+                      background: previewTab === 'EXISTING' ? '#2563eb' : '#ffffff',
+                      color: previewTab === 'EXISTING' ? '#ffffff' : '#334155',
+                      fontWeight: previewTab === 'EXISTING' ? 700 : 500,
+                      fontSize: 12.5,
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                    }}
+                  >
+                    <span>Thuốc đã có / Cập nhật</span>
+                    <span
+                      style={{
+                        background: previewTab === 'EXISTING' ? 'rgba(255,255,255,0.25)' : '#dbeafe',
+                        color: previewTab === 'EXISTING' ? '#ffffff' : '#1d4ed8',
+                        borderRadius: 999,
+                        padding: '1px 7px',
+                        fontSize: 11,
+                        fontWeight: 700,
+                      }}
+                    >
+                      {previewCounts.existing}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setPreviewTab('WARNING')}
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: 6,
+                      border: previewTab === 'WARNING' ? '1px solid #d97706' : '1px solid #cbd5e1',
+                      background: previewTab === 'WARNING' ? '#d97706' : '#ffffff',
+                      color: previewTab === 'WARNING' ? '#ffffff' : '#334155',
+                      fontWeight: previewTab === 'WARNING' ? 700 : 500,
+                      fontSize: 12.5,
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                    }}
+                  >
+                    <span>Cảnh báo / Lỗi / Cận hạn</span>
+                    <span
+                      style={{
+                        background: previewTab === 'WARNING' ? 'rgba(255,255,255,0.25)' : '#fef3c7',
+                        color: previewTab === 'WARNING' ? '#ffffff' : '#b45309',
+                        borderRadius: 999,
+                        padding: '1px 7px',
+                        fontSize: 11,
+                        fontWeight: 700,
+                      }}
+                    >
+                      {previewCounts.warning}
+                    </span>
+                  </button>
+                </div>
+
+                {/* Instant Search */}
+                <div style={{ position: 'relative', minWidth: 260 }}>
+                  <Search
+                    size={14}
+                    style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }}
+                  />
+                  <input
+                    type="text"
+                    placeholder="Tìm tên thuốc, SĐK, số lô..."
+                    value={previewSearch}
+                    onChange={(e) => setPreviewSearch(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '6px 28px 6px 30px',
+                      borderRadius: 6,
+                      border: '1px solid #cbd5e1',
+                      fontSize: 12.5,
+                      background: '#ffffff',
+                    }}
+                  />
+                  {previewSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setPreviewSearch('')}
+                      style={{
+                        position: 'absolute',
+                        right: 8,
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        color: '#94a3b8',
+                        padding: 2,
+                      }}
+                    >
+                      <X size={13} />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Preview Table Container (Max height + Sticky header to prevent infinite page stretching) */}
+              <div
+                style={{
+                  overflowX: 'auto',
+                  maxHeight: '520px',
+                  overflowY: 'auto',
+                  border: '1px solid #e2e8f0',
+                  borderTopLeftRadius: 8,
+                  borderTopRightRadius: 8,
+                  position: 'relative',
+                }}
+              >
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
-                  <thead>
-                    <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#475569', textAlign: 'left' }}>
+                  <thead style={{ position: 'sticky', top: 0, zIndex: 5, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.06)' }}>
+                    <tr style={{ borderBottom: '1px solid #e2e8f0', color: '#475569', textAlign: 'left' }}>
                       <th style={{ padding: '10px 12px' }}>#</th>
                       <th style={{ padding: '10px 12px' }}>Tên thuốc</th>
                       <th style={{ padding: '10px 12px' }}>Số đăng ký</th>
@@ -790,73 +1325,95 @@ export function ImportsPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {previewData.items.map((item) => (
-                      <tr
-                        key={item.row}
-                        style={{
-                          borderBottom: '1px solid #f1f5f9',
-                          background: item.status === 'INVALID' ? '#fef2f2' : 'transparent',
-                        }}
-                      >
-                        <td style={{ padding: '10px 12px', color: '#64748b' }}>#{item.row}</td>
-                        <td style={{ padding: '10px 12px', fontWeight: 700, color: '#0f172a' }}>
-                          {item.name}
-                        </td>
-                        <td style={{ padding: '10px 12px' }}>
-                          <code style={{ fontFamily: 'monospace', color: '#0369a1' }}>
-                            {item.registration_number || '—'}
-                          </code>
-                        </td>
-                        <td style={{ padding: '10px 12px' }}>
-                          <span style={{ fontFamily: 'monospace', fontWeight: 600, color: '#334155' }}>
-                            {item.batch_number}
-                          </span>
-                        </td>
-                        <td style={{ padding: '10px 12px' }}>
-                          <span
-                            style={{
-                              fontWeight: 600,
-                              color: item.is_near_expiry ? '#b45309' : '#047857',
-                              background: item.is_near_expiry ? '#fef3c7' : '#dcfce7',
-                              padding: '2px 6px',
-                              borderRadius: 4,
-                              fontSize: 11.5,
-                            }}
-                          >
-                            {item.expiry_date}
-                          </span>
-                        </td>
-                        <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700, color: '#0f172a' }}>
-                          {item.quantity.toLocaleString('vi-VN')}
-                        </td>
-                        <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, color: '#059669' }}>
-                          {item.price ? `${item.price.toLocaleString('vi-VN')} đ` : '—'}
-                        </td>
-                        <td style={{ padding: '10px 12px', color: '#64748b' }}>
-                          {item.manufacturer || '—'}
-                        </td>
-                        <td style={{ padding: '10px 12px', textAlign: 'center' }}>
-                          {item.status === 'NEW' && (
-                            <span style={{ background: '#dcfce7', color: '#15803d', padding: '3px 8px', borderRadius: 4, fontWeight: 700, fontSize: 11 }}>
-                              Thuốc mới
-                            </span>
-                          )}
-                          {item.status === 'EXISTING' && (
-                            <span style={{ background: '#dbeafe', color: '#1d4ed8', padding: '3px 8px', borderRadius: 4, fontWeight: 700, fontSize: 11 }}>
-                              Cập nhật lô
-                            </span>
-                          )}
-                          {item.status === 'INVALID' && (
-                            <span style={{ background: '#fee2e2', color: '#b91c1c', padding: '3px 8px', borderRadius: 4, fontWeight: 700, fontSize: 11 }}>
-                              {item.status_label}
-                            </span>
-                          )}
+                    {paginatedPreviewItems.length === 0 ? (
+                      <tr>
+                        <td colSpan={9} style={{ textAlign: 'center', padding: '36px 16px', color: '#64748b' }}>
+                          Không có đơn thuốc nào phù hợp với bộ lọc hiện tại.
                         </td>
                       </tr>
-                    ))}
+                    ) : (
+                      paginatedPreviewItems.map((item) => (
+                        <tr
+                          key={item.row}
+                          style={{
+                            borderBottom: '1px solid #f1f5f9',
+                            background: item.status === 'INVALID' ? '#fef2f2' : 'transparent',
+                          }}
+                        >
+                          <td style={{ padding: '10px 12px', color: '#64748b' }}>#{item.row}</td>
+                          <td style={{ padding: '10px 12px', fontWeight: 700, color: '#0f172a' }}>
+                            {item.name}
+                          </td>
+                          <td style={{ padding: '10px 12px' }}>
+                            <code style={{ fontFamily: 'monospace', color: '#0369a1' }}>
+                              {item.registration_number || '—'}
+                            </code>
+                          </td>
+                          <td style={{ padding: '10px 12px' }}>
+                            <span style={{ fontFamily: 'monospace', fontWeight: 600, color: '#334155' }}>
+                              {item.batch_number}
+                            </span>
+                          </td>
+                          <td style={{ padding: '10px 12px' }}>
+                            <span
+                              style={{
+                                fontWeight: 600,
+                                color: item.is_near_expiry ? '#b45309' : '#047857',
+                                background: item.is_near_expiry ? '#fef3c7' : '#dcfce7',
+                                padding: '2px 6px',
+                                borderRadius: 4,
+                                fontSize: 11.5,
+                              }}
+                            >
+                              {item.expiry_date}
+                            </span>
+                          </td>
+                          <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700, color: '#0f172a' }}>
+                            {item.quantity.toLocaleString('vi-VN')}
+                          </td>
+                          <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, color: '#059669' }}>
+                            {item.price ? `${item.price.toLocaleString('vi-VN')} đ` : '—'}
+                          </td>
+                          <td style={{ padding: '10px 12px', color: '#64748b' }}>
+                            {item.manufacturer || '—'}
+                          </td>
+                          <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                            {item.status === 'NEW' && (
+                              <span style={{ background: '#dcfce7', color: '#15803d', padding: '3px 8px', borderRadius: 4, fontWeight: 700, fontSize: 11 }}>
+                                Thuốc mới
+                              </span>
+                            )}
+                            {item.status === 'EXISTING' && (
+                              <span style={{ background: '#dbeafe', color: '#1d4ed8', padding: '3px 8px', borderRadius: 4, fontWeight: 700, fontSize: 11 }}>
+                                Cập nhật lô
+                              </span>
+                            )}
+                            {item.status === 'INVALID' && (
+                              <span style={{ background: '#fee2e2', color: '#b91c1c', padding: '3px 8px', borderRadius: 4, fontWeight: 700, fontSize: 11 }}>
+                                {item.status_label}
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
+
+              {/* Preview Pagination Bar */}
+              <PaginationBar
+                currentPage={previewPage}
+                totalPages={totalPreviewPages}
+                pageSize={previewPageSize}
+                totalItems={previewCounts.all}
+                filteredCount={filteredPreviewItems.length}
+                onPageChange={setPreviewPage}
+                onPageSizeChange={(sz) => {
+                  setPreviewPageSize(sz)
+                  setPreviewPage(1)
+                }}
+              />
 
               {/* Confirm Bottom Bar */}
               <div
@@ -994,13 +1551,183 @@ export function ImportsPage() {
           {/* Result items table */}
           {importResult.items && importResult.items.length > 0 && (
             <div style={{ marginTop: 24 }}>
-              <h3 style={{ fontSize: 14.5, fontWeight: 750, color: '#0f172a', marginBottom: 10 }}>
-                Chi tiết các mặt hàng thuốc vừa nhập kho:
-              </h3>
-              <div style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 10 }}>
+                <h3 style={{ fontSize: 14.5, fontWeight: 750, color: '#0f172a', margin: 0 }}>
+                  Chi tiết các mặt hàng thuốc vừa nhập kho:
+                </h3>
+              </div>
+
+              {/* Result Filter Tabs & Search */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: 12,
+                  marginBottom: 12,
+                  background: '#f8fafc',
+                  padding: '10px 14px',
+                  borderRadius: 8,
+                  border: '1px solid #e2e8f0',
+                }}
+              >
+                {/* Tabs */}
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    onClick={() => setResultTab('ALL')}
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: 6,
+                      border: resultTab === 'ALL' ? '1px solid #0284c7' : '1px solid #cbd5e1',
+                      background: resultTab === 'ALL' ? '#0284c7' : '#ffffff',
+                      color: resultTab === 'ALL' ? '#ffffff' : '#334155',
+                      fontWeight: resultTab === 'ALL' ? 700 : 500,
+                      fontSize: 12.5,
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                    }}
+                  >
+                    <span>Tất cả</span>
+                    <span
+                      style={{
+                        background: resultTab === 'ALL' ? 'rgba(255,255,255,0.25)' : '#e2e8f0',
+                        color: resultTab === 'ALL' ? '#ffffff' : '#1e293b',
+                        borderRadius: 999,
+                        padding: '1px 7px',
+                        fontSize: 11,
+                        fontWeight: 700,
+                      }}
+                    >
+                      {resultCounts.all}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setResultTab('CREATED')}
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: 6,
+                      border: resultTab === 'CREATED' ? '1px solid #16a34a' : '1px solid #cbd5e1',
+                      background: resultTab === 'CREATED' ? '#16a34a' : '#ffffff',
+                      color: resultTab === 'CREATED' ? '#ffffff' : '#334155',
+                      fontWeight: resultTab === 'CREATED' ? 700 : 500,
+                      fontSize: 12.5,
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                    }}
+                  >
+                    <span>Thuốc tạo mới</span>
+                    <span
+                      style={{
+                        background: resultTab === 'CREATED' ? 'rgba(255,255,255,0.25)' : '#dcfce7',
+                        color: resultTab === 'CREATED' ? '#ffffff' : '#15803d',
+                        borderRadius: 999,
+                        padding: '1px 7px',
+                        fontSize: 11,
+                        fontWeight: 700,
+                      }}
+                    >
+                      {resultCounts.created}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setResultTab('UPDATED')}
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: 6,
+                      border: resultTab === 'UPDATED' ? '1px solid #2563eb' : '1px solid #cbd5e1',
+                      background: resultTab === 'UPDATED' ? '#2563eb' : '#ffffff',
+                      color: resultTab === 'UPDATED' ? '#ffffff' : '#334155',
+                      fontWeight: resultTab === 'UPDATED' ? 700 : 500,
+                      fontSize: 12.5,
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                    }}
+                  >
+                    <span>Đã cập nhật lô & giá</span>
+                    <span
+                      style={{
+                        background: resultTab === 'UPDATED' ? 'rgba(255,255,255,0.25)' : '#dbeafe',
+                        color: resultTab === 'UPDATED' ? '#ffffff' : '#1d4ed8',
+                        borderRadius: 999,
+                        padding: '1px 7px',
+                        fontSize: 11,
+                        fontWeight: 700,
+                      }}
+                    >
+                      {resultCounts.updated}
+                    </span>
+                  </button>
+                </div>
+
+                {/* Search */}
+                <div style={{ position: 'relative', minWidth: 260 }}>
+                  <Search
+                    size={14}
+                    style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }}
+                  />
+                  <input
+                    type="text"
+                    placeholder="Tìm tên thuốc, SĐK, số lô..."
+                    value={resultSearch}
+                    onChange={(e) => setResultSearch(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '6px 28px 6px 30px',
+                      borderRadius: 6,
+                      border: '1px solid #cbd5e1',
+                      fontSize: 12.5,
+                      background: '#ffffff',
+                    }}
+                  />
+                  {resultSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setResultSearch('')}
+                      style={{
+                        position: 'absolute',
+                        right: 8,
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        color: '#94a3b8',
+                        padding: 2,
+                      }}
+                    >
+                      <X size={13} />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Table with max height & sticky header */}
+              <div
+                style={{
+                  overflowX: 'auto',
+                  maxHeight: '480px',
+                  overflowY: 'auto',
+                  border: '1px solid #e2e8f0',
+                  borderTopLeftRadius: 8,
+                  borderTopRightRadius: 8,
+                  position: 'relative',
+                }}
+              >
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
-                  <thead>
-                    <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#475569', textAlign: 'left' }}>
+                  <thead style={{ position: 'sticky', top: 0, zIndex: 5, background: '#f8fafc', boxShadow: '0 1px 2px rgba(0,0,0,0.06)' }}>
+                    <tr style={{ borderBottom: '1px solid #e2e8f0', color: '#475569', textAlign: 'left' }}>
                       <th style={{ padding: '8px 12px' }}>Dòng</th>
                       <th style={{ padding: '8px 12px' }}>Tên thuốc</th>
                       <th style={{ padding: '8px 12px' }}>Số đăng ký</th>
@@ -1012,44 +1739,66 @@ export function ImportsPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {importResult.items.map((it, idx) => (
-                      <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                        <td style={{ padding: '8px 12px', color: '#64748b' }}>#{it.row}</td>
-                        <td style={{ padding: '8px 12px', fontWeight: 700, color: '#0f172a' }}>{it.name}</td>
-                        <td style={{ padding: '8px 12px' }}>
-                          <code style={{ fontFamily: 'monospace', color: '#0369a1' }}>
-                            {it.registration_number || '—'}
-                          </code>
-                        </td>
-                        <td style={{ padding: '8px 12px', fontFamily: 'monospace' }}>
-                          {it.batch_number || batchNumber}
-                        </td>
-                        <td style={{ padding: '8px 12px', color: '#047857', fontWeight: 600 }}>
-                          {it.expiry_date || expiryDate}
-                        </td>
-                        <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: '#0f172a' }}>
-                          {(it.quantity || initialQuantity).toLocaleString('vi-VN')}
-                        </td>
-                        <td style={{ padding: '8px 12px', textAlign: 'right', color: '#059669', fontWeight: 600 }}>
-                          {it.price ? `${it.price.toLocaleString('vi-VN')} đ` : '—'}
-                        </td>
-                        <td style={{ padding: '8px 12px', textAlign: 'center' }}>
-                          {it.status === 'CREATED' && (
-                            <span style={{ background: '#dcfce7', color: '#15803d', padding: '3px 8px', borderRadius: 4, fontWeight: 700, fontSize: 11 }}>
-                              Đã tạo mới
-                            </span>
-                          )}
-                          {it.status === 'UPDATED' && (
-                            <span style={{ background: '#dbeafe', color: '#1d4ed8', padding: '3px 8px', borderRadius: 4, fontWeight: 700, fontSize: 11 }}>
-                              Đã cập nhật
-                            </span>
-                          )}
+                    {paginatedResultItems.length === 0 ? (
+                      <tr>
+                        <td colSpan={8} style={{ textAlign: 'center', padding: '36px 16px', color: '#64748b' }}>
+                          Không có thuốc nào phù hợp với bộ lọc hiện tại.
                         </td>
                       </tr>
-                    ))}
+                    ) : (
+                      paginatedResultItems.map((it, idx) => (
+                        <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                          <td style={{ padding: '8px 12px', color: '#64748b' }}>#{it.row}</td>
+                          <td style={{ padding: '8px 12px', fontWeight: 700, color: '#0f172a' }}>{it.name}</td>
+                          <td style={{ padding: '8px 12px' }}>
+                            <code style={{ fontFamily: 'monospace', color: '#0369a1' }}>
+                              {it.registration_number || '—'}
+                            </code>
+                          </td>
+                          <td style={{ padding: '8px 12px', fontFamily: 'monospace' }}>
+                            {it.batch_number || batchNumber}
+                          </td>
+                          <td style={{ padding: '8px 12px', color: '#047857', fontWeight: 600 }}>
+                            {it.expiry_date || expiryDate}
+                          </td>
+                          <td style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 700, color: '#0f172a' }}>
+                            {(it.quantity || initialQuantity).toLocaleString('vi-VN')}
+                          </td>
+                          <td style={{ padding: '8px 12px', textAlign: 'right', color: '#059669', fontWeight: 600 }}>
+                            {it.price ? `${it.price.toLocaleString('vi-VN')} đ` : '—'}
+                          </td>
+                          <td style={{ padding: '8px 12px', textAlign: 'center' }}>
+                            {it.status === 'CREATED' && (
+                              <span style={{ background: '#dcfce7', color: '#15803d', padding: '3px 8px', borderRadius: 4, fontWeight: 700, fontSize: 11 }}>
+                                Đã tạo mới
+                              </span>
+                            )}
+                            {it.status === 'UPDATED' && (
+                              <span style={{ background: '#dbeafe', color: '#1d4ed8', padding: '3px 8px', borderRadius: 4, fontWeight: 700, fontSize: 11 }}>
+                                Đã cập nhật
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
+
+              {/* Result Pagination Bar */}
+              <PaginationBar
+                currentPage={resultPage}
+                totalPages={totalResultPages}
+                pageSize={resultPageSize}
+                totalItems={resultCounts.all}
+                filteredCount={filteredResultItems.length}
+                onPageChange={setResultPage}
+                onPageSizeChange={(sz) => {
+                  setResultPageSize(sz)
+                  setResultPage(1)
+                }}
+              />
             </div>
           )}
         </div>
