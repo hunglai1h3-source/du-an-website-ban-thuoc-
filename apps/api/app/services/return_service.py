@@ -23,7 +23,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.models.entities import AuditLog, Order, OrderItem, User
+from app.models.entities import AdminAlert, AuditLog, Order, OrderItem, User
 from app.models.inventory import (
     EmailOutbox,
     InventoryBatch,
@@ -229,6 +229,41 @@ class ReturnService:
             actor_role="CUSTOMER" if (current_user and current_user.role == "CUSTOMER") else "GUEST",
             note=f"Khách hàng gửi yêu cầu {request_type}: {reason_text}",
         )
+
+        # 8.1. Lưu cảnh báo nội bộ vào database (AdminAlert) để Admin nhận thông báo trên bảng điều khiển
+        alert = AdminAlert(
+            source_code="STOREFRONT_RETURN",
+            alert_type="RETURN_REQUESTED",
+            severity="WARNING",
+            message=f"Yêu cầu đổi/trả mới [{ret_request.return_code}] cho đơn hàng {order.order_code} từ khách {ret_request.customer_name} ({ret_request.customer_phone}). Lý do: {ret_request.reason_text}",
+            is_read=False,
+        )
+        db.add(alert)
+
+        # 8.2. Lưu thư thông báo gửi Admin (EmailOutbox)
+        email_admin = EmailOutbox(
+            recipient_email=settings.smtp_user or "admin@pharmatrust.vn",
+            recipient_name="Dược sĩ Quản trị H4CARE",
+            subject=f"[H4CARE] Thông báo yêu cầu đổi/trả mới cần duyệt: {ret_request.return_code} (Đơn {order.order_code})",
+            body_html=(
+                f"<h3>Thông báo: Khách hàng vừa gửi yêu cầu đổi/trả thuốc</h3>"
+                f"<p>Hệ thống H4CARE ghi nhận yêu cầu mới cần Dược sĩ thẩm định:</p>"
+                f"<ul>"
+                f"<li><b>Mã yêu cầu:</b> {ret_request.return_code}</li>"
+                f"<li><b>Mã đơn hàng:</b> {order.order_code}</li>"
+                f"<li><b>Khách hàng:</b> {ret_request.customer_name} (SĐT: {ret_request.customer_phone})</li>"
+                f"<li><b>Hình thức:</b> {'Trả hàng & Hoàn tiền' if request_type == 'RETURN' else 'Đổi sản phẩm khác'}</li>"
+                f"<li><b>Lý do:</b> {reason_text}</li>"
+                f"<li><b>Ghi chú của khách:</b> {customer_note or 'Không có'}</li>"
+                f"</ul>"
+                f"<p>Vui lòng đăng nhập Cổng Quản Trị H4CARE (<a href='http://localhost:5173/returns'>http://localhost:5173/returns</a>) để duyệt đơn.</p>"
+            ),
+            body_text=f"Yêu cầu đổi trả mới: {ret_request.return_code} cho đơn {order.order_code}",
+            status="PENDING",
+            email_type="RETURN_REQUEST_ALERT",
+            reference_code=ret_request.return_code,
+        )
+        db.add(email_admin)
 
         db.commit()
         db.refresh(ret_request)

@@ -26,11 +26,15 @@ import {
   Users,
   X,
   Banknote,
+  Bell,
+  ChevronRight,
+  CheckCircle2,
 } from 'lucide-react'
-import { useState, type ReactNode } from 'react'
+import { useState, useEffect, useRef, type ReactNode } from 'react'
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '../services/auth'
 import { useServerHealth } from '../services/useServerHealth'
+import { api } from '../services/api'
 
 const ROLE_NAMES: Record<string, string> = {
   ADMIN: 'Quản trị viên',
@@ -100,11 +104,59 @@ const navGroups: NavGroup[] = [
   },
 ]
 
+interface ReturnNotifData {
+  pending_count: number
+  reviewing_count: number
+  inspecting_count: number
+  total_action_needed: number
+  recent_pending: Array<{
+    id: number
+    return_code: string
+    customer_name: string
+    customer_phone: string
+    reason_text: string
+    request_type: string
+    requested_at: string | null
+  }>
+}
+
 export function Layout({ children }: { children: ReactNode }) {
   const { user, logout } = useAuth()
   const { status: healthStatus, latencyMs, lastChecked, checkHealth } = useServerHealth()
   const [open, setOpen] = useState(false)
   const [checking, setChecking] = useState(false)
+  const [returnStats, setReturnStats] = useState<ReturnNotifData | null>(null)
+  const [showNotifMenu, setShowNotifMenu] = useState(false)
+  const [newReturnToast, setNewReturnToast] = useState<string | null>(null)
+  const prevCountRef = useRef<number>(0)
+
+  useEffect(() => {
+    if (!user || (user.role !== 'ADMIN' && user.role !== 'DATA_REVIEWER')) return
+
+    const fetchStats = async () => {
+      try {
+        const data = await api<ReturnNotifData>('/admin/returns/notifications/stats')
+        if (data) {
+          if (data.pending_count > prevCountRef.current && prevCountRef.current > 0) {
+            const latest = data.recent_pending?.[0]
+            const toastMsg = latest
+              ? `Có đơn đổi/trả mới cần duyệt: ${latest.return_code} (${latest.customer_name})`
+              : 'Có yêu cầu đổi/trả thuốc mới cần duyệt!'
+            setNewReturnToast(toastMsg)
+            setTimeout(() => setNewReturnToast(null), 8000)
+          }
+          prevCountRef.current = data.pending_count
+          setReturnStats(data)
+        }
+      } catch {
+        // Ignore background polling errors
+      }
+    }
+
+    fetchStats()
+    const timer = setInterval(fetchStats, 8000)
+    return () => clearInterval(timer)
+  }, [user])
 
   const handleManualHealthCheck = async () => {
     setChecking(true)
@@ -211,6 +263,11 @@ export function Layout({ children }: { children: ReactNode }) {
                     >
                       <item.icon size={16} className="nav-item-icon" />
                       <span className="nav-item-text">{item.label}</span>
+                      {item.to === '/returns' && (returnStats?.pending_count || 0) > 0 && (
+                        <span className="nav-return-badge" title={`${returnStats?.pending_count} đơn chờ duyệt`}>
+                          {returnStats?.pending_count}
+                        </span>
+                      )}
                     </NavLink>
                   ))}
                 </nav>
@@ -256,6 +313,90 @@ export function Layout({ children }: { children: ReactNode }) {
           </div>
 
           <div className="header-right">
+            {/* Notification Bell for Returns / Alerts */}
+            {(user?.role === 'ADMIN' || user?.role === 'DATA_REVIEWER') && (
+              <div className="admin-notif-container">
+                <button
+                  type="button"
+                  className={`admin-notif-btn ${(returnStats?.pending_count || 0) > 0 ? 'has-unread' : ''}`}
+                  onClick={() => setShowNotifMenu(!showNotifMenu)}
+                  title="Thông báo đơn đổi/trả hàng cần duyệt"
+                  aria-label="Thông báo"
+                >
+                  <Bell size={18} />
+                  {(returnStats?.pending_count || 0) > 0 && (
+                    <span className="notif-count-pill">
+                      {returnStats?.pending_count}
+                    </span>
+                  )}
+                </button>
+
+                {showNotifMenu && (
+                  <div className="admin-notif-dropdown">
+                    <div className="notif-dropdown-header">
+                      <div className="notif-header-title">
+                        <strong>Yêu cầu Đổi / Trả Thuốc</strong>
+                        <span className="notif-header-tag">
+                          {returnStats?.pending_count || 0} chờ duyệt
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        className="notif-close-btn"
+                        onClick={() => setShowNotifMenu(false)}
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+
+                    <div className="notif-dropdown-body">
+                      {(returnStats?.recent_pending && returnStats.recent_pending.length > 0) ? (
+                        <div className="notif-list">
+                          {returnStats.recent_pending.map((item) => (
+                            <NavLink
+                              key={item.id}
+                              to="/returns"
+                              onClick={() => setShowNotifMenu(false)}
+                              className="notif-item"
+                            >
+                              <div className="notif-item-top">
+                                <span className="notif-item-code">{item.return_code}</span>
+                                <span className="notif-item-type">
+                                  {item.request_type === 'EXCHANGE' ? 'Đổi hàng' : 'Trả hàng'}
+                                </span>
+                              </div>
+                              <div className="notif-item-customer">
+                                {item.customer_name} - {item.customer_phone}
+                              </div>
+                              <div className="notif-item-reason" title={item.reason_text}>
+                                {item.reason_text}
+                              </div>
+                            </NavLink>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="notif-empty">
+                          <CheckCircle2 size={24} className="notif-empty-icon" />
+                          <p>Hiện không có yêu cầu đổi/trả nào chờ duyệt</p>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="notif-dropdown-footer">
+                      <NavLink
+                        to="/returns"
+                        className="notif-view-all-btn"
+                        onClick={() => setShowNotifMenu(false)}
+                      >
+                        <span>Quản lý tất cả đơn đổi/trả</span>
+                        <ChevronRight size={14} />
+                      </NavLink>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             <a
               href="http://localhost:3000"
               target="_blank"
@@ -284,6 +425,34 @@ export function Layout({ children }: { children: ReactNode }) {
             </div>
           </div>
         </header>
+
+        {newReturnToast && (
+          <div className="admin-realtime-toast" role="alert">
+            <div className="toast-content">
+              <span className="toast-icon">🔔</span>
+              <div className="toast-text">
+                <strong>Thông báo mới từ Khách Hàng:</strong>
+                <p>{newReturnToast}</p>
+              </div>
+            </div>
+            <div className="toast-actions">
+              <NavLink
+                to="/returns"
+                className="toast-btn-action"
+                onClick={() => setNewReturnToast(null)}
+              >
+                Xem ngay
+              </NavLink>
+              <button
+                type="button"
+                className="toast-btn-close"
+                onClick={() => setNewReturnToast(null)}
+              >
+                <X size={14} />
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="content-inner">{children}</div>
       </main>

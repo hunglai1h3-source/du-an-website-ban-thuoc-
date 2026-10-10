@@ -451,3 +451,55 @@ def close_return(
         "status": ret.status,
         "message": "Đã đóng hồ sơ đổi trả hàng.",
     }
+
+
+@router.get("/notifications/stats")
+def get_return_notifications_stats(
+    db: Session = Depends(get_db),
+    admin_user: User = Depends(require_roles(UserRole.ADMIN, UserRole.DATA_REVIEWER)),
+):
+    """
+    Thống kê số lượng đơn đổi/trả chờ duyệt và danh sách các đơn mới gửi cần xử lý ngay cho Admin.
+    """
+    pending_count = db.scalar(
+        select(func.count(ReturnRequest.id)).where(ReturnRequest.status == ReturnStatus.REQUESTED.value)
+    ) or 0
+
+    reviewing_count = db.scalar(
+        select(func.count(ReturnRequest.id)).where(ReturnRequest.status == ReturnStatus.REVIEWING.value)
+    ) or 0
+
+    inspecting_count = db.scalar(
+        select(func.count(ReturnRequest.id)).where(
+            ReturnRequest.status.in_([
+                ReturnStatus.RECEIVED.value,
+                ReturnStatus.INSPECTING.value,
+            ])
+        )
+    ) or 0
+
+    recent_pending = db.scalars(
+        select(ReturnRequest)
+        .where(ReturnRequest.status == ReturnStatus.REQUESTED.value)
+        .order_by(ReturnRequest.id.desc())
+        .limit(6)
+    ).all()
+
+    return {
+        "pending_count": pending_count,
+        "reviewing_count": reviewing_count,
+        "inspecting_count": inspecting_count,
+        "total_action_needed": pending_count + inspecting_count,
+        "recent_pending": [
+            {
+                "id": r.id,
+                "return_code": r.return_code,
+                "customer_name": r.customer_name,
+                "customer_phone": r.customer_phone,
+                "reason_text": r.reason_text,
+                "request_type": r.request_type,
+                "requested_at": r.requested_at.isoformat() if r.requested_at else None,
+            }
+            for r in recent_pending
+        ],
+    }

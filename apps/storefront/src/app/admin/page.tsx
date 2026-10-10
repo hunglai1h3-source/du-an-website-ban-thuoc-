@@ -14,6 +14,7 @@ import {
   Boxes,
   Users,
   ShoppingBag,
+  RotateCcw,
   CheckCircle2,
   Lock,
   ChevronRight,
@@ -57,6 +58,14 @@ export default function AdminPortalPage() {
   const adminBaseUrl = `http://localhost:${activePort}`;
 
   const adminModules = [
+    {
+      id: "/returns",
+      title: "Duyệt Đơn Đổi / Trả Thuốc",
+      description: "Tiếp nhận và thẩm định các yêu cầu khiếu nại, hoàn trả hoặc đổi thuốc từ khách hàng kèm kiểm tra lý do & hình ảnh.",
+      icon: RotateCcw,
+      color: "bg-orange-50 text-orange-600 border-orange-100",
+      tag: "Cần duyệt",
+    },
     {
       id: "/pharmacy-crawler",
       title: "Studio Cào Dữ Liệu Thuốc",
