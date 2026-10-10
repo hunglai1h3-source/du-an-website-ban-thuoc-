@@ -691,6 +691,8 @@ export default function AccountPage() {
             </form>
           </div>
         </div>
+      )}
+
       {/* Return Wizard Modal */}
       {returnWizardOrderCode && (
         <ReturnWizardModal

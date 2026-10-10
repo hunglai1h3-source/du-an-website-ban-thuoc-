@@ -52,6 +52,8 @@ export interface StructuredAddress {
   isVerified: boolean;
   placeId?: string;
   deliveryNote?: string;
+  recipientName?: string;
+  phone?: string;
   // Legacy aliases
   districtCode?: string;
   districtName?: string;
@@ -87,6 +89,7 @@ export interface ShippingAddressFormProps {
   setNearestWarehouse?: (wh: NearestWarehouseInfo | null) => void;
   subtotal?: number;
   onShippingFeeCalculated?: (fee: number) => void;
+  confirmAddressRef?: React.MutableRefObject<(() => Promise<StructuredAddress | null>) | null>;
 
   // Compatibility props with cart/page.tsx
   selectedProvinceCode?: string;
@@ -134,6 +137,7 @@ export default function ShippingAddressForm({
   setNearestWarehouse,
   subtotal = 0,
   onShippingFeeCalculated,
+  confirmAddressRef,
 }: ShippingAddressFormProps) {
   const { user, isAuthenticated } = useAuth();
 
@@ -143,6 +147,38 @@ export default function ShippingAddressForm({
     if (propSetIsVerified) propSetIsVerified(v);
     if (propSetIsAddressVerified) propSetIsAddressVerified(v);
   };
+
+  const editorSubmitRef = React.useRef<(() => Promise<any | null>) | null>(null);
+
+  React.useEffect(() => {
+    if (confirmAddressRef) {
+      confirmAddressRef.current = async () => {
+        if (editorSubmitRef.current) {
+          const data = await editorSubmitRef.current();
+          if (!data) return null;
+          return {
+            provinceCode: data.province_code,
+            provinceName: data.province_name,
+            communeCode: data.commune_code,
+            communeName: data.commune_name,
+            communeType: "ward",
+            streetAddress: data.address_line,
+            fullAddress: data.formatted_address,
+            lat: data.lat,
+            lng: data.lng,
+            isVerified: true,
+            placeId: data.place_id,
+            deliveryNote: data.delivery_note,
+            recipientName: data.recipient_name,
+            phone: data.phone,
+            wardCode: data.commune_code,
+            wardName: data.commune_name,
+          };
+        }
+        return null;
+      };
+    }
+  }, [confirmAddressRef]);
 
   // Saved addresses state
   const [savedAddresses, setSavedAddresses] = useState<CustomerAddressItem[]>([]);
@@ -319,7 +355,7 @@ export default function ShippingAddressForm({
   }, [selectedAddressId, savedAddresses]);
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden">
+    <div id="shipping-address-section" className="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden scroll-mt-24">
       {/* Header */}
       <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/60">
         <div className="flex items-center gap-2.5">
@@ -347,6 +383,43 @@ export default function ShippingAddressForm({
       </div>
 
       <div className="p-5 sm:p-6 space-y-5">
+        {/* STORE_PICKUP Receiver Fields */}
+        {fulfillmentType === "STORE_PICKUP" && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pb-2 border-b border-slate-100">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                Họ và tên người nhận thuốc <span className="text-rose-500">*</span>
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  placeholder="Ví dụ: Nguyễn Văn A"
+                  className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-hidden focus:ring-2 focus:ring-brand-blue-500/20 focus:border-brand-blue-600 transition-all text-slate-800 placeholder:text-slate-400"
+                />
+                <User className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                Số điện thoại liên hệ <span className="text-rose-500">*</span>
+              </label>
+              <div className="relative">
+                <input
+                  type="tel"
+                  value={customerPhone}
+                  onChange={(e) => setCustomerPhone(e.target.value)}
+                  placeholder="Ví dụ: 0912 345 678"
+                  className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-hidden focus:ring-2 focus:ring-brand-blue-500/20 focus:border-brand-blue-600 transition-all text-slate-800 placeholder:text-slate-400"
+                />
+                <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Email receipt field */}
         <div>
           <label className="block text-xs font-semibold text-slate-700 mb-1.5">
@@ -517,6 +590,9 @@ export default function ShippingAddressForm({
                   showRecipientFields={true}
                   submitButtonText="Xác nhận địa chỉ này"
                   nearestWarehouse={nearestWarehouse}
+                  onRegisterSubmit={(fn) => {
+                    editorSubmitRef.current = fn;
+                  }}
                   onSave={handleEditorSave}
                   onCancel={verifiedAddress ? () => setIsEditingAddress(false) : undefined}
                 />

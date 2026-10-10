@@ -51,30 +51,33 @@ const DeliveryRealMap = dynamic(
   }
 );
 
+export interface AddressEditorV2Data {
+  recipient_name: string;
+  phone: string;
+  address_line: string;
+  province_code: string;
+  province_name: string;
+  commune_code: string;
+  commune_name: string;
+  formatted_address: string;
+  lat: number;
+  lng: number;
+  place_id?: string;
+  delivery_note?: string;
+  is_default?: boolean;
+  is_verified: boolean;
+}
+
 export interface AddressEditorV2Props {
   initialData?: Partial<CustomerAddressItem> | null;
-  onSave: (data: {
-    recipient_name: string;
-    phone: string;
-    address_line: string;
-    province_code: string;
-    province_name: string;
-    commune_code: string;
-    commune_name: string;
-    formatted_address: string;
-    lat: number;
-    lng: number;
-    place_id?: string;
-    delivery_note?: string;
-    is_default?: boolean;
-    is_verified: boolean;
-  }) => Promise<void> | void;
+  onSave: (data: AddressEditorV2Data) => Promise<void> | void;
   onCancel?: () => void;
   showRecipientFields?: boolean;
   prefillName?: string;
   prefillPhone?: string;
   submitButtonText?: string;
   nearestWarehouse?: any;
+  onRegisterSubmit?: (fn: () => Promise<AddressEditorV2Data | null>) => void;
 }
 
 export default function AddressEditorV2({
@@ -86,6 +89,7 @@ export default function AddressEditorV2({
   prefillPhone = "",
   submitButtonText = "Xác nhận địa chỉ này",
   nearestWarehouse,
+  onRegisterSubmit,
 }: AddressEditorV2Props) {
   // Form fields
   const [recipientName, setRecipientName] = useState(
@@ -378,65 +382,77 @@ export default function AddressEditorV2({
   };
 
   // Handle Submit / Confirm
-  const handleSubmit = async (e?: React.FormEvent) => {
+  const handleSubmit = async (e?: React.FormEvent): Promise<AddressEditorV2Data | null> => {
     if (e) e.preventDefault();
     setErrorMessage(null);
 
     if (showRecipientFields) {
       if (!recipientName.trim()) {
         setErrorMessage("Vui lòng nhập Họ và tên người nhận thuốc.");
-        return;
+        return null;
       }
       const cleanPhone = phone.replace(/\D/g, "");
       if (cleanPhone.length < 9 || cleanPhone.length > 11) {
         setErrorMessage("Vui lòng nhập số điện thoại nhận hàng hợp lệ (10 chữ số).");
-        return;
+        return null;
       }
     }
 
     if (!selectedProvince) {
       setErrorMessage("Vui lòng chọn Tỉnh / Thành phố nhận hàng.");
-      return;
+      return null;
     }
     if (!selectedCommune) {
       setErrorMessage("Vui lòng chọn Xã / Phường / Đặc khu nhận hàng.");
-      return;
+      return null;
     }
     if (!streetAddress.trim() || streetAddress.trim().length < 3) {
       setErrorMessage("Vui lòng nhập số nhà, tên đường hoặc địa chỉ cụ thể (tối thiểu 3 ký tự).");
-      return;
+      return null;
     }
 
     const fullAddr =
       formattedAddress ||
       `${streetAddress.trim()}, ${selectedCommune.fullName}, ${selectedProvince.fullName}`;
 
+    const payloadData: AddressEditorV2Data = {
+      recipient_name: recipientName.trim(),
+      phone: phone.trim(),
+      address_line: streetAddress.trim(),
+      province_code: selectedProvince.code,
+      province_name: selectedProvince.fullName,
+      commune_code: selectedCommune.code,
+      commune_name: selectedCommune.fullName,
+      formatted_address: fullAddr,
+      lat,
+      lng,
+      place_id: `geo_${selectedProvince.code}_${selectedCommune.code}`,
+      delivery_note: deliveryNote.trim() || undefined,
+      is_default: isDefault,
+      is_verified: true,
+    };
+
     setIsSubmitting(true);
     try {
       setIsVerified(true);
-      await onSave({
-        recipient_name: recipientName.trim(),
-        phone: phone.trim(),
-        address_line: streetAddress.trim(),
-        province_code: selectedProvince.code,
-        province_name: selectedProvince.fullName,
-        commune_code: selectedCommune.code,
-        commune_name: selectedCommune.fullName,
-        formatted_address: fullAddr,
-        lat,
-        lng,
-        place_id: `geo_${selectedProvince.code}_${selectedCommune.code}`,
-        delivery_note: deliveryNote.trim() || undefined,
-        is_default: isDefault,
-        is_verified: true,
-      });
+      await onSave(payloadData);
+      return payloadData;
     } catch (err: any) {
       setErrorMessage(err.message || "Lỗi khi lưu địa chỉ giao hàng.");
       setIsVerified(false);
+      return null;
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  useEffect(() => {
+    if (onRegisterSubmit) {
+      onRegisterSubmit(async () => {
+        return await handleSubmit();
+      });
+    }
+  });
 
   const getCategoryIcon = (cat?: string) => {
     switch (cat) {

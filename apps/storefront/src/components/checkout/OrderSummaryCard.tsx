@@ -195,7 +195,7 @@ export default function OrderSummaryCard({
             <div className="space-y-0.5">
               <p className="font-semibold text-amber-950">Chưa xác nhận địa chỉ giao thuốc</p>
               <p className="text-[11px] text-amber-800 leading-normal">
-                Vui lòng chọn xong 3 cấp hành chính, kiểm tra ghim bản đồ và bấm <strong>"Xác nhận địa chỉ này"</strong> để kích hoạt nút đặt hàng.
+                Vui lòng điền thông tin địa chỉ giao nhận, kiểm tra ghim vị trí và bấm <strong>"Xác nhận địa chỉ này"</strong> hoặc bấm <strong>"Đặt hàng ngay"</strong> bên dưới.
               </p>
             </div>
           </div>
@@ -205,8 +205,8 @@ export default function OrderSummaryCard({
         <button
           type="button"
           onClick={onSubmitOrder}
-          disabled={isSubmitting || totalItems === 0 || isDeliveryUnverified}
-          className="w-full py-3.5 px-4 rounded-xl bg-brand-blue-600 hover:bg-brand-blue-700 active:bg-brand-blue-800 text-white font-bold text-sm sm:text-base shadow-sm hover:shadow transition-all disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center gap-2 cursor-pointer"
+          disabled={isSubmitting || totalItems === 0}
+          className="w-full py-3.5 px-4 rounded-xl bg-brand-blue-600 hover:bg-brand-blue-700 active:bg-brand-blue-800 text-white font-bold text-sm sm:text-base shadow-sm hover:shadow transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer"
         >
           {isSubmitting ? (
             <>
