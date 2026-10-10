@@ -131,6 +131,7 @@ def list_admin_refunds(
         "page": page,
         "page_size": page_size,
         "items": items_out,
+        "refunds": items_out,
     }
 
 

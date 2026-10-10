@@ -96,9 +96,12 @@ export function ExchangesPage() {
       params.append('page', '1')
       params.append('page_size', '50')
 
-      const res = await api<{ total: number; exchanges: ExchangeSummary[] }>(`/admin/exchanges?${params.toString()}`)
-      setExchanges(res.exchanges || [])
-      setTotalCount(res.total || 0)
+      const res = await api<{ total: number; items?: ExchangeSummary[]; exchanges?: ExchangeSummary[] }>(
+        `/admin/exchanges?${params.toString()}`
+      )
+      const dataList = res.items || res.exchanges || []
+      setExchanges(dataList)
+      setTotalCount(res.total ?? dataList.length)
     } catch (err) {
       console.error('Failed to load exchanges', err)
     } finally {

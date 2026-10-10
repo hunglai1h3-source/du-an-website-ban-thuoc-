@@ -148,6 +148,7 @@ def list_admin_returns(
         "page": page,
         "page_size": page_size,
         "items": items_out,
+        "returns": items_out,
     }
 
 

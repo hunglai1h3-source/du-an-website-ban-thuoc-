@@ -111,6 +111,7 @@ def list_admin_exchanges(
         "page": page,
         "page_size": page_size,
         "items": items_out,
+        "exchanges": items_out,
     }
 
 

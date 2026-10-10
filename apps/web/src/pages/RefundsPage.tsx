@@ -111,9 +111,12 @@ export function RefundsPage() {
       params.append('page', '1')
       params.append('page_size', '50')
 
-      const res = await api<{ total: number; refunds: RefundSummary[] }>(`/admin/refunds?${params.toString()}`)
-      setRefunds(res.refunds || [])
-      setTotalCount(res.total || 0)
+      const res = await api<{ total: number; items?: RefundSummary[]; refunds?: RefundSummary[] }>(
+        `/admin/refunds?${params.toString()}`
+      )
+      const dataList = res.items || res.refunds || []
+      setRefunds(dataList)
+      setTotalCount(res.total ?? dataList.length)
     } catch (err) {
       console.error('Failed to load admin refunds', err)
     } finally {

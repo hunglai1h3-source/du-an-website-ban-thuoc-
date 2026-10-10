@@ -164,9 +164,12 @@ export function ReturnsPage() {
       params.append('page', '1')
       params.append('page_size', '50')
 
-      const res = await api<{ total: number; returns: ReturnSummary[] }>(`/admin/returns?${params.toString()}`)
-      setReturns(res.returns || [])
-      setTotalCount(res.total || 0)
+      const res = await api<{ total: number; items?: ReturnSummary[]; returns?: ReturnSummary[] }>(
+        `/admin/returns?${params.toString()}`
+      )
+      const dataList = res.items || res.returns || []
+      setReturns(dataList)
+      setTotalCount(res.total ?? dataList.length)
     } catch (err) {
       console.error('Failed to load admin returns', err)
     } finally {
