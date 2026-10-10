@@ -263,6 +263,22 @@ class ReturnEvidence(Base):
     uploaded_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
+    @property
+    def file_type(self) -> str | None:
+        return self.mime_type or self.file_category
+
+    @file_type.setter
+    def file_type(self, val: str | None) -> None:
+        self.mime_type = val
+
+    @property
+    def uploaded_by_user_id(self) -> int | None:
+        return self.uploaded_by
+
+    @uploaded_by_user_id.setter
+    def uploaded_by_user_id(self, val: int | None) -> None:
+        self.uploaded_by = val
+
     return_request: Mapped[ReturnRequest] = relationship("ReturnRequest", back_populates="evidences")
 
 

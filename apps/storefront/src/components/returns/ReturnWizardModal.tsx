@@ -78,10 +78,17 @@ export function ReturnWizardModal({
   const [submitting, setSubmitting] = useState<boolean>(false);
 
   useEffect(() => {
+    const token = typeof window !== "undefined" ? localStorage.getItem("pharmatrust_token") : null;
+    const headers: Record<string, string> = {};
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+
     setLoading(true);
-    fetch(`http://localhost:8000/api/v1/returns/eligibility/${encodeURIComponent(orderCode)}`)
-      .then((res) => {
-        if (!res.ok) throw new Error("Không thể kiểm tra điều kiện đổi trả.");
+    fetch(`/api/v1/returns/eligibility/${encodeURIComponent(orderCode)}`, { headers })
+      .then(async (res) => {
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.detail || "Không thể kiểm tra điều kiện đổi trả.");
+        }
         return res.json();
       })
       .then((data: EligibilityData) => {
@@ -107,12 +114,20 @@ export function ReturnWizardModal({
     const formData = new FormData();
     formData.append("file", file);
 
+    const token = typeof window !== "undefined" ? localStorage.getItem("pharmatrust_token") : null;
+    const headers: Record<string, string> = {};
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+
     try {
-      const res = await fetch("http://localhost:8000/api/v1/returns/upload-evidence", {
+      const res = await fetch("/api/v1/returns/upload-evidence", {
         method: "POST",
+        headers,
         body: formData,
       });
-      if (!res.ok) throw new Error("Tải ảnh thất bại.");
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.detail || "Tải ảnh thất bại.");
+      }
       const data = await res.json();
       setUploadedImages((prev) => [...prev, data.file_url]);
     } catch (err: any) {
@@ -160,11 +175,15 @@ export function ReturnWizardModal({
 
     const selectedReasonObj = REASONS.find((r) => r.code === reasonCode);
 
+    const token = typeof window !== "undefined" ? localStorage.getItem("pharmatrust_token") : null;
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+
     setSubmitting(true);
     try {
-      const res = await fetch("http://localhost:8000/api/v1/returns", {
+      const res = await fetch("/api/v1/returns", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
           order_code: orderCode,
           request_type: requestType,
@@ -178,7 +197,7 @@ export function ReturnWizardModal({
         }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         throw new Error(data.detail || "Không thể gửi yêu cầu.");
       }

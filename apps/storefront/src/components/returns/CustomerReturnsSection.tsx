@@ -72,7 +72,11 @@ export function CustomerReturnsSection({ userPhone, userName }: CustomerReturnsS
     }
     setLoading(true);
     try {
-      const res = await fetch(`http://localhost:8000/api/v1/returns/my-requests?customer_phone=${encodeURIComponent(userPhone)}`);
+      const token = typeof window !== "undefined" ? localStorage.getItem("pharmatrust_token") : null;
+      const headers: Record<string, string> = {};
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      const res = await fetch(`/api/v1/returns/my-requests?customer_phone=${encodeURIComponent(userPhone)}`, { headers });
       if (res.ok) {
         const data = await res.json();
         setReturnsList(data.returns || []);

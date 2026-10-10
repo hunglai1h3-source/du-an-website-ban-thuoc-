@@ -120,8 +120,12 @@ export function ReturnDetailModal({
 
   const fetchDetail = () => {
     setLoading(true);
+    const token = typeof window !== "undefined" ? localStorage.getItem("pharmatrust_token") : null;
+    const headers: Record<string, string> = {};
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+
     const query = phoneVerify ? `?phone_verify=${encodeURIComponent(phoneVerify)}` : "";
-    fetch(`http://localhost:8000/api/v1/returns/${encodeURIComponent(returnCode)}${query}`)
+    fetch(`/api/v1/returns/${encodeURIComponent(returnCode)}${query}`, { headers })
       .then((res) => {
         if (!res.ok) throw new Error("Không thể tải chi tiết yêu cầu đổi/trả.");
         return res.json();
@@ -139,11 +143,15 @@ export function ReturnDetailModal({
     e.preventDefault();
     if (!trackingCode.trim()) return;
 
+    const token = typeof window !== "undefined" ? localStorage.getItem("pharmatrust_token") : null;
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+
     setSubmittingShip(true);
     try {
-      const res = await fetch(`http://localhost:8000/api/v1/returns/${encodeURIComponent(returnCode)}/shipping`, {
+      const res = await fetch(`/api/v1/returns/${encodeURIComponent(returnCode)}/shipping`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
           carrier_name: carrierName.trim(),
           tracking_code: trackingCode.trim(),
@@ -163,11 +171,15 @@ export function ReturnDetailModal({
   const handleCancelRequest = async () => {
     if (!confirm("Bạn có chắc chắn muốn hủy yêu cầu đổi trả này?")) return;
 
+    const token = typeof window !== "undefined" ? localStorage.getItem("pharmatrust_token") : null;
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+
     setCancelling(true);
     try {
-      const res = await fetch(`http://localhost:8000/api/v1/returns/${encodeURIComponent(returnCode)}/cancel`, {
+      const res = await fetch(`/api/v1/returns/${encodeURIComponent(returnCode)}/cancel`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({ reason: "Khách hàng hủy trên giao diện" }),
       });
       if (!res.ok) throw new Error("Hủy yêu cầu thất bại.");

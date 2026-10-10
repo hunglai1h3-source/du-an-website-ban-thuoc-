@@ -210,11 +210,12 @@ class ReturnService:
                     evidence = ReturnEvidence(
                         return_request_id=ret_request.id,
                         file_url=file_url,
-                        file_name=ev.get("file_name"),
-                        file_type=ev.get("file_type", "image"),
-                        file_size=ev.get("file_size"),
+                        file_name=ev.get("file_name") or os.path.basename(file_url),
+                        mime_type=ev.get("mime_type") or ev.get("file_type") or "image/jpeg",
+                        file_category=ev.get("file_category") or "DAMAGE_PHOTO",
+                        file_size=ev.get("file_size") or 0,
                         description=ev.get("description"),
-                        uploaded_by_user_id=current_user.id if current_user else None,
+                        uploaded_by=current_user.id if current_user else None,
                     )
                     db.add(evidence)
 
