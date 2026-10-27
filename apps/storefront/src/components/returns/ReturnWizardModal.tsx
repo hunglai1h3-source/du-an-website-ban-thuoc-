@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
+import { authFetch, getStoredAccessToken } from "@/lib/api-client";
 import {
   X,
   RotateCcw,
@@ -104,36 +105,42 @@ export function ReturnWizardModal({
   const [refundAccountName, setRefundAccountName] = useState<string>("");
   const [bankError, setBankError] = useState<string>("");
 
-  useEffect(() => {
-    const token = typeof window !== "undefined" ? localStorage.getItem("pharmatrust_token") || localStorage.getItem("h4care_auth_token") : null;
-    const guestToken = typeof window !== "undefined" ? localStorage.getItem(`h4care_order_token_${orderCode}`) || localStorage.getItem("h4care_latest_order_token") : null;
-    const headers: Record<string, string> = {};
-    if (token) headers["Authorization"] = `Bearer ${token}`;
-    if (guestToken) headers["X-Order-Token"] = guestToken;
-
+  const loadEligibility = useCallback(async () => {
+    setError(null);
     setLoading(true);
-    fetch(`/api/v1/returns/eligibility/${encodeURIComponent(orderCode)}`, { headers })
-      .then(async (res) => {
-        if (!res.ok) {
-          const errData = await res.json().catch(() => ({}));
-          throw new Error(errData.detail || "Không thể kiểm tra điều kiện đổi trả.");
+    try {
+      const guestToken =
+        typeof window !== "undefined"
+          ? localStorage.getItem(`h4care_order_token_${orderCode}`) || localStorage.getItem("h4care_latest_order_token")
+          : null;
+      const headers: Record<string, string> = {};
+      if (guestToken) headers["X-Order-Token"] = guestToken;
+
+      const res = await authFetch(`/api/v1/returns/eligibility/${encodeURIComponent(orderCode)}`, { headers });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.detail || "Không thể kiểm tra điều kiện đổi trả.");
+      }
+      const data: EligibilityData = await res.json();
+      setEligibility(data);
+
+      const initialSelected: { [itemId: number]: number } = {};
+      data.items.forEach((it) => {
+        if (it.is_eligible && it.returnable_quantity > 0) {
+          initialSelected[it.order_item_id] = 1;
         }
-        return res.json();
-      })
-      .then((data: EligibilityData) => {
-        setEligibility(data);
-        // Default select first eligible item
-        const initialSelected: { [itemId: number]: number } = {};
-        data.items.forEach((it) => {
-          if (it.is_eligible && it.returnable_quantity > 0) {
-            initialSelected[it.order_item_id] = 1;
-          }
-        });
-        setSelectedItems(initialSelected);
-      })
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false));
+      });
+      setSelectedItems(initialSelected);
+    } catch (err: any) {
+      setError(err.message || "Không thể kiểm tra điều kiện đổi trả.");
+    } finally {
+      setLoading(false);
+    }
   }, [orderCode]);
+
+  useEffect(() => {
+    loadEligibility();
+  }, [loadEligibility]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
@@ -195,7 +202,13 @@ export function ReturnWizardModal({
 
     const selectedReasonObj = REASONS.find((r) => r.code === reasonCode);
 
-    const token = typeof window !== "undefined" ? localStorage.getItem("pharmatrust_token") || localStorage.getItem("h4care_auth_token") : null;
+    const token =
+      typeof window !== "undefined"
+        ? localStorage.getItem("pharmatrust_access_token") ||
+          localStorage.getItem("access_token") ||
+          localStorage.getItem("pharmatrust_token") ||
+          localStorage.getItem("h4care_auth_token")
+        : null;
     const guestToken = typeof window !== "undefined" ? localStorage.getItem(`h4care_order_token_${orderCode}`) || localStorage.getItem("h4care_latest_order_token") : null;
     const headers: Record<string, string> = { "Content-Type": "application/json" };
     if (token) headers["Authorization"] = `Bearer ${token}`;
@@ -224,7 +237,7 @@ export function ReturnWizardModal({
 
       // 1. Tạo phiếu đổi trả nếu chưa từng tạo thành công trước đó (chống tạo trùng khi retry upload ảnh)
       if (!activeReturnCode) {
-        const res = await fetch("/api/v1/returns", {
+        const res = await authFetch("/api/v1/returns", {
           method: "POST",
           headers,
           body: JSON.stringify({
@@ -266,7 +279,7 @@ export function ReturnWizardModal({
           if (guestToken) uploadHeaders["X-Order-Token"] = guestToken;
 
           try {
-            const upRes = await fetch("/api/v1/returns/upload-evidence", {
+            const upRes = await authFetch("/api/v1/returns/upload-evidence", {
               method: "POST",
               headers: uploadHeaders,
               body: formData,
@@ -332,10 +345,30 @@ export function ReturnWizardModal({
           </div>
         ) : error ? (
           <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-start gap-2.5">
-            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-            <div>
-              <p className="font-bold">Không thể thực hiện yêu cầu</p>
-              <p className="mt-0.5">{error}</p>
+            <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 text-rose-600" />
+            <div className="flex-1">
+              <p className="font-bold text-sm text-rose-900">Không thể thực hiện yêu cầu</p>
+              <p className="mt-1 leading-relaxed text-rose-800">{error}</p>
+              <div className="mt-3 flex items-center gap-2">
+                {(error.toLowerCase().includes("token") ||
+                  error.toLowerCase().includes("hết hạn") ||
+                  error.toLowerCase().includes("đăng nhập")) && (
+                  <a
+                    href="/login?redirect=/account"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-xs transition-all"
+                  >
+                    <span>Đăng nhập lại</span>
+                  </a>
+                )}
+                <button
+                  type="button"
+                  onClick={() => loadEligibility()}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-rose-300 hover:bg-rose-100 text-rose-700 font-bold text-xs shadow-xs transition-all cursor-pointer"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>Thử lại</span>
+                </button>
+              </div>
             </div>
           </div>
         ) : eligibility && !eligibility.can_request_return ? (

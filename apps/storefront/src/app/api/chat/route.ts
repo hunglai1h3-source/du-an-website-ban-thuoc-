@@ -1,3 +1,4 @@
+import { getServerApiBase } from "@/lib/api-config";
 import { NextRequest, NextResponse } from "next/server";
 import { getAiChatResponse } from "@/lib/chatbot/ai-service";
 import { ChatRequest, ChatResponse } from "@/lib/chatbot/types";
@@ -69,7 +70,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Xác thực token qua FastAPI backend
-    const apiBase = (process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || "https://h4care-api-staging.onrender.com").replace(/\/+$/, "");
+    const apiBase = getServerApiBase();
     let verifiedUser: { id: string | number; fullName?: string; phone?: string; email?: string; role?: string } | null = null;
 
     try {

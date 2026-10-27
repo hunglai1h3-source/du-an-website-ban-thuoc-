@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import { authFetch, getStoredAccessToken } from "@/lib/api-client";
 import {
   Send,
   Image as ImageIcon,
@@ -131,7 +132,7 @@ function SecureChatImage({
         setError(false);
 
         const headers: Record<string, string> = {};
-        const authToken = localStorage.getItem("pharmatrust_access_token") || localStorage.getItem("token");
+        const authToken = getStoredAccessToken();
         if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
 
         const guestToken = localStorage.getItem(STORAGE_GUEST_TOKEN_KEY);
@@ -276,10 +277,10 @@ export const LiveChatPanel: React.FC<LiveChatPanelProps> = ({
       if (token) headers["X-Chat-Guest-Token"] = token;
 
       // Đọc JWT token nếu khách đã đăng nhập
-      const authToken = localStorage.getItem("pharmatrust_access_token") || localStorage.getItem("token");
+      const authToken = getStoredAccessToken();
       if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
 
-      const res = await fetch(`${API_BASE}/api/v1/live-chat/sessions/${code}`, { headers });
+      const res = await authFetch(`${API_BASE}/api/v1/live-chat/sessions/${code}`, { headers });
       if (res.ok) {
         const data: LiveChatSessionData = await res.json();
         setSession(data);
@@ -417,7 +418,7 @@ export const LiveChatPanel: React.FC<LiveChatPanelProps> = ({
 
     try {
       const headers: Record<string, string> = { "Content-Type": "application/json" };
-      const authToken = localStorage.getItem("pharmatrust_access_token") || localStorage.getItem("token");
+      const authToken = getStoredAccessToken();
       if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
 
       const existingGuestToken = localStorage.getItem(STORAGE_GUEST_TOKEN_KEY);
@@ -450,7 +451,7 @@ export const LiveChatPanel: React.FC<LiveChatPanelProps> = ({
         city: userCity,
       };
 
-      const res = await fetch(`${API_BASE}/api/v1/live-chat/sessions`, {
+      const res = await authFetch(`${API_BASE}/api/v1/live-chat/sessions`, {
         method: "POST",
         headers,
         body: JSON.stringify(bodyPayload),
@@ -509,7 +510,7 @@ export const LiveChatPanel: React.FC<LiveChatPanelProps> = ({
         if (authToken) uploadHeaders["Authorization"] = `Bearer ${authToken}`;
         if (guestToken) uploadHeaders["X-Chat-Guest-Token"] = guestToken;
 
-        const uploadRes = await fetch(`${API_BASE}/api/v1/live-chat/upload`, {
+        const uploadRes = await authFetch(`${API_BASE}/api/v1/live-chat/upload`, {
           method: "POST",
           headers: uploadHeaders,
           body: formData,
@@ -560,7 +561,7 @@ export const LiveChatPanel: React.FC<LiveChatPanelProps> = ({
       const authToken = typeof window !== "undefined" ? (localStorage.getItem("pharmatrust_access_token") || localStorage.getItem("token")) : null;
       if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
 
-      const res = await fetch(`${API_BASE}/api/v1/live-chat/sessions/${session.session_code}/messages`, {
+      const res = await authFetch(`${API_BASE}/api/v1/live-chat/sessions/${session.session_code}/messages`, {
         method: "POST",
         headers,
         body: JSON.stringify({

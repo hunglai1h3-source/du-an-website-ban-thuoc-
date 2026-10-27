@@ -1,5 +1,7 @@
 "use client";
 
+import { authFetch } from "@/lib/api-client";
+
 import React, { useEffect, useState } from "react";
 import {
   X,
@@ -247,7 +249,7 @@ export function ReturnDetailModal({
       const headers: Record<string, string> = {};
       if (token) headers["Authorization"] = `Bearer ${token}`;
 
-      const res = await fetch("/api/v1/returns/upload-evidence", {
+      const res = await authFetch("/api/v1/returns/upload-evidence", {
         method: "POST",
         headers,
         body: formData,
@@ -306,7 +308,7 @@ export function ReturnDetailModal({
       const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (token) headers["Authorization"] = `Bearer ${token}`;
 
-      const res = await fetch(`/api/v1/returns/${encodeURIComponent(returnCode)}/evidence/submit`, {
+      const res = await authFetch(`/api/v1/returns/${encodeURIComponent(returnCode)}/evidence/submit`, {
         method: "POST",
         headers,
         body: JSON.stringify({
@@ -340,7 +342,7 @@ export function ReturnDetailModal({
     if (guestToken) headers["X-Order-Token"] = guestToken;
 
     const query = phoneVerify ? `?phone_verify=${encodeURIComponent(phoneVerify)}` : "";
-    fetch(`/api/v1/returns/${encodeURIComponent(returnCode)}${query}`, { headers })
+    authFetch(`/api/v1/returns/${encodeURIComponent(returnCode)}${query}`, { headers })
       .then((res) => {
         if (!res.ok) throw new Error("Không thể tải chi tiết yêu cầu đổi/trả.");
         return res.json();
@@ -366,7 +368,7 @@ export function ReturnDetailModal({
 
     setSubmittingShip(true);
     try {
-      const res = await fetch(`/api/v1/returns/${encodeURIComponent(returnCode)}/shipping`, {
+      const res = await authFetch(`/api/v1/returns/${encodeURIComponent(returnCode)}/shipping`, {
         method: "POST",
         headers,
         body: JSON.stringify({
@@ -396,7 +398,7 @@ export function ReturnDetailModal({
 
     setCancelling(true);
     try {
-      const res = await fetch(`/api/v1/returns/${encodeURIComponent(returnCode)}/cancel`, {
+      const res = await authFetch(`/api/v1/returns/${encodeURIComponent(returnCode)}/cancel`, {
         method: "POST",
         headers,
         body: JSON.stringify({ reason: "Khách hàng hủy trên giao diện" }),

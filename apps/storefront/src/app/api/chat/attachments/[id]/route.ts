@@ -1,3 +1,4 @@
+import { getServerApiBase } from "@/lib/api-config";
 import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -31,7 +32,7 @@ export async function GET(
   }
 
   // 3. Forward tới FastAPI backend - nguồn thẩm quyền duy nhất
-  const apiBase = (process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || "https://h4care-api-staging.onrender.com").replace(/\/+$/, "");
+  const apiBase = getServerApiBase();
   const backendUrl = `${apiBase}/api/v1/live-chat/attachments/${encodeURIComponent(attachmentId)}`;
 
   const forwardHeaders: Record<string, string> = {};

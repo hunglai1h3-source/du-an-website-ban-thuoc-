@@ -229,11 +229,13 @@ def find_nearest_warehouse_staff(
             .order_by(CustomerAddress.is_default.desc(), CustomerAddress.id.desc())
         )
         if addr:
-            if addr.latitude is not None and addr.longitude is not None:
-                target_lat = float(addr.latitude)
-                target_lng = float(addr.longitude)
+            addr_lat = getattr(addr, "lat", None) if getattr(addr, "lat", None) is not None else getattr(addr, "latitude", None)
+            addr_lng = getattr(addr, "lng", None) if getattr(addr, "lng", None) is not None else getattr(addr, "longitude", None)
+            if addr_lat is not None and addr_lng is not None:
+                target_lat = float(addr_lat)
+                target_lng = float(addr_lng)
             if not target_city:
-                target_city = addr.city
+                target_city = getattr(addr, "province_name", None) or getattr(addr, "city", None)
 
         if target_lat is None or target_lng is None:
             last_order = db.scalar(

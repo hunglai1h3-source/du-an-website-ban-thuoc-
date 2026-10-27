@@ -1,5 +1,7 @@
 "use client";
 
+import { authFetch } from "@/lib/api-client";
+
 import React, { useEffect, useState, useCallback } from "react";
 import {
   RotateCcw,
@@ -114,7 +116,7 @@ export function CustomerReturnsSection({
         ? "/api/v1/returns/my-requests"
         : `/api/v1/returns/my-requests?customer_phone=${encodeURIComponent(userPhone || "")}`;
 
-      const res = await fetch(url, { headers });
+      const res = await authFetch(url, { headers });
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
         throw new Error(errData.detail || `Không thể tải danh sách đổi trả (Mã lỗi ${res.status})`);

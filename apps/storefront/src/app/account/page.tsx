@@ -1,5 +1,7 @@
 "use client";
 
+import { authFetch } from "@/lib/api-client";
+
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -191,7 +193,7 @@ export default function AccountPage() {
       if (status && status !== "ALL") params.append("status", status);
       if (search && search.trim()) params.append("search", search.trim());
 
-      const res = await fetch(`${apiBase}/api/v1/store/orders/me?${params.toString()}`, {
+      const res = await authFetch(`${apiBase}/api/v1/store/orders/me?${params.toString()}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },

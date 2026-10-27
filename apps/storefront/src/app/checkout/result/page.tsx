@@ -1,6 +1,6 @@
 "use client";
 
-import React, { Suspense, useEffect, useState } from "react";
+import React, { Suspense, useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Header } from "@/components/layout/Header";
@@ -18,6 +18,7 @@ import {
   Banknote,
   QrCode,
   RefreshCw,
+  AlertCircle,
 } from "lucide-react";
 
 interface PaymentStatusResponse {
@@ -37,6 +38,16 @@ interface PaymentStatusResponse {
     status: string;
     provider_trans_id?: string;
   }>;
+}
+
+function getStoredToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return (
+    localStorage.getItem("pharmatrust_access_token") ||
+    localStorage.getItem("access_token") ||
+    localStorage.getItem("h4care_auth_token") ||
+    localStorage.getItem("pharmatrust_token")
+  );
 }
 
 function CheckoutResultContent() {
@@ -60,6 +71,7 @@ function CheckoutResultContent() {
   const [isRetrying, setIsRetrying] = useState(false);
   const [isCancellingOrder, setIsCancellingOrder] = useState(false);
   const [retryMessage, setRetryMessage] = useState<string | null>(null);
+  const [pollCount, setPollCount] = useState(0);
 
   // Xác định người dùng hoặc cổng thanh toán có yêu cầu hủy hay không
   const cancelParam = (searchParams.get("cancel") || "").toLowerCase();
@@ -73,21 +85,36 @@ function CheckoutResultContent() {
   // CHỈ THÀNH CÔNG KHI KHÔNG BỊ HỦY VÀ CÓ XÁC NHẬN PAID TỪ DATABASE
   const isSuccess = !isCancelled && orderData?.payment_status === "PAID";
 
-  useEffect(() => {
-    if (!cleanOrderCode) {
-      setIsLoading(false);
-      return;
-    }
+  const getAuthHeaders = useCallback((): Record<string, string> => {
+    const headers: Record<string, string> = {};
+    const token = getStoredToken();
+    const orderToken =
+      typeof window !== "undefined"
+        ? localStorage.getItem(`h4care_order_token_${cleanOrderCode}`) ||
+          localStorage.getItem("h4care_latest_order_token") ||
+          searchParams.get("token") ||
+          searchParams.get("order_token") ||
+          ""
+        : "";
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    if (orderToken) headers["X-Order-Token"] = orderToken;
+    return headers;
+  }, [cleanOrderCode, searchParams]);
 
-    async function fetchStatus() {
+  const fetchStatus = useCallback(
+    async (isAutoPoll = false) => {
+      if (!cleanOrderCode) {
+        setIsLoading(false);
+        return;
+      }
+
+      if (!isAutoPoll) setIsLoading(true);
+
       try {
-        const phone = searchParams.get("phone") || (typeof window !== "undefined" ? localStorage.getItem("h4care_checkout_phone") || "" : "");
-        const token = typeof window !== "undefined" ? localStorage.getItem("h4care_auth_token") || localStorage.getItem("pharmatrust_token") : null;
-        const orderToken = (typeof window !== "undefined" ? localStorage.getItem(`h4care_order_token_${cleanOrderCode}`) || localStorage.getItem("h4care_latest_order_token") || "" : "");
-
-        const headers: Record<string, string> = {};
-        if (token) headers["Authorization"] = `Bearer ${token}`;
-        if (orderToken) headers["X-Order-Token"] = orderToken;
+        const phone =
+          searchParams.get("phone") ||
+          (typeof window !== "undefined" ? localStorage.getItem("h4care_checkout_phone") || "" : "");
+        const headers = getAuthHeaders();
 
         const queryParts = [];
         if (phone) queryParts.push(`phone_verify=${encodeURIComponent(phone)}`);
@@ -96,37 +123,62 @@ function CheckoutResultContent() {
         // Nếu là payOS hoặc MoMo và chưa có xác nhận PAID, thử tra cứu đối soát nhanh
         if (cleanOrderCode && !isCancelled) {
           try {
-            await fetch(`/api/v1/payments/payos/check/${cleanOrderCode}${queryParam}`, {
+            await fetch(`/api/v1/payments/payos/check/${encodeURIComponent(cleanOrderCode)}${queryParam}`, {
               method: "POST",
               headers,
             });
           } catch (_) {}
 
           try {
-            await fetch(`/api/v1/payments/momo/check/${cleanOrderCode}${queryParam}`, {
+            await fetch(`/api/v1/payments/momo/check/${encodeURIComponent(cleanOrderCode)}${queryParam}`, {
               method: "POST",
               headers,
             });
           } catch (_) {}
         }
 
-        const res = await fetch(`/api/v1/payments/orders/${cleanOrderCode}/status${queryParam}`, { headers });
+        const res = await fetch(`/api/v1/payments/orders/${encodeURIComponent(cleanOrderCode)}/status${queryParam}`, { headers });
         if (res.ok) {
-          const data = await res.json();
+          const data: PaymentStatusResponse = await res.json();
           setOrderData(data);
+          setError(null);
 
+          // Nếu đã thanh toán thành công: dọn dẹp giỏ hàng
+          if (data.payment_status === "PAID") {
+            if (typeof window !== "undefined") {
+              localStorage.removeItem("pharmatrust_cart");
+              window.dispatchEvent(new Event("cart-updated"));
+            }
+          }
         } else {
-          setError("Không thể tra cứu thông tin thanh toán từ hệ thống.");
+          const errData = await res.json().catch(() => ({}));
+          setError(errData.detail || "Không thể tra cứu thông tin thanh toán từ hệ thống.");
         }
       } catch (err: any) {
         setError(err.message || "Lỗi kết nối");
       } finally {
         setIsLoading(false);
       }
-    }
+    },
+    [cleanOrderCode, isCancelled, searchParams, getAuthHeaders]
+  );
 
-    fetchStatus();
-  }, [cleanOrderCode, searchParams, isCancelled]);
+  useEffect(() => {
+    fetchStatus(false);
+  }, [fetchStatus]);
+
+  // Tự động kiểm tra đối soát thêm một vài lần (mỗi 2.5s tối đa 6 lần = 15s) nếu khách vừa chuyển khoản xong mà hệ thống đang chờ webhook
+  useEffect(() => {
+    if (!cleanOrderCode || isCancelled || isSuccess || isLoading) return;
+    if (pollCount >= 6) return;
+
+    const timer = setTimeout(() => {
+      setPollCount((prev) => prev + 1);
+      fetchStatus(true);
+    }, 2500);
+
+    return () => clearTimeout(timer);
+  }, [cleanOrderCode, isCancelled, isSuccess, isLoading, pollCount, fetchStatus]);
 
   // Switch to COD with 1-click retry
   const handleSwitchToCod = async () => {
@@ -134,13 +186,16 @@ function CheckoutResultContent() {
     setIsRetrying(true);
     setRetryMessage(null);
     try {
-      const phone = searchParams.get("phone") || (typeof window !== "undefined" ? localStorage.getItem("h4care_checkout_phone") || "" : "");
-      const token = typeof window !== "undefined" ? localStorage.getItem("h4care_auth_token") || localStorage.getItem("pharmatrust_token") : null;
-      const orderToken = (typeof window !== "undefined" ? localStorage.getItem(`h4care_order_token_${cleanOrderCode}`) || localStorage.getItem("h4care_latest_order_token") || "" : "");
-
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (token) headers["Authorization"] = `Bearer ${token}`;
-      if (orderToken) headers["X-Order-Token"] = orderToken;
+      const phone =
+        searchParams.get("phone") ||
+        (typeof window !== "undefined" ? localStorage.getItem("h4care_checkout_phone") || "" : "");
+      const headers = { ...getAuthHeaders(), "Content-Type": "application/json" };
+      const orderToken =
+        typeof window !== "undefined"
+          ? localStorage.getItem(`h4care_order_token_${cleanOrderCode}`) ||
+            localStorage.getItem("h4care_latest_order_token") ||
+            ""
+          : "";
 
       const res = await fetch("/api/v1/payments/retry", {
         method: "POST",
@@ -154,17 +209,9 @@ function CheckoutResultContent() {
       });
       if (res.ok) {
         setRetryMessage("Đã chuyển thành công sang Thanh toán khi nhận hàng (COD)! Đơn sẽ được xuất kho giao tới bạn.");
-        // Refresh status
-        const queryParts = [];
-        if (phone) queryParts.push(`phone_verify=${encodeURIComponent(phone)}`);
-        const queryParam = queryParts.length ? `?${queryParts.join("&")}` : "";
-        const statusRes = await fetch(`/api/v1/payments/orders/${cleanOrderCode}/status${queryParam}`, { headers });
-        if (statusRes.ok) {
-          const fresh = await statusRes.json();
-          setOrderData(fresh);
-        }
+        await fetchStatus(false);
       } else {
-        const err = await res.json();
+        const err = await res.json().catch(() => ({}));
         alert(err.detail || "Không thể chuyển phương thức thanh toán");
       }
     } catch (e: any) {
@@ -181,13 +228,16 @@ function CheckoutResultContent() {
     setIsCancellingOrder(true);
     setRetryMessage(null);
     try {
-      const phone = searchParams.get("phone") || (typeof window !== "undefined" ? localStorage.getItem("h4care_checkout_phone") || "" : "");
-      const token = typeof window !== "undefined" ? localStorage.getItem("h4care_auth_token") || localStorage.getItem("pharmatrust_token") : null;
-      const orderToken = (typeof window !== "undefined" ? localStorage.getItem(`h4care_order_token_${cleanOrderCode}`) || localStorage.getItem("h4care_latest_order_token") || "" : "");
-
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (token) headers["Authorization"] = `Bearer ${token}`;
-      if (orderToken) headers["X-Order-Token"] = orderToken;
+      const phone =
+        searchParams.get("phone") ||
+        (typeof window !== "undefined" ? localStorage.getItem("h4care_checkout_phone") || "" : "");
+      const headers = { ...getAuthHeaders(), "Content-Type": "application/json" };
+      const orderToken =
+        typeof window !== "undefined"
+          ? localStorage.getItem(`h4care_order_token_${cleanOrderCode}`) ||
+            localStorage.getItem("h4care_latest_order_token") ||
+            ""
+          : "";
 
       const res = await fetch(`/api/v1/payments/orders/${cleanOrderCode}/cancel`, {
         method: "POST",
@@ -200,16 +250,9 @@ function CheckoutResultContent() {
       });
       if (res.ok) {
         setRetryMessage("Đã hủy bỏ đơn hàng thành công và giải phóng tồn kho!");
-        const queryParts = [];
-        if (phone) queryParts.push(`phone_verify=${encodeURIComponent(phone)}`);
-        const queryParam = queryParts.length ? `?${queryParts.join("&")}` : "";
-        const statusRes = await fetch(`/api/v1/payments/orders/${cleanOrderCode}/status${queryParam}`, { headers });
-        if (statusRes.ok) {
-          const fresh = await statusRes.json();
-          setOrderData(fresh);
-        }
+        await fetchStatus(false);
       } else {
-        const err = await res.json();
+        const err = await res.json().catch(() => ({}));
         alert(err.detail || "Không thể hủy đơn hàng");
       }
     } catch (e: any) {
@@ -221,7 +264,7 @@ function CheckoutResultContent() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 py-12">
-      {isLoading ? (
+      {isLoading && !orderData ? (
         <div className="bg-white rounded-3xl p-12 border border-slate-200 text-center shadow-xs">
           <div className="w-12 h-12 border-4 border-brand-blue-200 border-t-brand-blue-600 rounded-full animate-spin mx-auto mb-4" />
           <p className="text-sm font-semibold text-slate-700">Đang đối soát kết quả giao dịch thanh toán...</p>
@@ -234,7 +277,7 @@ function CheckoutResultContent() {
 
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-200 mb-3">
             <ShieldCheck className="w-3.5 h-3.5" />
-            Thanh toán thành công & Đã xác nhận
+            Thanh toán thành công &amp; Đã xác nhận
           </span>
 
           <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
@@ -444,7 +487,7 @@ function CheckoutResultContent() {
                   className="w-full sm:w-auto px-5 py-3 rounded-xl bg-brand-blue-600 hover:bg-brand-blue-700 text-white font-bold text-xs shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <RotateCcw className="w-4 h-4" />
-                  <span>Mở chi tiết & Thanh toán lại</span>
+                  <span>Mở chi tiết &amp; Thanh toán lại</span>
                 </Link>
 
                 <button
@@ -485,6 +528,7 @@ function CheckoutResultContent() {
           </div>
 
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 text-amber-800 text-xs font-bold border border-amber-200 mb-3">
+            <Clock className="w-3.5 h-3.5" />
             Chờ thanh toán / Chưa quyết toán
           </span>
 
@@ -496,10 +540,25 @@ function CheckoutResultContent() {
             {message || "Giao dịch trực tuyến chưa ghi nhận hoàn tất. Thuốc trong đơn của quý khách vẫn đang được giữ chỗ trong kho."}
           </p>
 
+          {/* Phản hồi trạng thái tức thời nếu URL từ cổng thanh toán báo đã chuyển khoản thành công */}
+          {(statusParam === "PAID" || resultCode === "00") && (
+            <div className="mt-4 p-3.5 bg-sky-50 text-sky-900 rounded-xl border border-sky-200 text-xs font-medium flex items-center justify-center gap-2">
+              <RefreshCw className="w-4 h-4 text-sky-600 animate-spin shrink-0" />
+              <span>Cổng thanh toán đã phản hồi chuyển khoản thành công (PAID). Hệ thống đang kiểm tra đối soát tự động...</span>
+            </div>
+          )}
+
           {retryMessage && (
             <div className="mt-4 p-3 bg-emerald-50 text-emerald-800 rounded-xl border border-emerald-200 text-xs font-bold flex items-center justify-center gap-2">
               <CheckCircle2 className="w-4 h-4 text-emerald-600" />
               <span>{retryMessage}</span>
+            </div>
+          )}
+
+          {error && (
+            <div className="mt-4 p-3 bg-rose-50 text-rose-800 rounded-xl border border-rose-200 text-xs font-semibold flex items-center justify-center gap-2">
+              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+              <span>{error}</span>
             </div>
           )}
 
@@ -533,8 +592,21 @@ function CheckoutResultContent() {
             )}
           </div>
 
-          {/* Action buttons including 1-click switch to COD */}
+          {/* Action buttons including Re-check button & 1-click switch to COD */}
           <div className="mt-8 flex flex-col sm:flex-row flex-wrap items-center justify-center gap-3">
+            <button
+              type="button"
+              disabled={isLoading}
+              onClick={() => {
+                setPollCount(0);
+                fetchStatus(false);
+              }}
+              className="w-full sm:w-auto px-5 py-3 rounded-xl bg-brand-blue-600 hover:bg-brand-blue-700 active:scale-95 text-white font-bold text-xs shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+            >
+              <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} />
+              <span>{isLoading ? "Đang kiểm tra đối soát..." : "Kiểm tra lại trạng thái thanh toán"}</span>
+            </button>
+
             <Link
               href={`/checkout/payment/${encodeURIComponent(cleanOrderCode)}`}
               className="w-full sm:w-auto px-5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
@@ -565,10 +637,10 @@ function CheckoutResultContent() {
 
             <Link
               href={`/account?order=${encodeURIComponent(cleanOrderCode)}`}
-              className="w-full sm:w-auto px-5 py-3 rounded-xl bg-brand-blue-600 hover:bg-brand-blue-700 text-white font-bold text-xs shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full sm:w-auto px-5 py-3 rounded-xl border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-xs shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
             >
               <RotateCcw className="w-4 h-4" />
-              <span>Mở chi tiết & Thanh toán lại</span>
+              <span>Mở chi tiết &amp; Thanh toán lại</span>
             </Link>
 
             <button

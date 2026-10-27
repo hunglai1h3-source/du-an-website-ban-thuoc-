@@ -1,5 +1,7 @@
 "use client";
 
+import { getStoredAccessToken, setStoredTokens, clearStoredTokens, authFetch } from "@/lib/api-client";
+
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { AuthUser, AuthContextType, RegisterFormState } from "@/types/auth";
 
@@ -12,18 +14,69 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  // Initialize session from localStorage on mount (SSR safe)
+  // Initialize and verify session from backend (SSR safe)
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        setUser(JSON.parse(stored));
+    let isMounted = true;
+
+    async function initSession() {
+      try {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        const token = getStoredAccessToken();
+
+        if (stored && token) {
+          try {
+            const parsed = JSON.parse(stored);
+            if (isMounted) setUser(parsed);
+          } catch (_) {}
+
+          // Xác minh tính hợp lệ thực tế của phiên với FastAPI backend
+          try {
+            const res = await authFetch(`${API_BASE}/api/v1/auth/me`);
+            if (res.ok) {
+              const meData = await res.json();
+              if (isMounted) {
+                setUser((prev) =>
+                  prev
+                    ? {
+                        ...prev,
+                        points: meData.loyalty_points ?? prev.points,
+                        fullName: meData.full_name || prev.fullName,
+                        phone: meData.phone || prev.phone,
+                        email: meData.email || prev.email,
+                      }
+                    : prev
+                );
+              }
+            } else if (res.status === 401) {
+              // Phiên đã hết hạn hoàn toàn và không thể refresh -> xóa sạch session
+              clearStoredTokens();
+              if (isMounted) setUser(null);
+            }
+          } catch (e) {
+            // Lỗi mạng hoặc offline, giữ tạm phiên
+          }
+        } else if (stored && !token) {
+          clearStoredTokens();
+          if (isMounted) setUser(null);
+        }
+      } catch (e) {
+        console.warn("Failed to read auth session from storage", e);
+      } finally {
+        if (isMounted) setIsLoading(false);
       }
-    } catch (e) {
-      console.warn("Failed to read auth session from storage", e);
-    } finally {
-      setIsLoading(false);
     }
+
+    initSession();
+
+    const handleSessionExpired = () => {
+      if (isMounted) setUser(null);
+    };
+    window.addEventListener("h4care-session-expired", handleSessionExpired);
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener("h4care-session-expired", handleSessionExpired);
+    };
   }, []);
 
   const saveSession = (userData: AuthUser) => {
@@ -103,8 +156,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           createdAt: data.user?.created_at?.split("T")[0] || new Date().toISOString().split("T")[0],
         };
         if (data.access_token) {
-          localStorage.setItem("pharmatrust_access_token", data.access_token);
-          if (data.refresh_token) localStorage.setItem("pharmatrust_refresh_token", data.refresh_token);
+          setStoredTokens(data.access_token, data.refresh_token);
         }
         saveSession(authUser);
         return { success: true, user: authUser };
@@ -169,8 +221,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
 
         if (data.access_token) {
-          localStorage.setItem("pharmatrust_access_token", data.access_token);
-          if (data.refresh_token) localStorage.setItem("pharmatrust_refresh_token", data.refresh_token);
+          setStoredTokens(data.access_token, data.refresh_token);
         }
 
         saveSession(authUser);
@@ -228,8 +279,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
 
         if (resData.access_token) {
-          localStorage.setItem("pharmatrust_access_token", resData.access_token);
-          if (resData.refresh_token) localStorage.setItem("pharmatrust_refresh_token", resData.refresh_token);
+          setStoredTokens(resData.access_token, resData.refresh_token);
         }
 
         saveSession(authUser);
@@ -251,13 +301,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = () => {
     setUser(null);
-    try {
-      localStorage.removeItem(STORAGE_KEY);
-      localStorage.removeItem("pharmatrust_access_token");
-      localStorage.removeItem("pharmatrust_refresh_token");
-    } catch (e) {
-      console.warn("Failed to clear auth session", e);
-    }
+    clearStoredTokens();
   };
 
   return (
